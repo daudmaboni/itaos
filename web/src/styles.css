@@ -1385,3 +1385,31 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
   .pay-card { padding: 14px; border-radius: 16px; }
   .pay-card .kv { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
 }
+
+/* ===== Chats on a computer (21 Nov): WhatsApp-style list — wider column, name + time on one line,
+   status and Kito's note together on the second line, a small "Ad" tag instead of the long ad pill ===== */
+.cc-adtag { display: none; }
+@media (min-width: 900px) {
+  .chats .inbox.frame, .chats .inbox.frame.has-pane { grid-template-columns: 380px minmax(0, 1fr); }
+  .chats .inbox.frame .cc-top { grid-template-columns: 44px 1fr; align-items: center; padding: 10px 12px; }
+  .chats .inbox.frame .cc-main { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; row-gap: 3px; min-width: 0; }
+  .chats .inbox.frame .cc-line1 { flex: 1 0 100%; flex-wrap: nowrap; gap: 6px; min-width: 0; }
+  .chats .inbox.frame .cc-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chats .inbox.frame .cc-time { flex: none; margin-left: auto; font-size: 12px; }
+  .chats .inbox.frame .cc-adtag { display: inline-block; flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 1px 6px; border-radius: 5px; background: var(--ib-soft); color: var(--ib-text); }
+  .chats .inbox.frame .cc-from { display: none; }
+  /* line 2: status · interest · last note, all on one line */
+  .chats .inbox.frame .cc-status { flex: 0 1 auto; max-width: 62%; min-width: 0; margin: 0; gap: 5px; font-size: 13px; white-space: nowrap; overflow: hidden; }
+  .chats .inbox.frame .cc-status .cc-st-text { overflow: hidden; text-overflow: ellipsis; }
+  .chats .inbox.frame .cc-dot { width: 8px; height: 8px; margin: 0 1px 0 0; }
+  .chats .inbox.frame .cc-status .cc-heat { margin-left: 0; padding: 0; background: none; font-size: 12px; font-weight: 600; }
+  .chats .inbox.frame .cc-status .cc-heat::before { content: "· "; color: var(--ib-muted); }
+  .chats .inbox.frame .cc-sum { flex: 1 1 0; min-width: 40px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; opacity: 1; color: var(--ib-muted); }
+  .chats .inbox.frame .cc-sum::before { content: "· "; }
+  .chats .inbox.frame .cc-party { flex: 1 0 100%; margin: 4px 0 0; }
+  .chats .inbox.frame .ib-empty .primary { margin-top: 10px; }
+  .chats .inbox.frame .ib-empty button + button { margin-top: 0; }
+}
+@media (min-width: 900px) and (max-width: 1279px) {
+  .chats .inbox.frame, .chats .inbox.frame.has-pane { grid-template-columns: 350px minmax(0, 1fr); }
+}

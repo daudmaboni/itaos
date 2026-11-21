@@ -364,6 +364,8 @@ export default function Chats({ ws }: { ws: Workspace }) {
     ["lost", T("Didn't buy", "Hawakununua"), T("Went quiet or said no", "Wamekaa kimya au wamekataa")],
     ["not", T("Not customers", "Si wateja"), T("Delivery, suppliers, staff, family: kept out of your numbers", "Usafirishaji, wasambazaji, wafanyakazi, familia: hawahesabiwi")],
   ];
+  // Chats in this list where the customer wrote last: the empty panel offers to open the newest one.
+  const waitingRows = rows.filter((r) => statusOf(r, T, ws.currency).key === "waiting");
   const emptyText = filter === "follow" ? T("Nobody to follow up right now.", "Hakuna wa kufuatilia kwa sasa.")
     : filter === "signals" ? T("No payments to check.", "Hakuna malipo ya kuhakiki.")
     : T("No chats here yet.", "Hakuna chat hapa bado.");
@@ -445,6 +447,11 @@ export default function Chats({ ws }: { ws: Workspace }) {
             <KitoLogo size={44} />
             <b>{T("Pick a customer on the left", "Chagua mteja upande wa kushoto")}</b>
             <span className="small muted">{T("Their chat opens here, with what Kito knows about them on the right.", "Chat yake itafunguka hapa, na anachojua Kito kuhusu yeye upande wa kulia.")}</span>
+            {waitingRows.length > 0 && (
+              <button className="small primary" onClick={() => setOpenId(waitingRows[0].id)}>
+                {waitingRows.length === 1 ? T("1 customer is waiting for your reply →", "Mteja 1 anasubiri umjibu →") : T(`${waitingRows.length} customers are waiting for your reply →`, `Wateja ${waitingRows.length} wanasubiri uwajibu →`)}
+              </button>
+            )}
             {filter !== "signals" && count("signals") > 0 && (
               <button className="small" onClick={() => pick("signals")}>{T(`Check payment · ${count("signals")}`, `Hakiki malipo · ${count("signals")}`)}</button>
             )}
@@ -499,6 +506,7 @@ function Card({ r, ws, T, adName, phone, task, selected, onOpen, onChange }: { r
         <div className="cc-main">
           <div className="cc-line1">
             <b className="cc-name">{name}</b>
+            {r.source === "ad" && <span className="cc-adtag" title={fromOf(r, T, adName)}>{T("Ad", "Tangazo")}</span>}
             <span className="cc-time small muted">{agoT(r.last_message_at, T)}</span>
           </div>
           <div className="small muted cc-from">{fromOf(r, T, adName)}</div>
