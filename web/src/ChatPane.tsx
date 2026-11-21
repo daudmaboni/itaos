@@ -113,6 +113,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   const dayLabel = (k: string) => k === today ? T("Today", "Leo") : k === yest ? T("Yesterday", "Jana")
     : new Date(k + "T12:00:00Z").toLocaleDateString(lang === "sw" ? "sw-TZ" : "en-GB", { weekday: Date.now() - Date.parse(k) < 6 * 864e5 ? "long" : undefined, day: "numeric", month: "long", year: k.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric", timeZone: "UTC" });
   const hhmm = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+  const [copied, setCopied] = useState(false);
   const sideLabel = st.key === "check" ? T("Check payment", "Hakiki malipo") : confirmed ? T("Sale", "Mauzo") : T("Did they buy?", "Amenunua?");
 
   // Messages are drawn in runs, like a modern chat: one time under the last bubble of a run
@@ -161,7 +162,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
         </div>
         <div className="wa-head-act">
           {phone && <a className="btn small primary wa-reply" href={waLink(phone)} target="_blank" rel="noopener noreferrer">{T("Reply on WhatsApp ↗", "Mjibu WhatsApp ↗")}</a>}
-          <button className={"small wa-side-btn" + (st.key === "check" ? " warn" : "") + (hideSide ? "" : " is-on")} onClick={toggleSide} aria-expanded={side || !hideSide}
+          <button className={"small wa-side-btn" + (st.key === "check" ? " warn" : " quiet") + (hideSide ? "" : " is-on")} aria-label={sideLabel} onClick={toggleSide} aria-expanded={side || !hideSide}
             title={T("Show or hide the customer panel", "Onyesha au ficha taarifa za mteja")}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
             <span>{sideLabel}</span>
@@ -192,30 +193,28 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
         </div>
         <aside className="wa-side" aria-label={T("About this customer", "Kuhusu mteja huyu")}>
           <div className="wa-side-head"><b>{T("This customer", "Mteja huyu")}</b><button className="icon wa-side-x" onClick={() => setSide(false)} aria-label={T("Hide", "Ficha")}>✕</button></div>
-          <div className="wa-profile">
-            <div className="wa-profile-av" aria-hidden>{name.slice(0, 1).toUpperCase()}</div>
-            <b>{name}</b>
-            {phone && <span className="small muted">{prettyPhone(phone)}</span>}
+          {/* Who: one compact row (the big centred avatar is gone) */}
+          <div className="wa-who">
+            <div className="cc-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</div>
+            <div className="wa-who-main">
+              <b>{name}</b>
+              {phone && <span className="small muted">{prettyPhone(phone)}
+                <button type="button" className="linkish small wa-copy" onClick={() => { navigator.clipboard?.writeText("+" + phone.replace(/^\+/, "")).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}>
+                  {copied ? T("Copied", "Imenakiliwa") : T("Copy", "Nakili")}</button></span>}
+            </div>
           </div>
-          <div className="wa-card">
-            <div className={"cc-status " + st.tone}>{st.icon === "●" ? <span className="cc-dot" /> : <span className="cc-ico">{st.icon}</span>}{st.text}{st.key === "lost" && why ? ` · ${lostWhy(why, T)}` : ""}</div>
-            {!r.not_customer && <span className="small muted">{fromOf(r, T, adName)}</span>}
-            {editor && !confirmed && <NotCustomer r={r} T={T} busy={busy} setBusy={setBusy} onChange={onChange} />}
-            {editor && !confirmed && !r.not_customer && <TempFix r={r} T={T} onChange={onChange} />}
-            {editor && !r.not_customer && (
-              <div className="cc-fromad">
-                <span className="small">{T("Came from an ad?", "Ametoka kwenye tangazo?")}</span>
-                <div className="seg" role="group" aria-label={T("Came from an ad?", "Ametoka kwenye tangazo?")}>
-                  <button type="button" className={"yes" + (src === "ad" ? " on" : "")} aria-pressed={src === "ad"} disabled={busy} onClick={() => setFromAd(true)}>{src === "ad" && "✓ "}{T("Yes", "Ndiyo")}</button>
-                  <button type="button" className={"no" + (src === "organic" ? " on" : "")} aria-pressed={src === "organic"} disabled={busy} onClick={() => setFromAd(false)}>{src === "organic" && "✓ "}{T("No", "Hapana")}</button>
-                </div>
-              </div>
-            )}
-            {!r.not_customer && kitoStale(r) && <p className="wa-sum cc-reading">✦ {T("New messages since Kito's last read. Kito is reading them now; this updates by itself.", "Kuna ujumbe mpya tangu Kito asome. Kito anausoma sasa; hii itajisasisha yenyewe.")}</p>}
-            {!r.not_customer && r.kito_summary && <p className={"wa-sum" + (kitoStale(r) ? " stale" : "")}>{r.kito_summary}</p>}
-            {!r.not_customer && r.kito_next && st.key !== "bought" && <p className={"cc-next" + (kitoStale(r) ? " stale" : "")}><b>{T("Next:", "Fanya:")}</b> {r.kito_next}</p>}
-            <AssignChat ws={ws} conversationId={r.id} />
-          </div>
+
+          {/* Kito says: the most useful part, first */}
+          {!r.not_customer && (r.kito_summary || kitoStale(r)) && (
+            <div className="wa-kito-box">
+              <span className="wa-kito-k">✦ {T("Kito says", "Kito anasema")}</span>
+              {kitoStale(r) && <p className="wa-sum cc-reading">{T("New messages since Kito's last read. Kito is reading them now; this updates by itself.", "Kuna ujumbe mpya tangu Kito asome. Kito anausoma sasa; hii itajisasisha yenyewe.")}</p>}
+              {r.kito_summary && <p className={"wa-sum" + (kitoStale(r) ? " stale" : "")}>{r.kito_summary}</p>}
+              {r.kito_next && st.key !== "bought" && <p className={"cc-next" + (kitoStale(r) ? " stale" : "")}><b>{T("Next:", "Fanya:")}</b> {r.kito_next}</p>}
+            </div>
+          )}
+
+          {/* The one main action */}
           {editor && st.key === "check" && (confirming || !recording) && <ConfirmPayment r={r} ws={ws} T={T} msgs={msgs} onDone={() => { setConfirming(false); setSide(false); setSalesKey((k) => k + 1); onChange(); }} onLater={() => { setConfirming(false); setSide(false); }} />}
           {editor && !confirmed && !r.not_customer && st.key !== "check" && !recording && (
             <div className="cc-ask">
@@ -229,24 +228,45 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
             </div>
           )}
           {recording && <OrderForm ws={ws} r={r} onDone={() => { setRecording(false); setSalesKey((k) => k + 1); onChange(); }} onCancel={() => setRecording(false)} />}
-          <div className="wa-card">
-            <b className="small">{T("Sales from this customer", "Mauzo kwa mteja huyu")}</b>
-            <OrderList key={`${salesKey}-${r.paid_orders ?? 0}`} ws={ws} conversationId={r.id} onChange={onChange} />
+
+          {/* Details: plain rows with thin lines */}
+          <div className="wa-facts">
+            <div className="wa-fact"><span className="small muted">{T("Status", "Hali")}</span>
+              <div className={"cc-status " + st.tone}>{st.icon === "●" ? <span className="cc-dot" /> : <span className="cc-ico">{st.icon}</span>}{st.text}{st.key === "lost" && why ? ` · ${lostWhy(why, T)}` : ""}</div></div>
+            {!r.not_customer && <div className="wa-fact"><span className="small muted">{T("From", "Kutoka")}</span><span className="small">{fromOf(r, T, adName)}</span></div>}
+            {editor && !confirmed && !r.not_customer && <TempFix r={r} T={T} onChange={onChange} />}
+            {editor && !r.not_customer && (
+              <div className="cc-fromad">
+                <span className="small">{T("Came from an ad?", "Ametoka kwenye tangazo?")}</span>
+                <div className="seg" role="group" aria-label={T("Came from an ad?", "Ametoka kwenye tangazo?")}>
+                  <button type="button" className={"yes" + (src === "ad" ? " on" : "")} aria-pressed={src === "ad"} disabled={busy} onClick={() => setFromAd(true)}>{src === "ad" && "✓ "}{T("Yes", "Ndiyo")}</button>
+                  <button type="button" className={"no" + (src === "organic" ? " on" : "")} aria-pressed={src === "organic"} disabled={busy} onClick={() => setFromAd(false)}>{src === "organic" && "✓ "}{T("No", "Hapana")}</button>
+                </div>
+              </div>
+            )}
+            <div className="wa-fact wa-fact-col"><span className="small muted">{T("Sales from this customer", "Mauzo kwa mteja huyu")}</span>
+              <OrderList key={`${salesKey}-${r.paid_orders ?? 0}`} ws={ws} conversationId={r.id} onChange={onChange} /></div>
+            <AssignChat ws={ws} conversationId={r.id} />
           </div>
-          {editor && !task && !confirmed && !r.not_customer && st.key !== "lost" && <button className="small" style={{ justifySelf: "start" }} disabled={busy} onClick={remind}>⏰ {T("Remind me to follow up", "Nikumbushe kumfuatilia")}</button>}
-          {task && <span className="small cc-task">⏰ {T("Reminder set", "Kikumbusho kipo")} · <a href="#actions">{T("see reminders", "ona vikumbusho")}</a></span>}
-          {editor && !confirmed && !r.not_customer && <PartyHint r={r} T={T} onChange={onChange} />}
-          <details className="cc-why">
-            <summary className="small muted">{T("How itaOS decided this", "itaOS imeamuaje hili")}</summary>
-            <div className="small muted" style={{ display: "grid", gap: 4, marginTop: 6 }}>
-              <span>{whySource(r, T)}</span>
-              {r.first_response_sec != null && <span>{T("You first replied after", "Ulijibu mara ya kwanza baada ya")} {dur(r.first_response_sec)}</span>}
-              {r.kito_outcome && <span>Kito: {L[lang].outcome[r.kito_outcome]} ({T("sure", "uhakika")}: {r.kito_confidence}){r.kito_label ? ` · ${L[lang].label[r.kito_label]}` : ""}</span>}
-              {r.stage && <span>{T("Keyword check", "Ukaguzi wa maneno")}: {L[lang].stage[r.stage] ?? r.stage}</span>}
-              {(r.kito_evidence ?? []).length > 0 && <span>{T("Messages Kito based this on:", "Ujumbe aliotumia Kito:")} {(r.kito_evidence ?? []).map((q, i) => <q key={i} style={{ display: "block" }}>{q}</q>)}</span>}
-              {(r.kito_tags ?? []).length > 0 && <span>{(r.kito_tags ?? []).map((t) => L[lang].tag[t] ?? t).join(" · ")}</span>}
-            </div>
-          </details>
+
+          {/* Quiet links at the bottom */}
+          <div className="wa-foot">
+            {editor && !task && !confirmed && !r.not_customer && st.key !== "lost" && <button className="linkish small" disabled={busy} onClick={remind}>⏰ {T("Remind me to follow up", "Nikumbushe kumfuatilia")}</button>}
+            {task && <span className="small cc-task">⏰ {T("Reminder set", "Kikumbusho kipo")} · <a href="#actions">{T("see reminders", "ona vikumbusho")}</a></span>}
+            {editor && !confirmed && <NotCustomer r={r} T={T} busy={busy} setBusy={setBusy} onChange={onChange} />}
+            {editor && !confirmed && !r.not_customer && <PartyHint r={r} T={T} onChange={onChange} />}
+            <details className="cc-why">
+              <summary className="small muted">{T("How itaOS decided this", "itaOS imeamuaje hili")}</summary>
+              <div className="small muted" style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                <span>{whySource(r, T)}</span>
+                {r.first_response_sec != null && <span>{T("You first replied after", "Ulijibu mara ya kwanza baada ya")} {dur(r.first_response_sec)}</span>}
+                {r.kito_outcome && <span>Kito: {L[lang].outcome[r.kito_outcome]} ({T("sure", "uhakika")}: {r.kito_confidence}){r.kito_label ? ` · ${L[lang].label[r.kito_label]}` : ""}</span>}
+                {r.stage && <span>{T("Keyword check", "Ukaguzi wa maneno")}: {L[lang].stage[r.stage] ?? r.stage}</span>}
+                {(r.kito_evidence ?? []).length > 0 && <span>{T("Messages Kito based this on:", "Ujumbe aliotumia Kito:")} {(r.kito_evidence ?? []).map((q, i) => <q key={i} style={{ display: "block" }}>{q}</q>)}</span>}
+                {(r.kito_tags ?? []).length > 0 && <span>{(r.kito_tags ?? []).map((t) => L[lang].tag[t] ?? t).join(" · ")}</span>}
+              </div>
+            </details>
+          </div>
           {err && <div className="err small">{err}</div>}
         </aside>
       </div>
