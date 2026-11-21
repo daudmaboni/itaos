@@ -88,7 +88,8 @@ function prompt(biz: string, saved: string | null, lines: string[]) {
 
 - buyer_name: the customer's OWN name. Look for: how they introduce themselves ("naitwa…", "jina langu…", "majina yangu…", "Jina: …"); the delivery details they send for themselves (a name with a phone number and a place); the payer in a payment message ("Ndugu MOHD MWADINI, Umetuma…", "jina la muamala ni …").
 - In a payment message the name after "kwenda", "kwa", "to" or "LIPA" is whoever RECEIVED the money (the business or its owner): never the buyer. The business's name and its staff are never the buyer.
-- receiver_name: only when the parcel is clearly for someone else ("majina ya mpokeaji …", "mzigo andika …", "jina la wife wangu …") and that is not the customer. If delivery details give a name and nothing says it is someone else, it is the buyer, and receiver_name is "".
+- Businesses often ask "tuma majina ya mpokeaji, namba ya simu na mahali" (send the receiver's name, phone and place). Customers almost always answer with THEIR OWN details: that name is the buyer, even when the customer writes "mpokeaji: …".
+- receiver_name: only when the customer clearly says the parcel is for a different person ("ni kwa ajili ya mke wangu …", "mzigo andika jina la kaka yangu …", "sio mimi, ni …", "atapokea …") or gives one name as theirs and another for the parcel. A payment recipient (the name after "kwenda"/"kwa" in an M-Pesa or bank message) is never the receiver. Otherwise receiver_name is "".
 - If the customer gives their name more than once, use the fullest version they wrote. Keep their spelling.
 - Only a person's name: no place, product, title words ("ndugu", "kaka"), phone or amount. 1 to 4 words. Use "Mama Joshua" style names only if that is all the customer gives.
 - The business saved this customer as "${redact(saved ?? "").slice(0, 80)}". That is the business's own label with campaign tags (months, "Leads", codes): ignore it unless the chat confirms a name in it.
