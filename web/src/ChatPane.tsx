@@ -154,16 +154,16 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   return (
     <div ref={pane} className={"wa-pane" + (side ? " side-open" : "") + (hideSide ? " side-hidden" : "")} role="dialog" aria-label={T(`Chat with ${name}`, `Chat na ${name}`)}>
       <header className="wa-head">
-        <button className="wa-back" onClick={onClose} aria-label={T("Back to chats", "Rudi kwenye chats")}>←</button>
+        <button className="wa-back" onClick={onClose} aria-label={T("Back to chats", "Rudi kwenye chats")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5l-7 7 7 7" /></svg></button>
         <div className="cc-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</div>
         <div className="wa-head-main">
           <span className="wa-head-kicker">{T("Chat with", "Chat na")}</span>
           <b>{name}</b>
-          <span className="small muted">{[phone ? prettyPhone(phone) : null, r.last_message_at ? T(`last message ${agoT(r.last_message_at, T)}`, `ujumbe wa mwisho ${agoT(r.last_message_at, T)}`) : null].filter(Boolean).join(" · ")}</span>
+          <span className="small muted">{phone && <span className="wa-head-phone">{prettyPhone(phone)}</span>}{phone && r.last_message_at && <span className="wa-head-ago"> · </span>}{r.last_message_at && <span className="wa-head-ago">{T(`last message ${agoT(r.last_message_at, T)}`, `ujumbe wa mwisho ${agoT(r.last_message_at, T)}`)}</span>}</span>
         </div>
         <div className="wa-head-act">
           {phone && <a className="btn small primary wa-reply" href={waLink(phone)} target="_blank" rel="noopener noreferrer">{T("Reply on WhatsApp ↗", "Mjibu WhatsApp ↗")}</a>}
-          <button className={"small wa-side-btn" + (st.key === "check" ? " warn" : " quiet") + (hideSide ? "" : " is-on")} aria-label={sideLabel} onClick={toggleSide} aria-expanded={side || !hideSide}
+          <button className={"small wa-side-btn" + (st.key === "check" ? " warn" : confirmed ? " sold" : " quiet") + (hideSide ? "" : " is-on")} aria-label={sideLabel} onClick={toggleSide} aria-expanded={side || !hideSide}
             title={T("Show or hide the customer panel", "Onyesha au ficha taarifa za mteja")}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
             <span>{sideLabel}</span>
@@ -184,8 +184,9 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
                     <div key={row.key} className={"wa-msg " + m.direction + (row.first ? " tail first" : "") + (row.last ? " last" : "")}>
                       <div className="wa-bub">
                         {m.media?.path ? <MediaView m={m} ws={ws} T={T} /> : <span className={"wa-text" + (special(m) ? " wa-special" : "")}>{special(m) ?? m.body ?? ""}</span>}
+                        {/* time inside the bubble, bottom right, like WhatsApp */}
+                        <span className="wa-tm">{m.origin === "itaos" && <span className="wa-via" title={T("Sent from itaOS", "Imetumwa kutoka itaOS")}>itaOS · </span>}{hhmm(m.sent_at)}{m.direction === "out" && <svg className="wa-tk" viewBox="0 0 16 11" width="16" height="11" aria-hidden><path d="M11.07.66 4.86 7.32 2.2 4.6 1.1 5.68l3.77 3.85L12.2 1.74zM15.1.66l-6.21 6.66-.73-.75-1.1 1.13 1.84 1.83L16.2 1.74z" fill="currentColor" /></svg>}</span>
                       </div>
-                      {row.last && <span className="wa-stamp">{m.origin === "itaos" && <span className="wa-via" title={T("Sent from itaOS", "Imetumwa kutoka itaOS")}>itaOS · </span>}{hhmm(m.sent_at)}{m.direction === "out" && <span className="wa-ticks" aria-hidden> ✓✓</span>}</span>}
                     </div>
                   );
                 })())}

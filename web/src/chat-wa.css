@@ -1,0 +1,122 @@
+/* ===== Conversation page, WhatsApp style (21 Nov) =====
+   Owners live in WhatsApp all day, so the chat should read the same way:
+   - customer = white bubble on the left, you = green bubble on the right (not the same colour on both sides)
+   - beige wall with a faint pattern, small "Today" chip in the middle
+   - square-ish bubbles with a tail on the first of a run, time + ticks inside the bubble, bottom right
+   - compact header (photo, name, phone), round green send button
+   Loaded after styles.css / mobile.css / graphite.css / glass.css so it wins. Dark = WhatsApp's dark colours. */
+
+.chats .inbox.frame .wa-pane {
+  --w-wall: #efeae2; --w-dot: #0000000d; --w-in: #ffffff; --w-out: #d9fdd3; --w-ink: #111b21; --w-meta: #667781; --w-out-meta: #667781;
+  --w-chip: #ffffff; --w-chip-ink: #54656f; --w-head: #ffffff; --w-bar: #f0f2f5; --w-field: #ffffff; --w-line: #e9edef;
+  --w-green: #00a884; --w-shadow: 0 1px .5px #0b141a21;
+}
+:root:not([data-theme="light"]) .chats .inbox.frame .wa-pane {
+  --w-wall: #0b141a; --w-dot: #ffffff08; --w-in: #202c33; --w-out: #005c4b; --w-ink: #e9edef; --w-meta: #8696a0; --w-out-meta: #ffffff99;
+  --w-chip: #182229; --w-chip-ink: #8696a0; --w-head: #202c33; --w-bar: #202c33; --w-field: #2a3942; --w-line: #ffffff14;
+  --w-green: #00a884; --w-shadow: 0 1px .5px #00000040;
+}
+
+/* --- header --- */
+.chats .inbox.frame .wa-pane .wa-head { background: var(--w-head); border-bottom: 1px solid var(--w-line); gap: 10px; }
+.chats .inbox.frame .wa-pane .wa-head-kicker { display: none; }
+.chats .inbox.frame .wa-pane .wa-head-main { min-width: 0; gap: 1px; }
+.chats .inbox.frame .wa-pane .wa-head-main b { font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--w-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chats .inbox.frame .wa-pane .wa-head-main .small { display: block; font-size: 12.5px; color: var(--w-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chats .inbox.frame .wa-pane .wa-head .cc-avatar { width: 38px; height: 38px; font-size: 16px; flex: none; }
+
+/* --- wall --- */
+.chats .inbox.frame .wa-pane .wa-thread {
+  background-color: var(--w-wall);
+  background-image: radial-gradient(var(--w-dot) 1.2px, transparent 1.3px), radial-gradient(var(--w-dot) 1.2px, transparent 1.3px);
+  background-size: 22px 22px; background-position: 0 0, 11px 11px;
+  gap: 2px;
+}
+.chats .inbox.frame .wa-pane .wa-day { position: sticky; top: 6px; z-index: 2; margin: 10px 0 6px; display: flex; justify-content: center; }
+.chats .inbox.frame .wa-pane .wa-day span { background: var(--w-chip); color: var(--w-chip-ink); border: 0; border-radius: 8px; padding: 5px 12px;
+  font-size: 12.5px; font-weight: 500; box-shadow: var(--w-shadow); }
+.chats .inbox.frame .wa-pane .wa-note { background: var(--w-chip); color: var(--w-chip-ink); box-shadow: var(--w-shadow); border-radius: 8px; }
+
+/* --- bubbles --- */
+.chats .inbox.frame .wa-pane .wa-msg { flex-direction: row; align-items: flex-start; margin-top: 0; padding: 0 8px; }
+.chats .inbox.frame .wa-pane .wa-msg.out { justify-content: flex-end; }
+.chats .inbox.frame .wa-pane .wa-msg.in { justify-content: flex-start; }
+.chats .inbox.frame .wa-pane .wa-msg.first { margin-top: 8px; }
+.chats .inbox.frame .wa-pane .wa-msg .wa-bub {
+  position: relative; max-width: min(78%, 560px); padding: 6px 8px 7px 9px; border: 0; border-radius: 8px;
+  background: var(--w-in); color: var(--w-ink); box-shadow: var(--w-shadow);
+  font-size: 15px; line-height: 1.36; overflow-wrap: anywhere; white-space: pre-wrap;
+}
+.chats .inbox.frame .wa-pane .wa-msg.out .wa-bub { background: var(--w-out); color: var(--w-ink); }
+/* tail on the first bubble of a run */
+.chats .inbox.frame .wa-pane .wa-msg.in.first .wa-bub { border-top-left-radius: 0; }
+.chats .inbox.frame .wa-pane .wa-msg.out.first .wa-bub { border-top-right-radius: 0; }
+.chats .inbox.frame .wa-pane .wa-msg.first .wa-bub::before { display: block; content: ""; position: absolute; top: 0; width: 8px; height: 13px; background: inherit; }
+.chats .inbox.frame .wa-pane .wa-msg.in.first .wa-bub::before { left: -8px; clip-path: polygon(100% 0, 0 0, 100% 100%); }
+.chats .inbox.frame .wa-pane .wa-msg.out.first .wa-bub::before { right: -8px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.chats .inbox.frame .wa-pane .wa-msg:not(.first) .wa-bub::before { display: none; }
+
+/* time + ticks inside the bubble: floats to the bottom right of the last line */
+.chats .inbox.frame .wa-pane .wa-tm { float: right; position: relative; top: 5px; margin: 0 0 0 10px; display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; line-height: 15px; color: var(--w-meta); white-space: nowrap; font-variant-numeric: tabular-nums; user-select: none; }
+.chats .inbox.frame .wa-pane .wa-msg.out .wa-tm { color: var(--w-out-meta); }
+.chats .inbox.frame .wa-pane .wa-tm .wa-via { color: inherit; font-weight: 600; }
+.chats .inbox.frame .wa-pane .wa-tk { display: block; color: var(--w-meta); }
+.chats .inbox.frame .wa-pane .wa-msg.out .wa-tk { color: var(--w-out-meta); }
+.chats .inbox.frame .wa-pane .wa-stamp { display: none; }
+.chats .inbox.frame .wa-pane .wa-msg .wa-special { color: var(--w-meta); font-style: italic; }
+.chats .inbox.frame .wa-pane .wa-msg.out a { color: #027eb5; }
+:root:not([data-theme="light"]) .chats .inbox.frame .wa-pane .wa-msg a { color: #53bdeb; }
+/* photos: edge to edge in the bubble, time underneath */
+.chats .inbox.frame .wa-pane .wa-bub .mv { display: grid; gap: 4px; }
+.chats .inbox.frame .wa-pane .wa-bub .mv img { max-width: min(260px, 100%); border-radius: 6px; display: block; }
+.chats .inbox.frame .wa-pane .wa-bub .mv-tag { font-size: 12.5px; }
+.chats .inbox.frame .wa-pane .wa-bub:has(.mv) .wa-tm { float: none; top: 0; justify-content: flex-end; margin: 2px 0 0; display: flex; }
+
+/* --- reply bar --- */
+.chats .inbox.frame .wa-pane .wa-compose.open { background: var(--w-bar); border-top: 0; }
+.chats .inbox.frame .wa-pane .wa-compose-row.wa-line { gap: 8px; align-items: flex-end; }
+.chats .inbox.frame .wa-pane .wa-line textarea { min-height: 42px; padding: 10px 16px; border: 0; border-radius: 21px; background: var(--w-field);
+  color: var(--w-ink); box-shadow: none; line-height: 1.35; }
+.chats .inbox.frame .wa-pane .wa-line textarea:focus { border: 0; box-shadow: 0 0 0 1px var(--w-green); }
+.chats .inbox.frame .wa-pane .wa-line textarea::placeholder { color: var(--w-meta); }
+.chats .inbox.frame .wa-pane .wa-line button.wa-kito { width: 42px; height: 42px; padding: 0; border-radius: 50%; background: var(--w-field); justify-content: center; flex: none; }
+.chats .inbox.frame .wa-pane .wa-line button.wa-send { width: 42px; height: 42px; border-radius: 50%; background: var(--w-green); color: #fff; box-shadow: none; flex: none; }
+.chats .inbox.frame .wa-pane .wa-line button.wa-send:hover:not(:disabled) { background: var(--w-green); filter: brightness(1.06); }
+.chats .inbox.frame .wa-pane .wa-line button.wa-send:disabled { opacity: 1; background: var(--w-meta); }
+.chats .inbox.frame .wa-pane .wa-compose-note { color: var(--w-meta); }
+
+/* --- phones --- */
+@media (max-width: 899px) {
+  .chats .inbox.frame .wa-pane .wa-head { padding: max(8px, env(safe-area-inset-top)) 10px 8px 6px; }
+  .chats .inbox.frame .wa-pane .wa-head button.wa-back { width: 34px; height: 34px; border: 0; background: transparent; font-size: 22px; color: var(--w-green); }
+  .chats .inbox.frame .wa-pane .wa-head button.wa-x { display: none; }              /* back arrow already closes */
+  .chats .inbox.frame .wa-pane .wa-head button.wa-side-btn { height: 34px; padding: 0 11px; gap: 6px; font-size: 13px; border-radius: 17px; white-space: nowrap; }
+  .chats .inbox.frame .wa-pane .wa-thread { padding: 6px 4px 10px; }
+  .chats .inbox.frame .wa-pane .wa-msg .wa-bub { max-width: 82%; font-size: 15.5px; }
+  .chats .inbox.frame .wa-pane .wa-compose.open { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .chats .inbox.frame .wa-pane .wa-head button.wa-side-btn span { display: none; }   /* very narrow: icon only */
+  .chats .inbox.frame .wa-pane .wa-head button.wa-side-btn { width: 34px; padding: 0; justify-content: center; }
+}
+
+/* --- header, take 2: like WhatsApp's top bar --- */
+.chats .inbox.frame .wa-pane { --w-av: #dfe5e7; --w-av-ink: #54656f; --w-pill: #e7f5ef; --w-pill-ink: #008069; --w-warn: #fff4d6; --w-warn-ink: #8a5a00; }
+:root:not([data-theme="light"]) .chats .inbox.frame .wa-pane { --w-av: #6a7175; --w-av-ink: #e9edef; --w-pill: #00a8841f; --w-pill-ink: #21c063; --w-warn: #f5b4001f; --w-warn-ink: #f5c451; }
+.chats .inbox.frame .wa-pane .wa-head { background: var(--w-head); border-bottom: 1px solid var(--w-line); box-shadow: none; }
+.chats .inbox.frame .wa-pane .wa-head .cc-avatar { background: var(--w-av); color: var(--w-av-ink); font-weight: 600; }
+.chats .inbox.frame .wa-pane .wa-head button.wa-back { color: var(--w-ink); }
+.chats .inbox.frame .wa-pane .wa-head button.wa-back svg { display: block; }
+.chats .inbox.frame .wa-pane .wa-head-main b { font-size: 17px; }
+/* the button: a flat tinted pill, never louder than the name */
+.chats .inbox.frame .wa-pane .wa-head button.wa-side-btn,
+.chats .inbox.frame .wa-pane .wa-head button.wa-side-btn.is-on {
+  border: 0; box-shadow: none; background: var(--w-pill); background-image: none; color: var(--w-pill-ink); font-weight: 600; }
+.chats .inbox.frame .wa-pane .wa-head button.wa-side-btn.warn { background: var(--w-warn); color: var(--w-warn-ink); }
+.chats .inbox.frame .wa-pane .wa-head button.wa-side-btn svg { flex: none; }
+@media (max-width: 899px) {
+  .chats .inbox.frame .wa-pane .wa-head { min-height: 56px; gap: 8px; }
+  .chats .inbox.frame .wa-pane .wa-head button.wa-back { width: 30px; height: 36px; margin-right: -2px; }
+  .chats .inbox.frame .wa-pane .wa-head-ago { display: none; }        /* phone: just the number under the name */
+}

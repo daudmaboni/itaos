@@ -7,6 +7,7 @@ import "./dashboard.css";
 import "./mobile.css";
 import "./graphite.css";
 import "./glass.css";
+import "./chat-wa.css";
 import "./auth.css";
 import "./island.css";   // always in the main stylesheet, loaded last so nothing out-ranks the pop-up
 import { startPwa } from "./pwa";
