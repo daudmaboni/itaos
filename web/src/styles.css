@@ -1415,3 +1415,26 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
 @media (min-width: 900px) and (max-width: 1279px) {
   .chats .inbox.frame, .chats .inbox.frame.has-pane { grid-template-columns: 350px minmax(0, 1fr); }
 }
+
+/* ===== Chats on a computer (21 Nov, 2): no frame, like WhatsApp Desktop =====
+   No border, rounded corners or shadow around the inbox. One thin line splits the list from the chat;
+   rows are flat with a hairline starting after the photo; the open chat is a soft grey fill, no ring. */
+@media (min-width: 900px) {
+  :root .card.chats, :root[data-dark] .card.chats, :root[data-dark="graphite"]:not([data-theme="light"]) .card.chats {
+    background: transparent; border: 0; box-shadow: none; padding-left: 0; padding-right: 0;
+  }
+  .card.chats:hover { border-color: transparent; }
+  .chats .inbox.frame { border: 0; border-radius: 0; box-shadow: none; background: var(--ib-card); }
+  .chats .inbox.frame > .cc-list { padding: 0; gap: 0; border-right: 1px solid var(--ib-edge); background: var(--ib-card); }
+  .chats .inbox.frame .cc, .chats .inbox.frame .cc:hover, .chats .inbox.frame .cc.sel { border: 0; border-radius: 0; box-shadow: none; }
+  .chats .inbox.frame .cc:hover { background: var(--raised); }
+  .chats .inbox.frame .cc.sel { background: var(--raised); }
+  .chats .inbox.frame .cc.sel .cc-avatar { background: var(--ib-soft-2); color: var(--ib-text); }
+  .chats .inbox.frame .cc-top { border-radius: 0; padding: 0 0 0 14px; column-gap: 12px; }
+  .chats .inbox.frame .cc-main { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--ib-edge); }
+  .chats .inbox.frame .cc.sel .cc-main, .chats .inbox.frame .cc:hover .cc-main { border-bottom-color: transparent; }
+  .chats .inbox.frame .cc-group { margin: 14px 14px 4px; }
+  .chats .inbox.frame .cc-list > div:first-child > .cc-group { margin-top: 10px; }
+  /* chat side: the soft tinted wall, so it reads apart from the white list */
+  .chats .inbox.frame .wa-pane, .chats .inbox.frame .ib-empty { background: var(--ib-wall); }
+}
