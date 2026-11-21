@@ -73,6 +73,10 @@
 .prod-move { margin-left: auto; display: inline-flex; gap: 4px; }
 .prod-move button.small { width: 32px; height: 32px; padding: 0; }
 
+/* "Recognised in N customer photos" */
+.prod-match { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: var(--r-sm); background: var(--info-soft); color: var(--info); line-height: 1.35; }
+.prod-match svg { flex: none; margin-top: 1px; }
+
 /* Empty state */
 .prod-empty { justify-items: center; text-align: center; padding: 34px 20px; }
 .prod-empty > svg { color: var(--muted); }

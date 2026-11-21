@@ -11,7 +11,6 @@ import { enterCards, enterRows, enterTiles, growBars, countTo, shake, usePageEnt
 import { supabase, Workspace, amt, money, fmt, when, orderNet, canEdit, moneyInput, moneyText, localDay } from "./lib";
 import { RangeSel, resolveRange, presetLabel, rangeText, loadRange, saveRange, addDays } from "./ranges";
 import { useKept } from "./keep";
-import "./products.css";
 
 export type Product = {
   id: string; workspace_id: string; name: string; aliases: string[]; price: number | null; cost: number | null;
@@ -164,7 +163,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
       : await supabase.from("products").insert({ id, ...row, sort: 999 });
     setBusy(false);
     if (error) { setErr(error.code === "23505" ? T("You already have a product with this name.", "Tayari una bidhaa yenye jina hili.") : error.message); shake(box.current); }
-    else onDone();
+    else { forgetPhotosReady(ws.id); onDone(); }
   }
   const pr = num(price), c = num(cost);
   const margin = pr != null && c != null ? pr - c : null;
@@ -207,7 +206,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
           </label>
         )}
       </div>
-      <span className="small muted">{T("Add 3–4 clear photos: the front with the label, the back, and one taken on a phone like customers do. itaOS uses them to recognise the product when a customer sends a photo.", "Weka picha 3–4 zinazoonekana vizuri: mbele na lebo, nyuma, na moja iliyopigwa kwa simu kama wateja wanavyopiga. itaOS inazitumia kutambua bidhaa mteja akituma picha.")}</span>
+      <span className="small muted">{T(`Add 3–4 clear photos: the front with the label, the back, and one taken on a phone like customers do. When a customer sends a photo in your chats, itaOS compares it only with ${ws.name}'s own products and suggests which one it is.`, `Weka picha 3–4 zinazoonekana vizuri: mbele na lebo, nyuma, na moja iliyopigwa kwa simu kama wateja wanavyopiga. Mteja akituma picha kwenye chats zako, itaOS inailinganisha na bidhaa za ${ws.name} pekee na kupendekeza ni ipi.`)}</span>
       {err && <span className="err small">{err}</span>}
       <div className="row"><button className="primary small" disabled={busy}>{busy ? <span className="kito-spin sm" aria-hidden /> : null}{T("Save product", "Hifadhi bidhaa")}</button><button type="button" className="small" onClick={onCancel}>{T("Cancel", "Ghairi")}</button></div>
     </form>
@@ -217,8 +216,8 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
 /** What one product did in the chosen period (from the products picked on paid orders). */
 type Sold = { units: number; sales: number; cost: number; costKnown: boolean; orders: number; named: number };
 
-function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove, onEdit, onChange, T }: {
-  ws: Workspace; p: Product; editor: boolean; sold: Sold | undefined; best: number; rank: number | null; period: string;
+function ProductCard({ ws, p, editor, sold, spotted, best, rank, period, canMove, onMove, onEdit, onChange, T }: {
+  ws: Workspace; p: Product; editor: boolean; sold: Sold | undefined; spotted: number; best: number; rank: number | null; period: string;
   canMove: { up: boolean; down: boolean } | null; onMove: (dir: -1 | 1) => void; onEdit: () => void; onChange: () => void; T: (en: string, sw: string) => string;
 }) {
   const urls = usePhotoUrls(p.photos.slice(0, 1));
@@ -234,14 +233,14 @@ function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove,
   async function toggle() {
     setBusy(true);
     const { error } = await supabase.from("products").update({ active: !p.active }).eq("id", p.id).eq("workspace_id", ws.id);
-    setBusy(false); if (error) setErr(error.message); else onChange();
+    setBusy(false); if (error) setErr(error.message); else { forgetPhotosReady(ws.id); onChange(); }
   }
   async function remove() {
     if (!confirm(T(`Delete ${p.name}? Orders that already used it keep their cost.`, `Futa ${p.name}? Oda zilizokwisha itumia zinabaki na gharama yake.`))) return;
     setBusy(true);
     if (p.photos.length) await supabase.storage.from("product-photos").remove(p.photos);
     const { error } = await supabase.from("products").delete().eq("id", p.id).eq("workspace_id", ws.id);
-    setBusy(false); if (error) setErr(error.message); else onChange();
+    setBusy(false); if (error) setErr(error.message); else { forgetPhotosReady(ws.id); onChange(); }
   }
   const share = best > 0 && s.sales > 0 ? Math.max(0.04, s.sales / best) : 0;
   return (
@@ -275,6 +274,14 @@ function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove,
           <span className="prod-bar" aria-hidden>{share > 0 && <i style={{ width: `${Math.round(share * 100)}%` }} />}</span>
           {s.named > 0 && <span className="small muted">{T(`Named in ${s.named} more paid ${s.named === 1 ? "order" : "orders"} where nothing was picked`, `Imetajwa kwenye oda ${s.named} zaidi zilizolipwa bila kuchagua bidhaa`)}</span>}
         </div>
+        {p.photos.length > 0 && p.active && (
+          <div className="prod-match small">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 8h3l2-3h6l2 3h3v11H4V8Z" /><circle cx="12" cy="13" r="3.5" /></svg>
+            <span>{spotted > 0
+              ? T(`Recognised in ${spotted} customer ${spotted === 1 ? "photo" : "photos"} in your chats`, `Imetambuliwa kwenye picha ${spotted} za wateja kwenye chats zako`)
+              : T("Customer photos in your chats are checked against this product", "Picha za wateja kwenye chats zako zinalinganishwa na bidhaa hii")}</span>
+          </div>
+        )}
         {(p.cost == null || !p.photos.length) && (
           <div className="prod-needs">
             {p.cost == null && <span className="chip warn">{T("No cost", "Hakuna gharama")}</span>}
@@ -466,6 +473,29 @@ function useSold(ws: Workspace, products: Product[] | null, from: string, to: st
   return { ...sold, loading: !rows, err };
 }
 
+/** Customer photos in this business's chats that itaOS matched to each product in the period
+ *  (medium or high confidence). Matching only ever compares with this business's own products. */
+function useSpotted(ws: Workspace, from: string, to: string) {
+  const [by, setBy] = useKept<Record<string, number> | null>(`products-spotted:${ws.id}:${from}:${to}`, null);
+  useEffect(() => {
+    let live = true;
+    supabase.from("messages").select("sent_at,pm:media->product_match").eq("workspace_id", ws.id).eq("direction", "in")
+      .not("media->product_match", "is", null).gte("sent_at", addDays(from, -1) + "T00:00:00Z").lt("sent_at", addDays(to, 2) + "T00:00:00Z").limit(5000)
+      .then(({ data }) => {
+        if (!live) return;
+        const tz = ws.timezone || "Africa/Dar_es_Salaam", out: Record<string, number> = {};
+        for (const r of (data ?? []) as { sent_at: string; pm: ProductMatch | null }[]) {
+          const d = localDay(r.sent_at, tz);
+          if (d < from || d > to || !r.pm?.product_id || r.pm.confidence === "low") continue;
+          out[r.pm.product_id] = (out[r.pm.product_id] ?? 0) + 1;
+        }
+        setBy(out);
+      });
+    return () => { live = false; };
+  }, [ws.id, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
+  return by ?? {};
+}
+
 /** A KPI tile that counts up to its number, like the dashboard's. */
 function Tile({ k, n, f, v, s, cls = "" }: { k: string; n: number | null; f: (x: number) => string; v?: string; s?: string; cls?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -507,6 +537,7 @@ export default function Products({ ws }: { ws: Workspace }) {
   }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const period = resolveRange(range, today, start);
   const sold = useSold(ws, products, period.from, period.to);
+  const spotted = useSpotted(ws, period.from, period.to);
   const periodShort = range.key === "custom" ? rangeText(period, lang) : presetLabel(range.key, lang);
 
   const totals = useMemo(() => {
@@ -646,7 +677,7 @@ export default function Products({ ws }: { ws: Workspace }) {
           <div className="prod-grid">
             {shown.map((p, i) => editing && editing !== "new" && editing.id === p.id
               ? <ProductForm key={p.id} ws={ws} p={p} onDone={done} onCancel={() => setEditing(null)} T={T} />
-              : <ProductCard key={p.id} ws={ws} p={p} editor={editor} sold={sold.by.get(p.id)} best={best} rank={ranks.get(p.id) ?? null} period={periodShort}
+              : <ProductCard key={p.id} ws={ws} p={p} editor={editor} sold={sold.by.get(p.id)} spotted={spotted[p.id] ?? 0} best={best} rank={ranks.get(p.id) ?? null} period={periodShort}
                   canMove={canReorder && !moving ? { up: i > 0 && shown[i - 1].active === p.active, down: i < shown.length - 1 && shown[i + 1].active === p.active } : null}
                   onMove={(d) => move(p, d)} onEdit={() => setEditing(p)} onChange={() => setTick((t) => t + 1)} T={T} />)}
           </div>
@@ -663,6 +694,8 @@ export type ProductMatch = {
 };
 const ready: Record<string, Promise<boolean>> = {};
 /** Does this business have at least one active product with photos? (Cached per page load.) */
+/** Call after products or their photos change, so open chats start matching photos without a reload. */
+export function forgetPhotosReady(wsId: string) { delete ready[wsId]; }
 export function productPhotosReady(wsId: string): Promise<boolean> {
   return (ready[wsId] ??= Promise.resolve(supabase.from("products").select("id", { count: "exact", head: true }).eq("workspace_id", wsId).eq("active", true).neq("photos", "{}"))
     .then(({ count }) => (count ?? 0) > 0, () => false));
