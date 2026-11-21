@@ -159,20 +159,21 @@ export function diagnose(mx: FunnelMetrics, convs: Outcome[], orders: Order[], t
   }
 
   // 9. Data gaps that limit the diagnosis
-  const gaps: string[] = [];
-  if (mx.coverage.fxNeeded && !mx.coverage.fxSet) gaps.push("exchange rate (ad account currency ≠ sales currency)");
-  if (mx.coverage.ordersMissingCost > 0 && mx.coverage.expensesCount === 0) gaps.push("order costs (type them when you confirm a payment in Chats)");
-  if (mx.coverage.knownSourceShare != null && mx.coverage.knownSourceShare < 0.5) gaps.push("chat sources (ad vs organic)");
-  if (mx.coverage.kitoReadShare != null && mx.coverage.kitoReadShare < 0.7) gaps.push("Kito reading (add ANTHROPIC_API_KEY or run Kito)");
-  if ((mx.spend.value ?? 0) === 0) gaps.push("ad spend (connect the ad account or no spend this period)");
+  // Only things the owner can fill in. Kito coverage is not listed: Kito reads chats by itself every
+  // 15 minutes, and older chats (before Kito) are read with the simple rules, so there is nothing to do.
+  const gaps: [string, string][] = [];
+  if (mx.coverage.fxNeeded && !mx.coverage.fxSet) gaps.push(["exchange rate (your ad account and sales use different currencies)", "kiwango cha kubadilisha fedha (tangazo na mauzo yanatumia sarafu tofauti)"]);
+  if (mx.coverage.ordersMissingCost > 0 && mx.coverage.expensesCount === 0) gaps.push(["order costs (type them when you confirm a payment in Chats)", "gharama za oda (ziandike unapothibitisha malipo kwenye Chats)"]);
+  if (mx.coverage.knownSourceShare != null && mx.coverage.knownSourceShare < 0.5) gaps.push(["where chats came from (ad or not)", "chats zilitoka wapi (tangazo au la)"]);
+  if ((mx.spend.value ?? 0) === 0) gaps.push(["ad spend (connect your ad account, or there was no spend this period)", "matumizi ya matangazo (unganisha akaunti ya matangazo, au hakukuwa na matumizi kipindi hiki)"]);
   if (gaps.length) {
     out.push({
       kind: "data_gap", severity: "info", score: 5, confidence: "high",
       title: { en: "Some figures are limited by missing data", sw: "Baadhi ya takwimu zinakosa data" },
-      observed: { en: "Missing: " + gaps.join("; ") + ".", sw: "Inakosekana: " + gaps.join("; ") + "." },
+      observed: { en: "Missing: " + gaps.map((g) => g[0]).join("; ") + ".", sw: "Inakosekana: " + gaps.map((g) => g[1]).join("; ") + "." },
       hypothesis: { en: "Not a problem in the business, a gap in the data.", sw: "Si tatizo la biashara, ni pengo la data." },
       action: { en: "Fill these in Settings, Connections or by CSV import.", sw: "Jaza kwenye Mipangilio, Connections au uingize CSV." },
-      count: gaps.length, sample: 0, source: "workspace settings and coverage", missing: gaps, conversationIds: [],
+      count: gaps.length, sample: 0, source: "workspace settings and coverage", missing: gaps.map((g) => g[0]), conversationIds: [],
     });
   }
 
