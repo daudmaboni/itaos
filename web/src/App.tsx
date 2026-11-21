@@ -30,6 +30,21 @@ const viewFromHash = (): View => {
   return (VIEWS as string[]).includes(h) ? (h as View) : "dashboard";
 };
 
+/** Phone page change without piling up history (22 Nov 2026). Before, every tap or swipe added a history
+ *  entry, so Android's Back button/gesture walked back through every page you'd visited, and the edge
+ *  Back gesture could fire on top of a swipe. Now history holds at most [Home, current page]: leaving Home
+ *  adds one entry, every other move replaces it, and going back to Home steps back. So Back from any page
+ *  goes Home, and Back from Home leaves the app, like a native app. */
+function phoneGo(v: View) {
+  const cur = viewFromHash();
+  if (v === cur) return;
+  const st = history.state as { itaFromHome?: boolean } | null;
+  if (v === "dashboard" && st?.itaFromHome) { history.back(); return; } // fires hashchange
+  if (cur === "dashboard" && !location.hash.includes("/")) history.pushState({ itaFromHome: true }, "", "#" + v);
+  else history.replaceState(st?.itaFromHome ? { itaFromHome: true } : null, "", "#" + v);
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [ws, setWs] = useState<Workspace | null | undefined>(undefined);
@@ -96,10 +111,12 @@ export default function App() {
     const onHash = () => {
       const next = viewFromHash();
       if (next === viewRef.current) return;
-      // Phone swipe already slides the page with the finger; everything else gets the light page change.
-      if (navFlags.swipe || !document.querySelector(".page-view")) { viewRef.current = next; setView(next); return; }
+      if (!document.querySelector(".page-view")) { viewRef.current = next; setView(next); return; }
       const from = viewRef.current;
       viewRef.current = next;
+      // Phone swipe: the page already leaned with the finger; PageView slides the new one in from that side.
+      if (navFlags.swipe && window.matchMedia(PHONE_NAV).matches) { window.scrollTo({ top: 0 }); flushSync(() => setView(next)); return; }
+      navFlags.swipe = 0;
       if (window.matchMedia(PHONE_NAV).matches && phoneSwitch(from, next)) return;
       pageTransition({
         swap: () => flushSync(() => setView(next)),
@@ -435,7 +452,9 @@ function phoneSwitch(from: View, next: View): boolean {
   if (!doc.startViewTransition) { navFlags.fade = dir; swap(); return true; } // PageView fades it in
   html.style.setProperty("--vt-dir", String(dir));
   html.classList.add("vt-phone");
-  doc.startViewTransition(swap).finished.finally(() => { html.classList.remove("vt-phone"); html.style.removeProperty("--vt-dir"); });
+  navFlags.busy = true; // no swipe can start while the browser is mid-transition (it would cut it short)
+  const done = () => { html.classList.remove("vt-phone"); html.style.removeProperty("--vt-dir"); navFlags.busy = false; };
+  try { doc.startViewTransition(swap).finished.then(done, done); } catch { done(); swap(); }
   return true;
 }
 const setViewRef: { current: ((v: View) => void) | null } = { current: null };
@@ -456,14 +475,14 @@ export function PageView({ view, children }: { view: View; children: React.React
       el.animate([{ transform: `translateX(${fade * 22}px)`, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 220, easing: "cubic-bezier(.2, .8, .3, 1)" });
       return;
     }
-    const swiped = navFlags.swipe; navFlags.swipe = false;
-    if (!swiped || !window.matchMedia(PHONE_NAV).matches || reducedMotion()) return; // taps/clicks use the panel wipe instead
-    const a = ORDER.indexOf(from), b = ORDER.indexOf(view);
-    const dir = a >= 0 && b >= 0 ? Math.sign(b - a) : 0;
-    el.animate(dir
-      ? [{ transform: `translateX(${dir * 24}%)`, opacity: 0.35 }, { transform: "translateX(0)", opacity: 1 }]
-      : [{ transform: "translateY(12px)", opacity: 0 }, { transform: "none", opacity: 1 }],
-      { duration: dir ? 260 : 220, easing: "cubic-bezier(.2, .9, .3, 1)" });
+    const dir = navFlags.swipe; navFlags.swipe = 0;
+    if (!dir || !window.matchMedia(PHONE_NAV).matches || reducedMotion()) return; // taps/clicks use the crossfade instead
+    // Swipe: the new page comes in from the side the finger pushed toward, continuing the lean.
+    navFlags.busy = true;
+    const anim = el.animate([{ transform: `translate3d(${dir * 22}%,0,0)`, opacity: 0.4 }, { transform: "translate3d(0,0,0)", opacity: 1 }],
+      { duration: 240, easing: "cubic-bezier(.2, .9, .3, 1)" });
+    const done = () => { navFlags.busy = false; };
+    anim.finished.then(done, done);
   }, [view]);
   return <div className="page-view" ref={ref}>{children}</div>;
 }
@@ -498,7 +517,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
   const go = (i: number) => {
     if (i >= SLOTS - 1) { setOpen(true); setLens(SLOTS - 1, false); return; }
     setOpen(false); // always close the More sheet first, so the tab works on the first tap
-    if (ORDER[i] !== view) { window.scrollTo({ top: 0 }); location.hash = ORDER[i]; }
+    if (ORDER[i] !== view) { window.scrollTo({ top: 0 }); phoneGo(ORDER[i]); }
     else setLens(i, false);
   };
 
@@ -506,12 +525,12 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
   const onBarDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const n = navRef.current; if (!n) return;
-    const r = n.getBoundingClientRect(), slot = (r.width - 12) / SLOTS, x0 = e.clientX;
+    const r = n.getBoundingClientRect(), slot = (r.width - 10) / SLOTS, x0 = e.clientX; // 5px padding each side
     let moved = false, frac = idx;
     const move = (ev: PointerEvent) => {
       if (!moved && Math.abs(ev.clientX - x0) < 8) return;
       moved = true;
-      frac = Math.min(SLOTS - 1, Math.max(0, (ev.clientX - r.left - 6 - slot / 2) / slot));
+      frac = Math.min(SLOTS - 1, Math.max(0, (ev.clientX - r.left - 5 - slot / 2) / slot));
       setLens(frac, true);
     };
     const up = () => {
@@ -524,65 +543,91 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
   };
 
   // Swipe the page left/right to move through every page in bar order (Home, Kito, Chats, then the More pages);
-  // the lens tracks the swipe, and the change itself uses the same quick crossfade as a tap.
+  // the lens tracks the swipe and the page leans with the finger, then the new page slides in from that side.
+  //
+  // Android fixes (22 Nov 2026):
+  // - Up/down scrolling is left entirely to the browser: the page area is `touch-action: pan-y` (styles.css),
+  //   so sideways drags never scroll the page and these listeners can be passive (no scroll waits on us).
+  // - If the browser starts scrolling up/down anyway (a diagonal drag), the swipe is dropped, not fought.
+  // - Touches starting within EDGE px of either side are left to Android's Back gesture.
+  // - A cancelled touch (Android or the browser took the gesture over) springs back; it never changes page.
+  // - Flick speed comes from the last ~100 ms of movement, so a quick flick counts even after a slow start.
+  // - No swipe starts while a page change is still animating.
   useEffect(() => {
     const seq = swipeOrder(sw);
     const cur = seq.indexOf(view);
     if (cur < 0 || open) return;
+    const EDGE = 24;
     const slotOf = (f: number) => Math.min(SLOTS - 1, f); // pages past Chats live under More
-    let x0 = 0, y0 = 0, t0 = 0, mode: "" | "h" | "v" = "", dx = 0;
+    let x0 = 0, y0 = 0, sy0 = 0, mode: "" | "h" | "v" = "", dx = 0, target: EventTarget | null = null;
+    let samples: [number, number][] = []; // [time, x] of recent moves, for flick speed
     const blocked = (el: EventTarget | null) => {
       for (let n = el as HTMLElement | null; n && n !== document.body; n = n.parentElement) {
-        if (n.matches("input, textarea, select, .seg, .bottomnav, .sheet, [data-noswipe]")) return true;
+        if (n.matches("input, textarea, select, .seg, .bottomnav, .sheet, .wa-pane, .dr-layer, .paid-modal, [data-noswipe], [data-zoom]")) return true;
         const ox = getComputedStyle(n).overflowX;
         if ((ox === "auto" || ox === "scroll") && n.scrollWidth > n.clientWidth + 2) return true;
       }
       return false;
     };
+    const springBack = () => {
+      setLens(slotOf(cur), false);
+      const page = pageEl();
+      if (!page || !page.classList.contains("swiping")) return;
+      page.style.transition = "transform .32s cubic-bezier(.3, 1.3, .5, 1), opacity .2s ease";
+      page.style.transform = ""; page.style.opacity = "";
+      window.setTimeout(() => { page.style.transition = ""; page.classList.remove("swiping"); }, 340);
+    };
     const start = (e: TouchEvent) => {
-      if (e.touches.length !== 1 || blocked(e.target)) { mode = "v"; return; }
-      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); mode = ""; dx = 0;
+      mode = "v"; // until proven otherwise
+      if (e.touches.length !== 1 || navFlags.busy) return;
+      const t = e.touches[0];
+      if (t.clientX < EDGE || t.clientX > window.innerWidth - EDGE) return; // Android Back gesture zone
+      if (document.body.style.overflow === "hidden" || document.body.classList.contains("wa-open")) return; // a popup is open
+      x0 = t.clientX; y0 = t.clientY; sy0 = window.scrollY; dx = 0; mode = ""; target = e.target;
+      samples = [[e.timeStamp, x0]];
     };
     const move = (e: TouchEvent) => {
       if (mode === "v") return;
-      dx = e.touches[0].clientX - x0; const dy = e.touches[0].clientY - y0;
-      if (!mode) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; mode = Math.abs(dx) > Math.abs(dy) ? "h" : "v"; if (mode === "v") return; x0 += dx > 0 ? 8 : -8; dx = e.touches[0].clientX - x0; }
-      e.preventDefault(); // locked sideways: the page must not scroll up/down during the swipe
+      const t = e.touches[0]; if (!t) return;
+      dx = t.clientX - x0; const dy = t.clientY - y0;
+      if (!mode) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        // sideways only when clearly sideways and the page hasn't started scrolling; the overflow check
+        // (walks up the tree) runs once here instead of on every touch
+        if (Math.abs(dx) < Math.abs(dy) * 1.2 || window.scrollY !== sy0 || blocked(target)) { mode = "v"; return; }
+        mode = "h"; x0 += dx > 0 ? 10 : -10; dx = t.clientX - x0;
+      }
+      if (window.scrollY !== sy0) { mode = "v"; springBack(); return; } // the browser took it as a scroll after all
+      samples.push([e.timeStamp, t.clientX]);
+      while (samples.length > 2 && e.timeStamp - samples[0][0] > 100) samples.shift();
       const w = window.innerWidth;
       setLens(slotOf(Math.min(seq.length - 1, Math.max(0, cur - dx / w))), true);
       const page = pageEl();
       if (page && !reducedMotion()) {
         const edge = (dx > 0 && cur === 0) || (dx < 0 && cur === seq.length - 1);
-        const tx = dx * (edge ? 0.12 : 0.35); // the page leans with the finger; the switch itself is the tap crossfade
         page.classList.add("swiping");
         page.style.transition = "none";
-        page.style.transform = `translate3d(${tx}px,0,0)`;
+        page.style.transform = `translate3d(${dx * (edge ? 0.12 : 0.35)}px,0,0)`;
         page.style.opacity = String(1 - Math.min(1, Math.abs(dx) / w) * 0.35);
       }
     };
-    const end = () => {
-      if (mode !== "h") { mode = ""; return; }
-      const v = Math.abs(dx) / Math.max(1, Date.now() - t0);
-      const next = Math.abs(dx) > window.innerWidth * 0.2 || (v > 0.3 && Math.abs(dx) > 30) ? cur + (dx < 0 ? 1 : -1) : cur;
-      mode = "";
-      const page = pageEl();
-      if (next >= 0 && next < seq.length && next !== cur) {
-        navigator.vibrate?.(8);
-        setLens(slotOf(next), false);
-        location.hash = seq[next]; // same crossfade as tapping a tab (phoneSwitch)
-      } else {
-        setLens(slotOf(cur), false);
-        if (page) { // spring back into place
-          page.style.transition = "transform .32s cubic-bezier(.3, 1.3, .5, 1), opacity .2s ease";
-          page.style.transform = ""; page.style.opacity = "";
-          window.setTimeout(() => { page.style.transition = ""; page.classList.remove("swiping"); }, 340);
-        }
-      }
+    const end = (e: TouchEvent) => {
+      const was = mode; mode = "";
+      if (was !== "h") return;
+      const [tA, xA] = samples[0], [tB, xB] = samples[samples.length - 1];
+      const v = tB > tA ? (xB - xA) / (tB - tA) : 0; // px/ms, sign = direction
+      const fling = Math.abs(v) > 0.35 && Math.abs(dx) > 30 && Math.sign(v) === Math.sign(dx);
+      const next = Math.abs(dx) > window.innerWidth * 0.22 || fling ? cur + (dx < 0 ? 1 : -1) : cur;
+      if (e.type === "touchcancel" || next < 0 || next >= seq.length || next === cur) { springBack(); return; }
+      navigator.vibrate?.(8);
+      setLens(slotOf(next), false);
+      navFlags.swipe = dx < 0 ? 1 : -1;
+      phoneGo(seq[next]);
     };
     window.addEventListener("touchstart", start, { passive: true });
-    window.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", end);
-    window.addEventListener("touchcancel", end);
+    window.addEventListener("touchmove", move, { passive: true });
+    window.addEventListener("touchend", end, { passive: true });
+    window.addEventListener("touchcancel", end, { passive: true });
     return () => { window.removeEventListener("touchstart", start); window.removeEventListener("touchmove", move); window.removeEventListener("touchend", end); window.removeEventListener("touchcancel", end); };
   }, [view, open, sw]);
 
@@ -593,7 +638,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
         <div className="sheet" role="dialog" aria-label={L("More", "Zaidi")}>
           <span className="sheet-grip" aria-hidden="true" />
           {more.map(([v, label, note, icon]) => (
-            <a key={v} href={"#" + v} className={"sheet-item" + (view === v ? " on" : "")}>
+            <a key={v} href={"#" + v} className={"sheet-item" + (view === v ? " on" : "")} onClick={(e) => { e.preventDefault(); setOpen(false); window.scrollTo({ top: 0 }); phoneGo(v); }}>
               <span className="sheet-ico">{icon}</span>
               <span className="sheet-text"><b>{label}</b><span className="small muted">{note}</span></span>
               {v === "actions" && badges && <NavBadge badge={actionsBadge(badges, sw)} />}

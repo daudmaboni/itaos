@@ -729,7 +729,14 @@ nav.tabs.glass-tabs .more-menu a.more-item:hover, nav.tabs.glass-tabs .more-menu
 
 /* Phone page transitions: the page follows a horizontal swipe and slides between sections like iOS. */
 .page-view { min-width: 0; display: grid; gap: inherit; will-change: auto; }
-@media (max-width: 760px) { .shell { overflow-x: clip; } .page-view.swiping { will-change: transform, opacity; } }
+@media (max-width: 760px) {
+  .shell { overflow-x: clip; } .page-view.swiping { will-change: transform, opacity; }
+  /* the browser handles up/down scrolling by itself; sideways drags are left to the page swipe (App.tsx).
+     Sideways scrollers inside (tables, chips) are their own scroll containers, so they still scroll. */
+  .page-view { touch-action: pan-y; }
+}
+/* no Chrome back/forward arrow from a sideways overscroll: sideways swipes belong to the app */
+html, body { overscroll-behavior-x: none; }
 /* "are you sure?" dialog (Settings → Rules & rates) */
 /* sits above the blurred scrim (an un-positioned box would be painted under it and look blurred) */
 .confirm-modal { position: relative; z-index: 1; width: 100%; max-width: 420px; display: grid; gap: 12px; padding: 22px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 22px; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .12); animation: dr-pop-in .32s cubic-bezier(.2, .9, .3, 1.15) both; }

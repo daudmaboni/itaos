@@ -14,8 +14,9 @@ import { prefersReduced } from "./motion";
 
 export type Area = { top: number; left: number; right: number; bottom: number };
 
-/** Set by the phone swipe gesture: that navigation already animates with the finger. */
-export const navFlags: { swipe: boolean; fade: number | null } = { swipe: false, fade: null };
+/** Set by the phone swipe gesture (its direction, -1 or 1): PageView slides the new page in from that side
+ *  instead of the tap crossfade. `busy` is true while a phone page change is still animating. */
+export const navFlags: { swipe: number; fade: number | null; busy: boolean } = { swipe: 0, fade: null, busy: false };
 
 function css() {
   if (document.getElementById("pt-style")) return;

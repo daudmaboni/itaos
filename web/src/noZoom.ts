@@ -13,7 +13,9 @@ export function startNoZoom() {
   const stop = (e: Event) => e.preventDefault();
   for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, stop, { passive: false });
 
-  // Two fingers anywhere except the photo viewer (it handles its own pinch).
+  // Two fingers anywhere except the photo viewer (it handles its own pinch). iPhone only: Android already
+  // obeys the viewport tag, and a blocking touchmove listener makes every Android scroll wait on the app.
+  if (!("GestureEvent" in window)) return;
   document.addEventListener("touchmove", (e) => {
     if (e.touches.length > 1 && !(e.target as Element | null)?.closest?.("[data-zoom]")) e.preventDefault();
   }, { passive: false });
