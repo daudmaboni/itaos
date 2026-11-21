@@ -1591,11 +1591,13 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 
 /* Top bar in its own colour (22 Nov 2026), chosen at random per visit (App.tsx):
    light mode → homepage green or black; dark mode → white or green. */
-nav.tabs.glass-tabs[data-tone] { --tb-bg: #0f7a4f; --tb-ink: #ffffffb8; --tb-hi: #fff; --tb-pill: #fff; --tb-on: #0b5c3b;
+:is(nav.tabs.glass-tabs, .bottomnav)[data-tone] { --tb-bg: #0f7a4f; --tb-ink: #ffffffb8; --tb-hi: #fff; --tb-pill: #fff; --tb-on: #0b5c3b; }
+:root[data-theme="light"] :is(nav.tabs.glass-tabs, .bottomnav)[data-tone="alt"] { --tb-bg: #121417; --tb-ink: #ffffffa8; --tb-hi: #fff; --tb-pill: #0f7a4f; --tb-on: #fff; }
+:root:not([data-theme="light"]) :is(nav.tabs.glass-tabs, .bottomnav)[data-tone="alt"] { --tb-bg: #fff; --tb-ink: #4a505c; --tb-hi: #121417; --tb-pill: #0f7a4f; --tb-on: #fff; }
+nav.tabs.glass-tabs[data-tone] {
   background: var(--tb-bg); border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none;
   box-shadow: 0 12px 30px -14px color-mix(in srgb, var(--tb-bg) 70%, #000), inset 0 1px 0 #ffffff26; }
-:root[data-theme="light"] nav.tabs.glass-tabs[data-tone="alt"] { --tb-bg: #121417; --tb-ink: #ffffffa8; --tb-hi: #fff; --tb-pill: #0f7a4f; --tb-on: #fff; }
-:root:not([data-theme="light"]) nav.tabs.glass-tabs[data-tone="alt"] { --tb-bg: #fff; --tb-ink: #4a505c; --tb-hi: #121417; --tb-pill: #0f7a4f; --tb-on: #fff;
+:root:not([data-theme="light"]) nav.tabs.glass-tabs[data-tone="alt"] {
   box-shadow: 0 12px 30px -14px #000, inset 0 -1px 0 #0000000f; }
 nav.tabs.glass-tabs[data-tone] a, nav.tabs.glass-tabs[data-tone] .more-btn { color: var(--tb-ink); }
 nav.tabs.glass-tabs[data-tone] a:hover, nav.tabs.glass-tabs[data-tone] .more-btn:hover, nav.tabs.glass-tabs[data-tone] .more-btn[aria-expanded="true"] { color: var(--tb-hi); }
@@ -1605,3 +1607,12 @@ nav.tabs.glass-tabs[data-tone] .glass { background: var(--tb-pill); border-color
 nav.tabs.glass-tabs[data-tone] .glass::before, nav.tabs.glass-tabs[data-tone] .glass::after { display: none; }
 /* the More menu keeps the normal card look, so its items read as usual */
 nav.tabs.glass-tabs[data-tone] .more-menu a.more-item { color: var(--ink); }
+/* Phone bottom bar: same colour as the top bar would have (one random pick per visit) */
+@media (max-width: 760px) {
+  .bottomnav[data-tone] { background: var(--tb-bg); border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--tb-bg) 60%, #000), inset 0 1px 0 #ffffff26; }
+  :root:not([data-theme="light"]) .bottomnav[data-tone="alt"] { box-shadow: 0 12px 28px -12px #000, inset 0 -1px 0 #0000000f; }
+  .bottomnav[data-tone] a, .bottomnav[data-tone] button { color: var(--tb-ink); }
+  .bottomnav[data-tone] .on { color: var(--tb-on); }
+  .bottomnav[data-tone] .lens::before { background: var(--tb-pill); box-shadow: 0 4px 12px -4px #0000004d; }
+}

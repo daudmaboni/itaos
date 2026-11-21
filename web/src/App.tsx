@@ -310,6 +310,11 @@ function CreateWorkspace({ onDone }: { onDone: (w: Workspace) => void }) {
 const ORDER: View[] = ["dashboard", "kito", "chats"];
 const SLOTS = ORDER.length + 1; // + More
 
+// The nav bars (computer top bar and phone bottom bar) get their own colour so they stand out from the
+// page: picked at random on each visit, the same for both. "green" is the homepage green; "alt" is black
+// in light mode and white in dark mode (see styles.css).
+const NAV_TONE = Math.random() < 0.5 ? "green" : "alt";
+
 /** Top tabs with the ponditech.com "liquid glass" pill: it rests on the current page and glides
  *  to whichever tab the pointer is over. */
 function GlassTabs({ view, children }: { view: string; children: import("react").ReactNode }) {
@@ -327,9 +332,7 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
     g.classList.add("on");
   };
   const current = () => nav.current?.querySelector<HTMLElement>("[data-tab].on") ?? null;
-  // The top bar gets its own colour so it stands out from the page: picked at random on each visit.
-  // "green" is the homepage green; "alt" is black in light mode and white in dark mode (see styles.css).
-  const [tone] = useState(() => (Math.random() < 0.5 ? "green" : "alt"));
+  const tone = NAV_TONE;
   useEffect(() => {
     if (!hovering.current) place(current());
     const onResize = () => place(current());
@@ -598,7 +601,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
           ))}
         </div>
       )}
-      <nav className="bottomnav" aria-label="Sections" ref={navRef} style={{ ["--n" as any]: SLOTS }} onPointerDown={onBarDown}
+      <nav className="bottomnav" aria-label="Sections" ref={navRef} data-tone={NAV_TONE} style={{ ["--n" as any]: SLOTS }} onPointerDown={onBarDown}
         onClickCapture={(e) => { if (suppressClick.current) { e.preventDefault(); e.stopPropagation(); } }}>
         <span className="lens" aria-hidden="true" />
         {main.map(([v, label, icon]) => (
