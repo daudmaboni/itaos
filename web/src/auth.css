@@ -358,3 +358,25 @@ html[data-screen="auth"]::-webkit-scrollbar { display: none; }
   .ax-input input { font-size: 16px; }
   .ax, .ax * { touch-action: manipulation; }
 }
+
+/* ---- 21 Nov (iPhone fix): Safari stretched the form area, leaving ~100px of empty space above the staff link
+   and squeezing the banner (TZS 1.2M got cut by the white sheet). The form is now exactly as tall as its
+   content, and all spare height goes to the banner, which never shrinks below its own content. */
+@media (max-width: 760px) {
+  .ax-show { flex: 1 0 auto; }
+  .ax-side { flex: 0 0 auto; }
+  .ax-form { min-height: 0; }
+  .ax-foot { margin-top: 14px; padding-top: 0; }
+  .ax:has(#biz) .ax-show { flex: 1 0 auto; }
+}
+/* safety net: if a phone is ever too short for everything, scroll inside instead of cutting the footer off.
+   Where it all fits (every phone we checked) there is nothing to scroll, so the screen stays still. */
+@media (max-width: 760px) and (min-height: 560px) { .ax { overflow-y: auto; overscroll-behavior: none; } }
+/* Create account on shorter phones: drop the subtitle and the banner tagline so every field and button fits */
+@media (max-width: 760px) and (max-height: 760px) {
+  .ax:has(#biz) .ax-head p, .ax:has(#biz) .ax-show-copy { display: none !important; }
+}
+@media (max-width: 760px) and (max-height: 700px) {
+  .ax:has(#biz) .ax-form { gap: 8px; }
+  .ax:has(#biz) .ax-side { padding-top: 18px; }
+}

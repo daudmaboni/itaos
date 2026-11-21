@@ -20,6 +20,7 @@ export function startPullRefresh() {
   // Only start when the page is at the very top and nothing on top of it (open chat, sheet, popup) is scrolled.
   const canStart = (t: EventTarget | null) => {
     if (busy || window.scrollY > 0) return false;
+    if (document.documentElement.dataset.screen === "auth") return false;   // sign-in screen is locked: no pull-to-refresh
     if (document.body.style.overflow === "hidden" || document.body.classList.contains("wa-open") || document.documentElement.classList.contains("sheet-open")) return false;
     for (let n = t as HTMLElement | null; n && n !== document.body; n = n.parentElement) {
       if (n.matches?.("input, textarea, select, [data-noptr], .wa-pane, .sheet, .dr-layer, .paid-modal, .bottomnav")) return false;
