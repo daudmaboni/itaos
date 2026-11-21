@@ -4,7 +4,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib";
 import type { Workspace } from "./lib";
-import "./island.css";
 
 type Note = { id: string; name: string; text: string; count: number };
 type Phase = "hidden" | "pill" | "open" | "leaving";
@@ -17,7 +16,7 @@ export const islandPreview = (sw: boolean) => window.dispatchEvent(new CustomEve
   detail: { id: "", name: sw ? "Mteja (mfano)" : "Customer (example)", text: sw ? "Habari, bidhaa hii inapatikana bei gani?" : "Hi, how much is this one?", count: 1 } satisfies Note,
 }));
 
-const SHOW_MS = 5500;
+const SHOW_MS = 8000;
 
 function preview(type: string, body: string | null, sw: boolean) {
   const T = (en: string, s: string) => (sw ? s : en);
@@ -66,7 +65,7 @@ export default function Island({ ws }: { ws: Workspace }) {
     setNote(n);
     setPhase("pill");
     later(() => setPhase("open"), showing ? 160 : 380); // already up: quick squeeze, then the new card; else pill first, then it grows
-    try { if (document.visibilityState === "visible") navigator.vibrate?.(18); } catch { /* not supported */ }
+    try { if (document.visibilityState === "visible") navigator.vibrate?.([30, 60, 30]); } catch { /* not supported */ }
     scheduleHide();
   };
 
