@@ -556,7 +556,7 @@ function TempFix({ r, T, onChange }: { r: Outcome; T: Tr; onChange: () => void }
     if (error) setNote(error.message);
     else { setNote(T("Saved. Kito keeps your answer until the customer writes again.", "Imehifadhiwa. Kito atabaki na jibu lako hadi mteja aandike tena.")); onChange(); }
   }
-  const opts: ["hot" | "warm" | "cold", string][] = [["hot", T("Very interested", "Ana hamu sana")], ["warm", T("Interested", "Ana hamu")], ["cold", T("Not very", "Hana hamu sana")]];
+  const opts: ["hot" | "warm" | "cold", string][] = [["hot", T("Very", "Sana")], ["warm", T("Some", "Kiasi")], ["cold", T("Not very", "Kidogo")]];
   return (
     <div className="cc-fromad">
       <span className="small">{T("How interested?", "Ana hamu kiasi gani?")}</span>

@@ -1466,3 +1466,13 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
   .chats .inbox.frame .cc-status .cc-heat { font-weight: 400; }
   .chats .inbox.frame .cc-status .cc-heat.cold { color: var(--ib-muted); }
 }
+
+/* Chat list scrollbar: hidden until the pointer is over the list (no grey bar beside the chats) */
+@media (min-width: 900px) {
+  .chats .inbox.frame > .cc-list { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .chats .inbox.frame > .cc-list:hover { scrollbar-color: color-mix(in srgb, var(--ib-ink) 18%, transparent) transparent; }
+  .chats .inbox.frame > .cc-list::-webkit-scrollbar { width: 6px; }
+  .chats .inbox.frame > .cc-list::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; }
+  .chats .inbox.frame > .cc-list:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ib-ink) 18%, transparent); }
+}
+.cc-fromad .seg button { white-space: nowrap; }
