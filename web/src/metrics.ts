@@ -13,7 +13,7 @@
 //    which marks the figure "estimated"). Imported expenses never stand in for missing order costs.
 
 import type { AdPerf, Order, Outcome, Workspace } from "./lib";
-import { localDay, median } from "./lib";
+import { localDay, median, gotPrice } from "./lib";
 
 export type Provenance = "platform" | "observed" | "inferred" | "confirmed" | "imported" | "matched" | "derived";
 
@@ -104,7 +104,7 @@ export function computeFunnel(i: Inputs): FunnelMetrics {
   const signal = (c: Outcome) => !(c.override_by && (c.outcome_override === "open" || c.outcome_override === "lost"))
     && (!!c.payment_signal || c.kito_outcome === "sold" || c.outcome_override === "sold");
   const replied = convs.filter((c) => c.first_response_sec != null);
-  const priced = convs.filter((c) => c.price_shared);
+  const priced = convs.filter(gotPrice);
   const signals = convs.filter(signal);
   const unconfirmed = convs.filter((c) => signal(c) && !confirmed(c));
   const attributedChats = convs.filter(attributed);

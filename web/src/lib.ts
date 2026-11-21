@@ -181,3 +181,9 @@ export function moneyInput(set: (v: string) => void, format: (s: string) => stri
     });
   };
 }
+
+/** The customer got a price: the word rules found one typed in the chat, or Kito read that the
+ *  chat reached the price (e.g. the price was only said in a voice note the rules can't read). */
+const PRICED_OR_LATER = ["priced", "awaiting_payment", "paid", "shipped", "received", "using"];
+export const gotPrice = (c: Pick<Outcome, "price_shared" | "kito_label">) =>
+  !!c.price_shared || PRICED_OR_LATER.includes(c.kito_label ?? "");

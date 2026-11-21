@@ -3,7 +3,7 @@
 // missing, and separates what was observed from the hypothesis drawn from it.
 import type { Outcome, Order } from "./lib";
 import type { FunnelMetrics } from "./metrics";
-import { localDay } from "./lib";
+import { localDay, gotPrice } from "./lib";
 
 export type Confidence = "high" | "medium" | "low";
 export type FindingKind = "unanswered" | "slow_reply" | "low_intent" | "price_objection" | "no_follow_up" | "payment_friction" | "unconfirmed_signals" | "fulfillment" | "data_gap" | "healthy";
@@ -83,8 +83,9 @@ export function diagnose(mx: FunnelMetrics, convs: Outcome[], orders: Order[], t
   }
 
   // 4. Price objections / silence after price
-  const priced = inP.filter((c) => c.price_shared);
-  const silent = priced.filter((c) => c.stage === "silent_after_price" && c.outcome !== "sold");
+  const priced = inP.filter(gotPrice);
+  // Rules only see typed prices; for a price Kito found (voice note), "went quiet" = we spoke last.
+  const silent = priced.filter((c) => c.outcome !== "sold" && (c.stage === "silent_after_price" || (!c.price_shared && c.last_dir === "out")));
   const priceObj = inP.filter((c) => c.outcome !== "sold" && (c.objections?.includes("price") || c.kito_objections?.includes("price") || c.kito_blocker === "price"));
   const priceHit = new Set([...silent, ...priceObj].map((c) => c.id));
   if (priced.length >= 5 && priceHit.size / priced.length >= 0.3) {

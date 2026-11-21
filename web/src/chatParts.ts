@@ -1,5 +1,5 @@
 // Shared pieces of the Chats page: message types and small helpers (moved out of Chats.tsx, unchanged).
-import { supabase, Outcome, when, money } from "./lib";
+import { supabase, Outcome, when, money, gotPrice } from "./lib";
 import { type ProductMatch } from "./Products";
 import { inferredFrom, kitoChecking } from "./Orders";
 
@@ -55,7 +55,7 @@ export function statusOf(r: Outcome, T: Tr, currency: string): Status {
   if (r.outcome === "lost") return { key: "lost", icon: "×", tone: "muted", text: T("Didn't buy", "Hakununua") };
   if (r.last_dir === "in" && !r.last_in_closing) return { key: "waiting", icon: "●", tone: "bad", text: T("Waiting for your reply", "Anasubiri umjibu") };
   if (r.pay_instructions) return { key: "paynum", icon: "●", tone: "info", text: T("Has your payment number, hasn't paid yet", "Ana namba ya malipo, bado hajalipa") };
-  if (r.price_shared) return { key: "priced", icon: "●", tone: "info", text: T("Got the price, still deciding", "Amepata bei, bado anaamua") };
+  if (gotPrice(r)) return { key: "priced", icon: "●", tone: "info", text: T("Got the price, still deciding", "Amepata bei, bado anaamua") };
   return { key: "new", icon: "●", tone: "info", text: T("Just started talking", "Ndio ameanza kuongea") };
 }
 
