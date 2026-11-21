@@ -17,7 +17,7 @@
 :root[data-dark="graphite"]:not([data-theme="light"]) body { background: #0f0f10; }
 
 /* Tabs and buttons: liquid glass like the other looks (see glass.css) */
-:root[data-dark="graphite"]:not([data-theme="light"]) .card { background: #161618; border-color: #26262b; box-shadow: none; }
+/* Cards: frosted glass, see the "Glass cards" section of glass.css */
 
 /* Dashboard (normally navy + yellow) */
 :root[data-dark="graphite"]:not([data-theme="light"]) .dash-ia {

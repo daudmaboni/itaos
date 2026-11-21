@@ -10,9 +10,11 @@ import "./glass.css";
 import "./auth.css";
 import { startPwa } from "./pwa";
 import { startPullRefresh } from "./pullRefresh";
+import { startGlassCards } from "./glassCards";
 
 startPwa();
 startPullRefresh();
+startGlassCards();
 
 // "/" is the public homepage; the app lives at "/app".
 // "/r/<code>" is the public page a printed receipt's QR opens.

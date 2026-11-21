@@ -221,3 +221,82 @@ button.linkish.small { color: var(--muted); }
 .card.flat:hover { border-color: transparent; }
 .card.flat + .card.flat { border-top: 1px solid var(--line); padding-top: 22px; }
 @media (max-width: 899px) { .card.flat + .card.flat { padding-top: 18px; } }
+
+/* =====================================================================================
+   Glass cards (iPhone style). Every .card and .kpi tile is a sheet of frosted glass
+   over a soft coloured wash, so there is something behind the glass to see through.
+   - Hairline edge only (no heavy borders), light catching the top edge, soft shadow.
+   - Computers: a soft light follows the mouse (--mx/--my, set by glassCards.ts).
+   - Weak phones (html.glass-lite): same look without the live blur, so scrolling stays smooth.
+   - "Reduce transparency" in phone settings: solid cards.
+   The homepage (html.hp-page) and the chat inbox (.card.chats) are left as they are.
+   ===================================================================================== */
+:root {
+  --gc-fill: rgba(28, 28, 32, .58);
+  --gc-edge: rgba(255, 255, 255, .075);
+  --gc-sheen: linear-gradient(180deg, rgba(255, 255, 255, .06) 0%, rgba(255, 255, 255, 0) 38%);
+  --gc-light: rgba(255, 255, 255, .07);
+  --gc-ring: inset 0 1px 0 rgba(255, 255, 255, .09), inset 0 0 0 1px rgba(255, 255, 255, .03), 0 14px 34px -22px rgba(0, 0, 0, .9);
+  --gc-ring-hover: inset 0 1px 0 rgba(255, 255, 255, .13), inset 0 0 0 1px rgba(255, 255, 255, .05), 0 18px 40px -22px rgba(0, 0, 0, .95);
+  --gc-blur: blur(22px) saturate(170%);
+  --gc-wash:
+    radial-gradient(50% 42% at 8% 4%, rgba(74, 222, 128, .18), transparent 70%),
+    radial-gradient(42% 38% at 96% 10%, rgba(125, 211, 252, .13), transparent 70%),
+    radial-gradient(46% 40% at 70% 100%, rgba(247, 201, 72, .09), transparent 70%);
+}
+:root[data-theme="light"] {
+  --gc-fill: rgba(255, 255, 255, .56);
+  --gc-edge: rgba(255, 255, 255, .85);
+  --gc-sheen: linear-gradient(180deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, 0) 42%);
+  --gc-light: rgba(255, 255, 255, .7);
+  --gc-ring: inset 0 1px 1px rgba(255, 255, 255, .95), 0 0 0 .5px rgba(20, 24, 36, .09), 0 10px 30px -18px rgba(20, 24, 36, .28);
+  --gc-ring-hover: inset 0 1px 1px #fff, 0 0 0 .5px rgba(20, 24, 36, .13), 0 16px 36px -18px rgba(20, 24, 36, .34);
+  --gc-wash:
+    radial-gradient(52% 44% at 6% 2%, rgba(18, 115, 74, .16), transparent 70%),
+    radial-gradient(44% 40% at 98% 8%, rgba(36, 86, 211, .12), transparent 70%),
+    radial-gradient(48% 42% at 72% 100%, rgba(247, 201, 72, .20), transparent 70%);
+}
+
+/* The coloured wash behind everything (fixed, so it never repaints while you scroll) */
+:where(html:not(.hp-page)) body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--gc-wash);
+}
+
+/* The glass itself */
+:where(html:not(.hp-page)) :is(.card, .kpi):not(.chats) {
+  background-color: var(--gc-fill);
+  background-image:
+    radial-gradient(260px circle at var(--mx, 50%) var(--my, -320px), var(--gc-light), transparent 62%),
+    var(--gc-sheen);
+  border-color: var(--gc-edge);
+  box-shadow: var(--gc-ring);
+  -webkit-backdrop-filter: var(--gc-blur); backdrop-filter: var(--gc-blur);
+  transition: border-color .25s var(--ease), box-shadow .3s var(--ease), transform .45s var(--lg-spring);
+}
+:where(html:not(.hp-page)) :is(.card, .kpi):not(.chats):hover { box-shadow: var(--gc-ring-hover); }
+
+/* A card inside a card: no second layer of blur (looks muddy and costs a lot) */
+:where(html:not(.hp-page)) :is(.card, .kpi) :is(.card, .kpi) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Cards you can tap: pressed instantly, springs back on release (Apple's press feedback) */
+:where(html:not(.hp-page)) .kpi-click:active, :where(html:not(.hp-page)) :is(a, button).card:active {
+  transform: scale(.98); transition: transform .1s ease-out;
+}
+
+/* Weak phones: keep the see-through look, drop the live blur; a little more solid so text stays sharp */
+html.glass-lite :is(.card, .kpi):not(.chats) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root.glass-lite { --gc-fill: rgba(26, 26, 30, .82); }
+:root.glass-lite[data-theme="light"] { --gc-fill: rgba(255, 255, 255, .78); }
+
+/* Phone setting "Reduce transparency" (and browsers without blur): solid cards */
+@media (prefers-reduced-transparency: reduce) {
+  :where(html:not(.hp-page)) :is(.card, .kpi):not(.chats) { background-color: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --gc-fill: rgba(26, 26, 30, .86); }
+  :root[data-theme="light"] { --gc-fill: rgba(255, 255, 255, .84); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(html:not(.hp-page)) :is(.card, .kpi) { transition: border-color .2s ease, box-shadow .2s ease; }
+  :where(html:not(.hp-page)) :is(.kpi-click, a.card, button.card):active { transform: none; }
+}
