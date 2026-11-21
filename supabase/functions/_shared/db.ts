@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
-import { analyze, Msg } from "./signals.ts";
+import { analyze, Msg, type Rules } from "./signals.ts";
 import { confirmTicks, TickMsg } from "./ticks.ts";
 
 export const GRAPH = `https://graph.facebook.com/${Deno.env.get("META_GRAPH_VERSION") ?? "v25.0"}`;
@@ -45,11 +45,16 @@ export async function storeToken(db: SupabaseClient, name: string, token: string
 
 /** Recompute signals for conversations and save them. */
 export async function reanalyze(db: SupabaseClient, conversationIds: string[]) {
+  // Each business's own wording (Settings → How itaOS reads your chats), loaded once per business.
+  const rulesOf = new Map<string, Rules>();
   for (const id of [...new Set(conversationIds)]) {
     const { data: msgs, error: readError } = await db.from("messages").select("id,direction,sent_at,body,type,media").eq("conversation_id", id).order("sent_at");
     if (readError) throw new Error(`could not load messages for analysis: ${readError.message}`);
     if (!msgs?.length) continue;
-    const a = analyze(msgs as Msg[]);
+    const { data: cv } = await db.from("conversations").select("workspace_id, workspaces(rule_delivered_texts)").eq("id", id).maybeSingle();
+    const wsId = (cv as any)?.workspace_id as string | undefined;
+    if (wsId && !rulesOf.has(wsId)) rulesOf.set(wsId, { delivered: (cv as any)?.workspaces?.rule_delivered_texts ?? [] });
+    const a = analyze(msgs as Msg[], Date.now(), (wsId && rulesOf.get(wsId)) || {});
     const { error: updateError } = await db.from("conversations").update({
       ...a,
       started_at: msgs[0].sent_at,

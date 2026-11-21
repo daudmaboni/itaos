@@ -239,10 +239,11 @@ export type OnboardingRow = {
 
 /** How long a business has sat on its current step: time since it finished the step before
  *  (or since joining). `step` is the index into the admin board's STEPS (0 = WhatsApp, 1 = first chat,
- *  2 = Meta Ads, 3 = first sale, 4 = done). Uses the latest reached milestone when timestamps are missing. */
+ *  2 = chat rules, 3 = Meta Ads, 4 = first sale, 5 = done). Uses the latest reached milestone when timestamps are missing. */
 export function daysOnStep(o: OnboardingRow | undefined, step: number, now = Date.now()): number | null {
-  if (!o || step >= 4) return null;
-  const marks = [o.joined_at, o.wa_at, o.first_chat_at, o.meta_at];
+  if (!o || step >= 5) return null;
+  // No timestamp for the rules step: the search falls back to the first chat.
+  const marks = [o.joined_at, o.wa_at, o.first_chat_at, null, o.meta_at];
   let since: string | null = null;
   for (let i = step; i >= 0 && !since; i--) since = marks[i] ?? null;
   if (!since) return null;
@@ -252,11 +253,12 @@ export function daysOnStep(o: OnboardingRow | undefined, step: number, now = Dat
 const STEP_ACTION = [
   'Book a 15-minute call to connect their WhatsApp number through Dualhook (Coexistence).',
   'WhatsApp is connected but no customer chat has arrived. Check the webhook and send a test message.',
+  'Sit with the owner and fill in Settings → How itaOS reads your chats: their ad\'s first message, their after-payment message, and whether they mark payments with ✅.',
   'Help them link the Meta ad account so spend and cost per sale show.',
   'Show them how to confirm a payment in Chats (or send ✅) so sales start counting.',
 ];
 export function stepAction(step: number, days: number | null): { tone: 'bad' | 'warn' | 'info'; text: string } | null {
-  if (step >= 4) return null;
+  if (step >= 5) return null;
   const tone = days == null ? 'info' : days >= 14 ? 'bad' : days >= 5 ? 'warn' : 'info';
   return { tone, text: STEP_ACTION[step]! };
 }

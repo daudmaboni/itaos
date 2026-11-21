@@ -9,16 +9,20 @@
 import { useEffect, useState } from "react";
 import { supabase, amt } from "./lib";
 import { hidePreloader } from "./preloader";
+import { palette, type Brand } from "./brand";
 
 type Check = {
   business: string; business_wa: string | null; timezone: string; receipt_no: string;
   status: "paid" | "refunded" | "cancelled" | "pending"; currency: string; total: number; paid: number; refunded: number;
   paid_at: string; items: { name: string; qty: number }[]; customer: string | null; payment_ref_end: string | null;
   delivery: string | null;
+  brand?: Brand | null;   // 0059: the business's own look (Settings → Your receipts)
   staff: null | { order_id: string; workspace_id: string; scans: number; first_scan_at: string | null; last_scan_at: string | null };
 };
 
-const G = { green: "#029046", greenText: "#027a3d", forest: "#0b3b24", honey: "#e9a23b", cream: "#f5f0e6", surface: "#fffdf8", ink: "#13231a", muted: "#56665c", line: "#e3dccd", mint: "#dcefe2", red: "#b42318", redBg: "#fdecea", amber: "#8a5a00", amberBg: "#fdf3dc" };
+// Neutral paper and ink. The brand colours come from the business (CSS variables --b… set per receipt).
+const P0 = palette(null);
+const G = { green: P0.green, greenText: P0.greenText, forest: P0.forest, honey: P0.honey, cream: "#f5f0e6", surface: "#fffdf8", ink: "#13231a", muted: "#56665c", line: "#e3dccd", mint: "#dcefe2", red: "#b42318", redBg: "#fdecea", amber: "#8a5a00", amberBg: "#fdf3dc" };
 
 const DELIVERY: Record<string, [string, string]> = {
   not_shipped: ["Bado haujatumwa", "Not sent yet"],
@@ -35,7 +39,6 @@ function setMeta() {
   add("robots", "noindex, nofollow"); // receipts never show up in search engines
   add("referrer", "no-referrer");     // the secret code never leaks to sites this page links to
   document.querySelector('link[rel="canonical"]')?.remove();
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", G.green);
 }
 
 export default function ReceiptCheck() {
@@ -53,7 +56,7 @@ export default function ReceiptCheck() {
   useEffect(() => { setMeta(); hidePreloader(); load(); }, []);
 
   return (
-    <div className="rc-root">
+    <div className="rc-root" style={vars(d?.brand)}>
       <style>{CSS}</style>
       <main className="rc-card" aria-live="polite">
         {failed ? <Problem onRetry={load} /> : d === undefined ? <Loading /> : d === null ? <NotFound /> : <Receipt d={d} />}
@@ -61,6 +64,13 @@ export default function ReceiptCheck() {
       <a className="rc-foot" href="https://itaos.app/" target="_blank" rel="noopener">Imethibitishwa na <b>ita<span>.</span>OS</b> · Verified by itaOS</a>
     </div>
   );
+}
+
+/** The business's colours as CSS variables, and the browser bar colour to match. */
+function vars(b?: Brand | null): React.CSSProperties {
+  const p = palette(b);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", p.green);
+  return { "--b": p.green, "--b-text": p.greenText, "--b-deep": p.forest, "--b-acc": p.honey, "--b-tint": p.mint } as React.CSSProperties;
 }
 
 function Receipt({ d }: { d: Check }) {
@@ -83,8 +93,10 @@ function Receipt({ d }: { d: Check }) {
   return (
     <>
       <header className="rc-head">
-        <div className="rc-mark" aria-hidden="true">{d.business.trim().charAt(0).toUpperCase()}</div>
-        <div><h1>{d.business}</h1><p>Risiti ya malipo · Payment receipt</p></div>
+        {d.brand?.logo
+          ? <div className="rc-mark logo" aria-hidden="true"><img src={d.brand.logo} alt="" /></div>
+          : <div className="rc-mark" aria-hidden="true">{d.business.trim().charAt(0).toUpperCase()}</div>}
+        <div><h1>{d.business}</h1><p>{d.brand?.town ? `${d.brand.town} · ` : ""}Risiti ya malipo · Payment receipt</p></div>
       </header>
 
       <div className={`rc-badge ${badge.cls}`} role="status">
@@ -97,7 +109,7 @@ function Receipt({ d }: { d: Check }) {
         <div><dt>Tarehe <small>Date</small></dt><dd>{date} · {time}</dd></div>
         {d.customer && <div><dt>Jina <small>Name</small></dt><dd>{d.customer}</dd></div>}
         {d.items.length > 0 && <div><dt>Bidhaa <small>Items</small></dt><dd>{d.items.map((i, k) => <span key={k} className="rc-item">{i.name}{i.qty > 1 ? ` × ${i.qty}` : ""}</span>)}</dd></div>}
-        {d.payment_ref_end && <div><dt>Muamala M-Pesa <small>Payment code</small></dt><dd className="mono">•••• {d.payment_ref_end}</dd></div>}
+        {d.payment_ref_end && <div><dt>Muamala{d.brand?.pay_method ? ` ${d.brand.pay_method}` : ""} <small>Payment code</small></dt><dd className="mono">•••• {d.payment_ref_end}</dd></div>}
         {d.status === "paid" && d.delivery && DELIVERY[d.delivery] && <div><dt>Mzigo <small>Delivery</small></dt><dd>{DELIVERY[d.delivery][0]} <small>{DELIVERY[d.delivery][1]}</small></dd></div>}
       </dl>
 
@@ -164,15 +176,16 @@ html,body{background:${G.cream}!important}
 .rc-head{display:flex;align-items:center;gap:12px}
 .rc-head h1{margin:0;font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.01em;line-height:1.15}
 .rc-head p{margin:2px 0 0;font-size:13px;color:${G.muted}}
-.rc-mark{width:44px;height:44px;flex-shrink:0;border-radius:999px;background:${G.green};color:#fff;display:grid;place-items:center;font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:22px}
+.rc-mark.logo{background:#fff;border:1px solid var(--line, #e3dccd);overflow:hidden}.rc-mark.logo img{width:86%;height:86%;object-fit:contain}
+.rc-mark{width:44px;height:44px;flex-shrink:0;border-radius:999px;background:var(--b);color:#fff;display:grid;place-items:center;font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:22px}
 .rc-badge{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px}
 .rc-badge b{display:block;font-size:17px;line-height:1.2}
 .rc-badge small{display:block;font-size:13px;margin-top:2px;opacity:.85}
-.rc-badge.ok{background:${G.mint};color:${G.forest}}
+.rc-badge.ok{background:var(--b-tint);color:var(--b-deep)}
 .rc-badge.warn{background:${G.amberBg};color:${G.amber}}
 .rc-badge.bad{background:${G.redBg};color:${G.red}}
 .rc-icon{width:34px;height:34px;flex-shrink:0;border-radius:999px;display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;background:currentColor}
-.rc-badge.ok .rc-icon{background:${G.green}}.rc-badge.warn .rc-icon{background:${G.honey}}.rc-badge.bad .rc-icon{background:${G.red}}
+.rc-badge.ok .rc-icon{background:var(--b)}.rc-badge.warn .rc-icon{background:var(--b-acc)}.rc-badge.bad .rc-icon{background:${G.red}}
 .rc-icon{color:#fff!important}
 .rc-rows{margin:0;display:flex;flex-direction:column}
 .rc-rows>div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid ${G.line};font-size:15px}
@@ -181,27 +194,27 @@ html,body{background:${G.cream}!important}
 .rc-rows dt small,.rc-rows dd small{display:block;font-size:12px;opacity:.8}
 .rc-rows dd{margin:0;text-align:right;font-weight:600;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .rc-rows .mono{font-family:'Geist Mono',ui-monospace,monospace;letter-spacing:.02em}
-.rc-total{display:flex;justify-content:space-between;align-items:center;background:${G.green};color:#fff;border-radius:16px;padding:16px 18px}
+.rc-total{display:flex;justify-content:space-between;align-items:center;background:var(--b);color:#fff;border-radius:16px;padding:16px 18px}
 .rc-total span{font-weight:700}.rc-total small{display:block;font-weight:500;font-size:12px;opacity:.85}
 .rc-total b{font-family:'Bricolage Grotesque',Inter,sans-serif;font-size:26px;font-weight:800}
 .rc-note{margin:0;font-size:13px;color:${G.muted};line-height:1.45}
 .rc-actions{display:flex;flex-direction:column;gap:12px;align-items:stretch;margin-top:4px}
 .rc-btn{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;min-height:54px;padding:10px 16px;border-radius:999px;border:0;background:#1fa855;color:#fff;font:700 16px Inter,system-ui,sans-serif;text-decoration:none;cursor:pointer;text-align:center}
 .rc-btn small{flex-basis:100%;font-weight:500;font-size:12px;opacity:.9;margin-top:-6px}
-.rc-btn.dark{background:${G.forest}}
+.rc-btn.dark{background:var(--b-deep)}
 .rc-btn:active{transform:scale(.98)}
-.rc-link{text-align:center;color:${G.greenText};font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:6px}
+.rc-link{text-align:center;color:var(--b-text);font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:6px}
 .rc-staff{border-top:1px dashed ${G.line};padding-top:16px;display:flex;flex-direction:column;gap:10px;font-size:14px}
 .rc-staff p{margin:0;line-height:1.45}
 .rc-muted{color:${G.muted}}
 .rc-item{display:block}
 .rc-state{display:flex;flex-direction:column;gap:12px;padding:8px 0;font-size:15px;line-height:1.5}
 .rc-state p{margin:0}.rc-state small{display:block;color:${G.muted}}
-.rc-spin{width:36px;height:36px;border-radius:999px;border:3px solid ${G.mint};border-top-color:${G.green};animation:rcspin .8s linear infinite;margin:12px auto 0}
+.rc-spin{width:36px;height:36px;border-radius:999px;border:3px solid var(--b-tint);border-top-color:var(--b);animation:rcspin .8s linear infinite;margin:12px auto 0}
 @keyframes rcspin{to{transform:rotate(360deg)}}
 .rc-state:has(.rc-spin){align-items:center;text-align:center}
 .rc-foot{margin-top:18px;font-size:12px;color:${G.muted};text-decoration:none}
-.rc-foot b{color:${G.ink}}.rc-foot b span{color:${G.honey}}
+.rc-foot b{color:${G.ink}}.rc-foot b span{color:#f2b705}
 @media (prefers-reduced-motion:reduce){.rc-spin{animation:none}}
 @media print{.rc-actions,.rc-staff{display:none}.rc-card{box-shadow:none}}
 `;

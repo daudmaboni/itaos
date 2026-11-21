@@ -135,7 +135,7 @@ export function Board({ rows, onOpen, onb = {} }: { rows: WsRow[]; onOpen: (id: 
                   <button key={w.id} title={act ? `${days != null ? `${days} days on this step. ` : ''}Next: ${act.text}` : undefined} className="ia-chip" style={{ animationDelay: `${120 + n++ * 70}ms` }} onClick={() => onOpen(w.id)}>
                     <span className="ia-tile sm" style={{ background: tileColor(w.id) }}>{initials(w.name)}</span>
                     <span className="ia-chiptxt"><strong>{w.name}</strong><small>joined {ago(w.created_at)}{days != null && <> · <span className={`ix-stuck t-${act?.tone ?? 'info'}`}>{days === 0 ? 'today' : `${days}d here`}</span></>}</small></span>
-                    <span className="ia-ticks" aria-label={`${STEPS.filter((s) => s.done(w)).length} of 4 steps done`}>
+                    <span className="ia-ticks" aria-label={`${STEPS.filter((s) => s.done(w)).length} of ${STEPS.length} steps done`}>
                       {STEPS.map((s) => <i key={s.key} className={s.done(w) ? 'on' : ''} title={s.label} />)}
                     </span>
                     {(h.tone === 'bad' || h.tone === 'warn') && <span className={`ia-flag t-${h.tone}`} title={h.text} />}

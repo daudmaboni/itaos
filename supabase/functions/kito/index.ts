@@ -69,7 +69,7 @@ function agoText(iso: string, now = Date.now()) {
   return m < 60 ? `${m} minutes ago` : m < 48 * 60 ? `${Math.round(m / 60)} hours ago` : `${Math.round(m / 1440)} days ago`;
 }
 
-/** The business's own "customer has paid" messages (Settings → Rules & rates), e.g. Kayani's "Matumizi ya KayaTox". */
+/** The business's own "customer has paid" messages (Settings → How itaOS reads your chats). */
 function paidLine(texts: string[]) {
   const t = texts.map((x) => x.replace(/["\n]/g, " ").trim().slice(0, 80)).filter(Boolean).slice(0, 5);
   return t.length ? `The business sending ${t.map((x) => `"${x}"`).join(" or ")} means the customer paid: that alone is "sold". ` : "";
@@ -92,7 +92,7 @@ ${rulesBody(lang, currency, paidTexts)}`;
 // The "Decide:" rules, shared word for word by both layouts.
 function rulesBody(lang: string, currency: string, paidTexts: string[] = []) {
   return `Decide:
-- outcome: "sold" if the customer paid or clearly received/collected the goods (the customer's payment message or "[picha ya malipo]", the business confirming it received the money, or the customer confirming they received/collected the goods). Only something that ALREADY happened counts: a question, a "what if" ("je mfano nikichukua dawa…", "kama nikilipa…", "nikitumia zisiponisaidia mnafanyeje?"), a plan ("nitalipa kesho", "nikifika dar") or asking how to pay is NOT payment, even when it uses words like "nimechukua", "nimelipa" or "nimetuma". When unsure whether money really moved, do not say "sold": use "open" and confidence "low". Delivery arranged ("unaletewa na boda", "tutakutumia kesho") is not payment until the customer confirms they paid or received the goods, or the business confirms it got the money. ${paidLine(paidTexts)}Usage instructions${paidTexts.length ? " for anything else" : ""} ("Matumizi ya …") count only together with a payment sign (payment message, "[picha ya malipo]", the business confirming payment, or the customer confirming they received the goods). A photo that could not be read ("[image]", "<Media omitted>", "[media_placeholder]") is never payment on its own. "open" if the chat is still in progress: ANY message in the last 2 days means "open" unless the customer clearly said no. "lost" only when the chat went quiet for more than 2 days, or the customer clearly refused. A slow reply by the business is a blocker (business_slow), never by itself a reason for "lost".
+- outcome: "sold" if the customer paid or clearly received/collected the goods (the customer's payment message or "[picha ya malipo]", the business confirming it received the money, or the customer confirming they received/collected the goods). Only something that ALREADY happened counts: a question, a "what if" ("je mfano nikichukua dawa…", "kama nikilipa…", "nikitumia zisiponisaidia mnafanyeje?"), a plan ("nitalipa kesho", "nikifika dar") or asking how to pay is NOT payment, even when it uses words like "nimechukua", "nimelipa" or "nimetuma". When unsure whether money really moved, do not say "sold": use "open" and confidence "low". Delivery arranged ("unaletewa na boda", "tutakutumia kesho") is not payment until the customer confirms they paid or received the goods, or the business confirms it got the money. ${paidLine(paidTexts)}Usage or after-sale instructions${paidTexts.length ? " for anything else" : ""} count only together with a payment sign (payment message, "[picha ya malipo]", the business confirming payment, or the customer confirming they received the goods). A photo that could not be read ("[image]", "<Media omitted>", "[media_placeholder]") is never payment on its own. "open" if the chat is still in progress: ANY message in the last 2 days means "open" unless the customer clearly said no. "lost" only when the chat went quiet for more than 2 days, or the customer clearly refused. A slow reply by the business is a blocker (business_slow), never by itself a reason for "lost".
 - Judge mainly the latest part of the chat. Many chats have old messages weeks earlier and then a new conversation: the new conversation decides outcome and temperature; old messages are background.
 - Bargaining ("haipungui?", "bei ya mwisho?", "naweza kupata kwa ...?"), asking how to pay, or asking about delivery to their own place are buying signals: usually "hot". Asking the price alone ("bei gani?", "mnapatikana wapi?", or the ad's ready-made first message) is NOT enough for "warm": what the customer does AFTER the business answers decides.
 - label: the furthest stage reached, one of ${JSON.stringify(LABELS)}.
@@ -298,7 +298,7 @@ async function draftReply(db: ReturnType<typeof admin>, ws: string, conversation
   return { chat_lang, draft_sw: str(out.draft_sw, 1200), draft_en: str(out.draft_en, 1200), why: str(out.why, 300), grounded_on: arr(out.grounded_on), missing: arr(out.missing), profile_used: !!profile, model: MODEL };
 }
 
-type WsInfo = { language: string; currency: string; paid: string[]; tz: string };
+type WsInfo = { language: string; currency: string; paid: string[]; delivered: string[]; tz: string };
 
 /**
  * Ahadi: save the customer's still-open promise as a PROPOSED task the owner confirms or dismisses.
@@ -325,8 +325,8 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
 
 async function wsInfoFor(db: ReturnType<typeof admin>, cache: Map<string, WsInfo>, ws: string) {
   if (!cache.has(ws)) {
-    const { data: w } = await db.from("workspaces").select("language,currency,rule_paid_texts,timezone").eq("id", ws).single();
-    cache.set(ws, { language: w?.language ?? "sw", currency: w?.currency ?? "TZS", paid: Array.isArray(w?.rule_paid_texts) ? w.rule_paid_texts : [], tz: w?.timezone || "Africa/Dar_es_Salaam" });
+    const { data: w } = await db.from("workspaces").select("language,currency,rule_paid_texts,rule_delivered_texts,timezone").eq("id", ws).single();
+    cache.set(ws, { language: w?.language ?? "sw", currency: w?.currency ?? "TZS", paid: Array.isArray(w?.rule_paid_texts) ? w.rule_paid_texts : [], delivered: Array.isArray(w?.rule_delivered_texts) ? w.rule_delivered_texts : [], tz: w?.timezone || "Africa/Dar_es_Salaam" });
   }
   return cache.get(ws)!;
 }
@@ -502,7 +502,7 @@ Deno.serve(async (req) => {
         let mq = db.from("messages").select("direction,body,type").eq("conversation_id", c.id).order("sent_at", { ascending: false }).limit(20);
         if (c.kito_checked_at) mq = mq.gt("sent_at", c.kito_checked_at);
         const { data: fresh } = await mq;
-        if (c.payment_signal || (fresh ?? []).some((m: any) => isMoneyMoment(m.body, m.direction, info.paid, m.type))) urgent.push(c);
+        if (c.payment_signal || (fresh ?? []).some((m: any) => isMoneyMoment(m.body, m.direction, info.paid, m.type, info.delivered))) urgent.push(c);
       } catch { urgent.push(c); }   // unsure: read now
     }
     due.splice(0, due.length, ...urgent);

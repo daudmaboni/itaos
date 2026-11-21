@@ -78,7 +78,8 @@ describe("onboarding and recovery", () => {
     expect(daysOnStep(o, 0, now)).toBe(18);
     expect(daysOnStep(o, 1, now)).toBe(9);
     expect(daysOnStep(o, 2, now)).toBe(9); // first chat time unknown: falls back to WhatsApp
-    expect(daysOnStep(o, 4, now)).toBeNull();
+    expect(daysOnStep(o, 3, now)).toBe(9); // chat rules: no timestamp, falls back too
+    expect(daysOnStep(o, 5, now)).toBeNull();
     expect(stepAction(1, 9)!.tone).toBe("warn");
     expect(stepAction(0, 20)!.tone).toBe("bad");
   });

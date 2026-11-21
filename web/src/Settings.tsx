@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle } from "./MoneyHero";
 import type { HeroStyle } from "./MoneyHero";
 import { createPortal } from "react-dom";
+import { palette, readLogo } from "./brand";
 import { supabase, callFn, Workspace, canManage, canEdit, when, moneyInput, moneyText, commaRuns } from "./lib";
 import PhoneApp from "./PhoneApp";
 import { enterCards, enterRows, flash, shake, usePageEnter, select } from "./motion";
@@ -39,7 +40,7 @@ export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; 
       {tab === "business" && <Business ws={ws} onWs={onWs} T={T} />}
       {tab === "profile" && <Profile ws={ws} T={T} />}
       {tab === "appearance" && <Appearance ws={ws} onWs={onWs} theme={theme} onTheme={onTheme} T={T} />}
-      {tab === "rules" && <><PaymentsCurrency ws={ws} onWs={onWs} T={T} /><Rates ws={ws} onWs={onWs} T={T} /><ChatRules ws={ws} onWs={onWs} T={T} /><NameWords ws={ws} T={T} /><Replying ws={ws} onWs={onWs} T={T} /></>}
+      {tab === "rules" && <><PaymentsCurrency ws={ws} onWs={onWs} T={T} /><Rates ws={ws} onWs={onWs} T={T} /><ChatRules ws={ws} onWs={onWs} T={T} /><NameWords ws={ws} T={T} /><ReceiptLook ws={ws} onWs={onWs} T={T} /><Replying ws={ws} onWs={onWs} T={T} /></>}
       {tab === "app" && <PhoneApp ws={ws} T={T} />}
       {tab === "account" && <><MyProfile ws={ws} T={T} /><Account email={email} T={T} /></>}
     </div>
@@ -194,12 +195,15 @@ function ChatRules({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => voi
   const [locQ, setLocQ] = useState(lines(ws.rule_loc_question));
   const [locR, setLocR] = useState(lines(ws.rule_loc_reply));
   const [paid, setPaid] = useState(lines(ws.rule_paid_texts));
+  const [deliv, setDeliv] = useState(lines(ws.rule_delivered_texts));
+  const [tick, setTick] = useState(!!ws.rule_owner_tick);
   const { msg, busy, save } = useSave(ws, onWs);
   const manager = canManage(ws);
   const list = (v: string, max: number) => [...new Set(v.split("\n").map((x) => x.trim().slice(0, 200)).filter(Boolean))].slice(0, max);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    await save({ rule_ad_texts: list(ad, 20), rule_loc_question: list(locQ, 10), rule_loc_reply: list(locR, 10), rule_paid_texts: list(paid, 10) },
+    await save({ rule_ad_texts: list(ad, 20), rule_loc_question: list(locQ, 10), rule_loc_reply: list(locR, 10), rule_paid_texts: list(paid, 10),
+                 rule_delivered_texts: list(deliv, 15), rule_owner_tick: tick, rules_reviewed_at: new Date().toISOString() },
       e.currentTarget, T("Saved. New messages are read with these rules.", "Imehifadhiwa. Jumbe mpya zinasomwa kwa kanuni hizi."));
   }
   const area = { rows: 3, style: { width: "100%", maxWidth: 520, fontFamily: "inherit" }, disabled: !manager };
@@ -213,11 +217,21 @@ function ChatRules({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => voi
         <textarea id="r-lq" {...area} rows={2} value={locQ} placeholder={T("e.g. Mnapatikana wapi", "mf. Mnapatikana wapi")} onChange={(e) => setLocQ(e.target.value)} />
       </Field>
       <Field id="r-lr" label={T("…and your reply always contains", "…na jibu lako lina maneno haya yote")} hint={T("Words that only appear in the reply you give to people who saw your ad (all of them must be there). Leave empty to turn this off.", "Maneno yanayoonekana tu kwenye jibu unalowapa walioona tangazo lako (yote lazima yawepo). Acha wazi kuzima.")}>
-        <textarea id="r-lr" {...area} rows={2} value={locR} placeholder={T("e.g. Tunapatikana\nvideo hiyo", "mf. Tunapatikana\nvideo hiyo")} onChange={(e) => setLocR(e.target.value)} />
+        <textarea id="r-lr" {...area} rows={2} value={locR} placeholder={T("e.g. Tunapatikana\ntangazo", "mf. Tunapatikana\ntangazo")} onChange={(e) => setLocR(e.target.value)} />
       </Field>
       <Field id="r-pd" label={T("The message you send after payment", "Ujumbe unaotuma baada ya malipo")} hint={T("A message you only send once the customer has paid (e.g. usage instructions). When itaOS sees it, that day becomes the payment day.", "Ujumbe unaoutuma tu baada ya mteja kulipa (mf. maelekezo ya matumizi). itaOS ikiuona, siku hiyo inakuwa siku ya malipo.")}>
-        <textarea id="r-pd" {...area} rows={2} value={paid} placeholder={T("e.g. Matumizi ya …", "mf. Matumizi ya …")} onChange={(e) => setPaid(e.target.value)} />
+        <textarea id="r-pd" {...area} rows={2} value={paid} placeholder={T("e.g. Asante kwa malipo, mzigo unaandaliwa", "mf. Asante kwa malipo, mzigo unaandaliwa")} onChange={(e) => setPaid(e.target.value)} />
       </Field>
+      <Field id="r-dl" label={T("Messages you send once the customer has the goods", "Jumbe unazotuma mteja akishapata bidhaa")} hint={T("e.g. how to use the product, care instructions. These count as a sale only together with a payment sign (a payment screenshot, the customer saying they paid, or the payment details you sent). Leave empty if you don't send such messages.", "mf. jinsi ya kutumia bidhaa, maelekezo ya utunzaji. Zinahesabika kama mauzo tu pamoja na dalili ya malipo (picha ya malipo, mteja kusema amelipa, au maelezo ya malipo uliyotuma). Acha wazi kama hutumi jumbe kama hizi.")}>
+        <textarea id="r-dl" {...area} rows={3} value={deliv} placeholder={T("e.g. Jinsi ya kutumia", "mf. Jinsi ya kutumia")} onChange={(e) => setDeliv(e.target.value)} />
+      </Field>
+      <div className="field">
+        <label className="row" style={{ gap: 10, cursor: manager ? "pointer" : "default", alignItems: "flex-start" }}>
+          <input type="checkbox" checked={tick} disabled={!manager} onChange={(e) => setTick(e.target.checked)} style={{ marginTop: 3 }} />
+          <span><b>{T("I mark payments with a ✅", "Ninaweka ✅ kuonyesha malipo")}</b><br />
+            <span className="small muted">{T("When you send a price with a tick (\"TZS 205,000✅\") or \"Umelipiwa✅\", itaOS records a paid sale. Turn this off if you use ✅ for anything else.", "Ukituma bei yenye tiki (\"TZS 205,000✅\") au \"Umelipiwa✅\", itaOS inarekodi mauzo yaliyolipwa. Zima kama unatumia ✅ kwa mambo mengine.")}</span></span>
+        </label>
+      </div>
       {manager && <SaveRow busy={busy} msg={msg} T={T} />}
     </form>
   );
@@ -566,6 +580,73 @@ function Account({ email, T }: { email: string; T: Tr }) {
         </div>
       </section>
     </>
+  );
+}
+
+/** How this business's receipts look (migration 0059): colours, logo, town and how customers pay.
+ *  Printed receipts and the public receipt page (QR) both use these. Nothing here is shared between businesses. */
+function ReceiptLook({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => void; T: Tr }) {
+  const manager = canManage(ws);
+  const [color, setColor] = useState(ws.brand_color ?? "");
+  const [accent, setAccent] = useState(ws.brand_accent ?? "");
+  const [town, setTown] = useState(ws.brand_town ?? "");
+  const [pay, setPay] = useState(ws.pay_method ?? "");
+  const [logo, setLogo] = useState<string | null>(null);
+  const [logoMsg, setLogoMsg] = useState("");
+  const { msg, busy, save } = useSave(ws, onWs);
+  useEffect(() => {
+    supabase.from("workspaces").select("brand_logo").eq("id", ws.id).single().then(({ data }) => setLogo((data as any)?.brand_logo ?? null));
+  }, [ws.id]);
+  const p = palette({ color: color || null, accent: accent || null });
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f) return;
+    setLogoMsg("");
+    try { setLogo(await readLogo(f)); }
+    catch { setLogoMsg(T("Couldn't read that picture. Try a PNG or JPG.", "Imeshindwa kusoma picha hiyo. Jaribu PNG au JPG.")); }
+  }
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const hex = (v: string) => (/^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim().toLowerCase() : null);
+    const form = e.currentTarget;
+    const { error } = await supabase.from("workspaces").update({ brand_logo: logo }).eq("id", ws.id);
+    if (error) { setLogoMsg(T("Couldn't save the logo.", "Imeshindwa kuhifadhi nembo.")); return; }
+    await save({ brand_color: hex(color), brand_accent: hex(accent), brand_town: town.trim().slice(0, 60) || null, pay_method: pay.trim().slice(0, 40) || null },
+      form, T("Saved. New receipts use this look.", "Imehifadhiwa. Risiti mpya zinatumia muonekano huu."));
+  }
+  const sw = (v: string, set: (v: string) => void, id: string, fallback: string) => (
+    <span className="row" style={{ gap: 8, alignItems: "center" }}>
+      <input type="color" id={id} value={v || fallback} disabled={!manager} onChange={(e) => set(e.target.value)} style={{ width: 44, height: 32, padding: 0, border: "none", background: "none" }} />
+      <code className="small">{v || T("itaOS default", "kawaida ya itaOS")}</code>
+      {v && manager && <button type="button" className="small" onClick={() => set("")}>{T("Reset", "Rudisha")}</button>}
+    </span>
+  );
+  return (
+    <form className="card" onSubmit={submit}>
+      <div><h2>{T("Your receipts", "Risiti zako")}</h2><span className="small muted">{T("Your logo, colours and details on printed receipts and on the page the receipt's QR opens. For this business only.", "Nembo, rangi na taarifa zako kwenye risiti zinazochapishwa na kwenye ukurasa unaofunguliwa na QR ya risiti. Kwa biashara hii tu.")}</span></div>
+      <Field id="rl-logo" label={T("Logo", "Nembo")} hint={T("A square picture works best. It's made small automatically.", "Picha ya mraba ni bora zaidi. Inapunguzwa ukubwa yenyewe.")}>
+        <span className="row" style={{ gap: 12, alignItems: "center" }}>
+          <span style={{ width: 48, height: 48, borderRadius: 999, background: logo ? "#fff" : p.green, color: "#fff", display: "grid", placeItems: "center", overflow: "hidden", fontWeight: 800, fontSize: 22, border: "1px solid var(--line)" }}>
+            {logo ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : ws.name.trim().charAt(0).toUpperCase()}
+          </span>
+          {manager && <input id="rl-logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={pick} />}
+          {logo && manager && <button type="button" className="small" onClick={() => setLogo(null)}>{T("Remove", "Ondoa")}</button>}
+        </span>
+        {logoMsg && <span className="err small">{logoMsg}</span>}
+      </Field>
+      <Field id="rl-c" label={T("Main colour", "Rangi kuu")}>{sw(color, setColor, "rl-c", p.green)}</Field>
+      <Field id="rl-a" label={T("Second colour", "Rangi ya pili")}>{sw(accent, setAccent, "rl-a", p.honey)}</Field>
+      <Field id="rl-t" label={T("Town shown under your name", "Mji unaoonekana chini ya jina lako")} hint={T("Leave empty to show only your phone number.", "Acha wazi kuonyesha namba ya simu tu.")}>
+        <input id="rl-t" value={town} maxLength={60} disabled={!manager} placeholder={T("e.g. Arusha", "mf. Arusha")} onChange={(e) => setTown(e.target.value)} />
+      </Field>
+      <Field id="rl-p" label={T("How customers pay you", "Wateja wanakulipa kwa njia gani")} hint={T("Shown next to the payment code, e.g. M-Pesa, Tigo Pesa, Lipa Namba, CRDB. Leave empty to show just \"Payment\".", "Inaonekana pembeni ya namba ya muamala, mf. M-Pesa, Tigo Pesa, Lipa Namba, CRDB. Acha wazi kuonyesha \"Malipo\" tu.")}>
+        <input id="rl-p" value={pay} maxLength={40} disabled={!manager} placeholder="M-Pesa" onChange={(e) => setPay(e.target.value)} />
+      </Field>
+      <div aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: p.green, color: "#fff", borderRadius: 14, padding: "12px 16px", maxWidth: 420 }}>
+        <span>{T("Total", "Jumla")}</span><b>TZS 75,000 <span style={{ color: p.honey }}>●</span></b>
+      </div>
+      {manager && <SaveRow busy={busy} msg={msg} T={T} />}
+    </form>
   );
 }
 

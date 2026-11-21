@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { supabase, Workspace, Order, orderNet, amt } from "./lib";
+import { palette } from "./brand";
 
 export type ReceiptStyle = "till" | "letterhead" | "stamp" | "tearoff" | "mono" | "reorder" | "bilingual" | "shipping";
 export const RECEIPT_STYLES: { key: ReceiptStyle; n: number; en: string; sw: string; page: string; w: number }[] = [
@@ -31,12 +32,15 @@ type R = {
   items: string[]; total: string; date: string; dateTime: string; ref: string | null; provider: string;
   place: string | null; landmark: string | null; deliveryNote: string | null; altPhone: string | null;
   link: string | null; custWa: string | null;
+  // 0059: this business's own receipt look (Settings → Your receipts)
+  town: string | null; pay: string; logo: string | null;
 };
 
 /** The public receipt link a QR opens. Same site the app is on (itaos.app in production). */
 export const receiptLink = (token: string | null | undefined) => (token ? `${location.origin}/r/${token}` : null);
 
-// Brand colours (Kayani system): green, deep green, honey, cream.
+// Receipt colours. The brand keys (green, greenText, forest, honey, mint) are replaced by each business's own
+// colours when a receipt loads (brand.ts palette); the rest are neutral paper/ink. Defaults = itaOS, not any business.
 const C = { green: "#029046", greenText: "#027a3d", forest: "#0b3b24", honey: "#e9a23b", cream: "#f5f0e6", surface: "#fffdf8", ink: "#13231a", muted: "#56665c", line: "#e3dccd", mint: "#dcefe2" };
 const DISPLAY = "'Bricolage Grotesque', Inter, system-ui, sans-serif";
 const BODY = "Inter, system-ui, sans-serif";
@@ -53,12 +57,14 @@ async function loadReceipt(ws: Workspace, orderId: string): Promise<R> {
   const { data: o, error } = await supabase.from("orders").select("*").eq("workspace_id", ws.id).eq("id", orderId).single();
   if (error || !o) throw new Error(error?.message ?? "not found");
   const ord = o as Order & { items?: { name?: string; qty?: number }[]; receipt_no?: string | null; payment_ref?: string | null; };
-  const [cv, wn, lk] = await Promise.all([
+  const [cv, wn, lk, lg] = await Promise.all([
     ord.conversation_id ? supabase.from("conversations").select("contact:contacts(name,wa_id,full_name,alt_phone,delivery_place,region,district,area,landmark,delivery_note)").eq("id", ord.conversation_id).single() : Promise.resolve({ data: null } as any),
     supabase.from("wa_numbers").select("display_phone").eq("workspace_id", ws.id).limit(1),
     // The sale's secret QR code (made on first print, migration 0055). No receipt number yet → no link.
     ord.receipt_no ? supabase.rpc("receipt_link", { p_order: orderId }) : Promise.resolve({ data: null } as any),
+    supabase.from("workspaces").select("brand_logo").eq("id", ws.id).single(),
   ]);
+  const logo = ((lg.data as any)?.brand_logo as string | null) ?? null;
   const ct = (cv.data as any)?.contact ?? null;
   const phone = (wn.data as any)?.[0]?.display_phone ?? null;
   const items = ord.items?.length
@@ -77,7 +83,8 @@ async function loadReceipt(ws: Workspace, orderId: string): Promise<R> {
     items: items.length ? items : ["—"], total: `${ord.currency} ${amt(orderNet(ord), ord.currency)}`,
     date: d.toLocaleDateString("en-GB", { ...opt, day: "numeric", month: "short", year: "numeric" }),
     dateTime: d.toLocaleString("en-GB", { ...opt, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", ""),
-    ref: ord.payment_ref ?? null, provider: "M-Pesa",
+    ref: ord.payment_ref ?? null, provider: ws.pay_method ?? "",
+    town: ws.brand_town?.trim() || null, pay: ws.pay_method?.trim() ?? "", logo,
     link: receiptLink((lk.data as string | null) ?? null), custWa: ct?.wa_id ? String(ct.wa_id).replace(/\D/g, "") : null,
   };
 }
@@ -85,6 +92,9 @@ async function loadReceipt(ws: Workspace, orderId: string): Promise<R> {
 export default function ReceiptPrint({ ws, orderId, onClose }: { ws: Workspace; orderId: string; onClose: () => void }) {
   const sw = ws.language === "sw";
   const T = (en: string, s: string) => (sw ? s : en);
+  // This business's colours (Settings → Your receipts). Only one receipt is open at a time, so the shared
+  // colour object is simply set before the designs draw.
+  Object.assign(C, palette({ color: ws.brand_color, accent: ws.brand_accent }));
   const [style, setStyleState] = useState<ReceiptStyle>(loadStyle);
   const setStyle = (s: ReceiptStyle) => { setStyleState(s); try { localStorage.setItem(STORE, s); } catch { /* storage blocked */ } };
   const [r, setR] = useState<R | null>(null);
@@ -185,7 +195,10 @@ export default function ReceiptPrint({ ws, orderId, onClose }: { ws: Workspace; 
 }
 
 // ---------- shared bits ----------
-const Mark = ({ r, size, light }: { r: R; size: number; light?: boolean }) => (
+const Mark = ({ r, size, light }: { r: R; size: number; light?: boolean }) => r.logo ? (
+  <div style={{ width: size, height: size, borderRadius: 9999, flexShrink: 0, overflow: "hidden", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", border: light ? "3px solid #fff" : `1px solid ${C.line}` }}>
+    <img src={r.logo} alt="" style={{ width: "86%", height: "86%", objectFit: "contain" }} /></div>
+) : (
   <div style={{ width: size, height: size, borderRadius: 9999, flexShrink: 0, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: DISPLAY, fontWeight: 800, fontSize: size / 2,
     ...(light ? { border: "3px solid #fff", color: "#fff" } : { background: C.green, color: "#fff" }) }}>{r.biz.trim().charAt(0).toUpperCase()}</div>
 );
@@ -215,7 +228,7 @@ function Till({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ background: C.green, color: "#fff", padding: "24px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
         <Mark r={r} size={52} light />
         <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em" }}>{r.biz}</div>
-        <div style={{ fontSize: 12 }}>Dar es Salaam{r.bizPhone ? ` · ${r.bizPhone}` : ""}</div>
+        <div style={{ fontSize: 12 }}>{[r.town, r.bizPhone].filter(Boolean).join(" · ")}</div>
       </div>
       <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ textAlign: "center" }}><Label color={C.ink}>RISITI · RECEIPT</Label></div>
@@ -229,7 +242,7 @@ function Till({ r, qr }: { r: R; qr: string | null }) {
           <span style={{ fontWeight: 700, fontSize: 15 }}>Jumla · Total</span>
           <span style={{ background: C.honey, color: C.forest, fontWeight: 700, fontSize: 16, padding: "6px 12px", borderRadius: 9999 }}>{r.total}</span>
         </div>
-        {r.ref && <div style={{ fontSize: 13 }}><Line k="Muamala M-Pesa" v={r.ref} /></div>}
+        {r.ref && <div style={{ fontSize: 13 }}><Line k={`Muamala${r.pay ? " " + r.pay : ""}`} v={r.ref} /></div>}
         <div style={{ borderTop: `2px dashed ${C.line}` }} />
         <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 18, color: C.greenText }}>Asante kwa kutuamini</div>
@@ -249,7 +262,7 @@ function Letterhead({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ height: 10, background: C.green }} />
       <div style={{ padding: "44px 48px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}><Mark r={r} size={48} />
-          <div style={{ display: "flex", flexDirection: "column" }}><span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24 }}>{r.biz}</span><span style={{ fontSize: 12, color: C.muted }}>Dar es Salaam{r.bizPhone ? ` · ${r.bizPhone}` : ""}</span></div></div>
+          <div style={{ display: "flex", flexDirection: "column" }}><span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24 }}>{r.biz}</span><span style={{ fontSize: 12, color: C.muted }}>{[r.town, r.bizPhone].filter(Boolean).join(" · ")}</span></div></div>
         <div style={{ textAlign: "right", display: "flex", flexDirection: "column" }}><span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 30, color: C.greenText }}>Risiti</span><span style={{ fontSize: 12, color: C.muted }}>Receipt</span></div>
       </div>
       <div style={{ padding: "28px 48px 0", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16, fontSize: 13 }}>
@@ -267,7 +280,7 @@ function Letterhead({ r, qr }: { r: R; qr: string | null }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>Jumla · Total paid</span>
         <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 28 }}>{r.total}</span>
       </div>
-      {r.ref && <div style={{ margin: "16px 48px 0", fontSize: 13, color: C.muted }}>Imelipwa kwa M-Pesa · Muamala: <span style={{ color: C.ink, fontWeight: 600 }}>{r.ref}</span></div>}
+      {r.ref && <div style={{ margin: "16px 48px 0", fontSize: 13, color: C.muted }}>Imelipwa{r.pay ? ` kwa ${r.pay}` : ""} · Muamala: <span style={{ color: C.ink, fontWeight: 600 }}>{r.ref}</span></div>}
       <div style={{ margin: "auto 48px 44px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontSize: 13 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 20, color: C.greenText }}>Asante kwa kutuamini.</span>
@@ -287,7 +300,7 @@ function Stamp({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ borderTop: `1px solid ${C.line}` }} />
       <Items r={r} />
       <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 16, paddingTop: 8, borderTop: `1px solid ${C.line}` }}><span>Jumla</span><span>{r.total}</span></div>
-      <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Jina: {r.customer}{r.place ? ` · ${r.place}` : ""}</span><span>{r.date}{r.ref ? ` · M-Pesa ${r.ref}` : ""}</span></div>
+      <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Jina: {r.customer}{r.place ? ` · ${r.place}` : ""}</span><span>{r.date}{r.ref ? ` · ${r.pay || "Muamala"} ${r.ref}` : ""}</span></div>
       <div style={{ alignSelf: "center", marginTop: 4, transform: "rotate(-8deg)", border: `4px solid ${C.greenText}`, outline: `2px solid ${C.greenText}`, outlineOffset: 5, borderRadius: 9999, width: 180, height: 180, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: C.greenText, textAlign: "center" }}>
         <Label color={C.greenText}>{r.biz.toUpperCase().slice(0, 18)}</Label>
         <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 32 }}>IMELIPWA</span>
@@ -313,7 +326,7 @@ function TearOff({ r, qr }: { r: R; qr: string | null }) {
         <div style={{ fontSize: 12, color: C.muted }}>Customer copy · {r.no} · {r.date}</div>
         <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14 }}><Items r={r} /></div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.green, color: "#fff", borderRadius: 16, padding: "14px 18px" }}><span style={{ fontWeight: 700 }}>Jumla</span><span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24 }}>{r.total}</span></div>
-        <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Jina: {r.customer}</span>{r.place && <span>Mahali: {r.place}</span>}{r.ref && <span>M-Pesa: {r.ref}</span>}</div>
+        <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Jina: {r.customer}</span>{r.place && <span>Mahali: {r.place}</span>}{r.ref && <span>{r.pay || "Muamala"}: {r.ref}</span>}</div>
         <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
           <span style={{ fontSize: 13 }}>Asante kwa kutuamini. Hifadhi risiti hii. · Keep this receipt.</span>
           <Qr qr={qr} size={64} caption={false} />
@@ -329,7 +342,7 @@ function TearOff({ r, qr }: { r: R; qr: string | null }) {
           <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Jina</span><span style={{ fontWeight: 600 }}>{r.customer}</span></div>
           <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Simu</span><span style={{ fontWeight: 600 }}>{r.custPhone ?? "—"}</span></div>
           <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Jumla</span><span style={{ fontWeight: 600 }}>{r.total}</span></div>
-          <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>M-Pesa</span><span style={{ fontWeight: 600 }}>{r.ref ?? "—"}</span></div>
+          <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>{r.pay || "Muamala"}</span><span style={{ fontWeight: 600 }}>{r.ref ?? "—"}</span></div>
         </div>
         {r.place && <div style={{ fontSize: 13, color: C.muted }}>Mahali: <b style={{ color: C.ink }}>{r.place}{r.landmark ? ` (${r.landmark})` : ""}</b></div>}
         <div style={{ fontSize: 13, color: C.muted }}>Bidhaa: {r.items.join(", ")}</div>
@@ -346,7 +359,7 @@ function Mono({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
         <div style={{ width: 44, height: 44, borderRadius: 9999, border: "3px solid #000", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: DISPLAY, fontWeight: 800, fontSize: 22 }}>{r.biz.trim().charAt(0).toUpperCase()}</div>
         <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24 }}>{r.biz.toUpperCase()}</span>
-        <span>Dar es Salaam</span>
+        {r.town && <span>{r.town}</span>}
         {r.bizPhone && <span>Simu: {r.bizPhone}</span>}
       </div>
       <div style={{ textAlign: "center", fontWeight: 700, letterSpacing: "0.08em", borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "6px 0" }}>RISITI YA MALIPO</div>
@@ -358,7 +371,7 @@ function Mono({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ borderTop: "1px dashed #000" }} />
       <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 18 }}><span>JUMLA</span><span>{r.total}</span></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, fontFamily: MONO }}>
-        <Line k="MALIPO:" v="M-PESA" kc="#000" />{r.ref && <Line k="MUAMALA:" v={r.ref} kc="#000" />}
+        {r.pay && <Line k="MALIPO:" v={r.pay.toUpperCase()} kc="#000" />}{r.ref && <Line k="MUAMALA:" v={r.ref} kc="#000" />}
       </div>
       <div style={{ borderTop: "1px dashed #000" }} />
       <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
@@ -382,7 +395,7 @@ function Reorder({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 24, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 8, fontSize: 14 }}>
         <Items r={r} />
         <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 16, borderTop: `1px solid ${C.line}`, paddingTop: 8 }}><span>Jumla</span><span>{r.total}</span></div>
-        <div style={{ fontSize: 12, color: C.muted }}>{r.customer}{r.place ? ` · ${r.place}` : ""}{r.ref ? ` · M-Pesa ${r.ref}` : ""}</div>
+        <div style={{ fontSize: 12, color: C.muted }}>{r.customer}{r.place ? ` · ${r.place}` : ""}{r.ref ? ` · ${r.pay || "Muamala"} ${r.ref}` : ""}</div>
       </div>
       <div style={{ background: C.forest, color: "#fff", borderRadius: 24, padding: 20, display: "flex", gap: 16, alignItems: "center", marginTop: "auto" }}>
         <div style={{ width: 110, height: 110, flexShrink: 0, background: "#fff", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", padding: 8, boxSizing: "border-box" }}>
@@ -419,8 +432,8 @@ function Bilingual({ r, qr }: { r: R; qr: string | null }) {
         <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em" }}>KUMBUKUMBU NA. {r.no}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", flexGrow: 1 }}>
-        <div style={{ borderRight: `1px solid ${C.line}`, display: "flex" }}>{col("KISWAHILI", "Risiti ya malipo", ["Jina", "Bidhaa", "Tarehe", "Muamala M-Pesa", "Mahali"], "Asante kwa kutuamini.", "32px 44px")}</div>
-        {col("ENGLISH", "Payment receipt", ["Name", "Items", "Date", "M-Pesa ref", "Location"], "Thank you for trusting us.", "32px 44px")}
+        <div style={{ borderRight: `1px solid ${C.line}`, display: "flex" }}>{col("KISWAHILI", "Risiti ya malipo", ["Jina", "Bidhaa", "Tarehe", `Muamala${r.pay ? " " + r.pay : ""}`, "Mahali"], "Asante kwa kutuamini.", "32px 44px")}</div>
+        {col("ENGLISH", "Payment receipt", ["Name", "Items", "Date", `${r.pay || "Payment"} ref`, "Location"], "Thank you for trusting us.", "32px 44px")}
       </div>
       <div style={{ margin: "0 44px 36px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 24, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontWeight: 700 }}>Jumla · Total</span>
@@ -456,7 +469,7 @@ function Shipping({ r, qr }: { r: R; qr: string | null }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
           <Label>NDANI · CONTENTS</Label>
           <span style={{ fontSize: 15, fontWeight: 600 }}>{r.items.join(" · ")}</span>
-          {r.ref && <span style={{ fontSize: 13, color: C.muted }}>Muamala M-Pesa: {r.ref}</span>}
+          {r.ref && <span style={{ fontSize: 13, color: C.muted }}>Muamala{r.pay ? ` ${r.pay}` : ""}: {r.ref}</span>}
         </div>
         <Qr qr={qr} size={72} caption={false} />
       </div>

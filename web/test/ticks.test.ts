@@ -79,11 +79,30 @@ describe("isMoneyMoment (Kito reads these chats at once)", () => {
     expect(isMoneyMoment("[picha ya malipo] M-Pesa · TSh 155,000", "in", [], "image")).toBe(true);
     expect(isMoneyMoment("[image]", "in", [], "image")).toBe(true);
   });
-  it("business confirms, ships, sends usage or its own paid text", () => {
+  it("business confirms, ships, or sends its own paid / delivered text", () => {
     expect(isMoneyMoment("Tumepokea malipo yako, asante", "out")).toBe(true);
     expect(isMoneyMoment("Mzigo wako umetumwa leo", "out")).toBe(true);
-    expect(isMoneyMoment("Matumizi ya KayaTox: kunywa asubuhi", "out")).toBe(true);
+    // Usage wording is each business's own (Settings), never built in.
+    expect(isMoneyMoment("Matumizi ya KayaTox: kunywa asubuhi", "out")).toBe(false);
+    expect(isMoneyMoment("Matumizi ya KayaTox: kunywa asubuhi", "out", [], "text", ["Matumizi ya"])).toBe(true);
+    expect(isMoneyMoment("Jinsi  ya KUTUMIA: paka usiku", "out", [], "text", ["jinsi ya kutumia"])).toBe(true);
     expect(isMoneyMoment("Karibu KAYANI, special pack imefika", "out", ["special pack imefika"])).toBe(true);
     expect(isMoneyMoment("Bei ni 75,000", "out")).toBe(false);
+  });
+});
+
+import { analyze } from "../../supabase/functions/_shared/signals";
+describe("per-business delivered texts in analyze", () => {
+  const msgs = [
+    { direction: "out" as const, sent_at: "2026-11-20T08:00:00Z", body: "Lipa namba 123456", type: "text" },
+    { direction: "out" as const, sent_at: "2026-11-20T09:00:00Z", body: "Matumizi ya KayaTox: kunywa asubuhi", type: "text" },
+  ];
+  it("a business without the wording gets no sale from it", () => {
+    expect(analyze(msgs, Date.parse("2026-11-20T10:00:00Z")).payment_signal).toBe(false);
+  });
+  it("a business with the wording gets the same result as before", () => {
+    const a = analyze(msgs, Date.parse("2026-11-20T10:00:00Z"), { delivered: ["Matumizi ya"] });
+    expect(a.payment_signal).toBe(true);
+    expect(a.label).toBe("using");
   });
 });

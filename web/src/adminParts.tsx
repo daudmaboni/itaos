@@ -27,6 +27,7 @@ export type WsRow = {
   last_customer_message_at?: string | null; live_chats?: number; imported_chats?: number;
   sent_itaos_30d?: number; receipts_30d?: number; tick_orders?: number; revenue_30d?: number; revenue_total?: number;
   currency?: string; kito_last_run?: string | null; kito_behind?: number; stuck_events?: number; settings_missing?: string[];
+  rules_set?: boolean; // 0059
 };
 export type Activity = { days: string[]; messages: number[]; signups: number[]; kito: number[]; per_ws: Record<string, number[]>; sent?: number[]; orders?: number[] };
 export type ErrRow = { at: string | null; workspace_id: string | null; workspace_name: string | null; source: string; detail: string };
@@ -116,6 +117,7 @@ export const viaName = (v: string | null | undefined) => (v === 'dualhook' ? 'Du
 export const STEPS: { key: string; label: string; done: (w: WsRow) => boolean; hint: string }[] = [
   { key: 'wa', label: 'Go live on WhatsApp', done: (w) => w.wa_status === 'active', hint: 'Number connected (Dualhook, Coexistence)' },
   { key: 'chat', label: 'First live chat', done: (w) => liveChats(w) > 0, hint: 'A real customer chat arrived on WhatsApp' },
+  { key: 'rules', label: 'Chat rules set', done: (w) => !!w.rules_set, hint: "Owner saved Settings → How itaOS reads your chats (their ad message, after-payment message, ✅ on or off)" },
   { key: 'meta', label: 'Connect Meta Ads', done: (w) => w.meta_status === 'active', hint: 'Ad account linked and syncing' },
   { key: 'sale', label: 'First recorded sale', done: (w) => w.orders > 0, hint: 'A paid order: ✅ message, Kito, or recorded' },
 ];

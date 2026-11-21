@@ -14,7 +14,7 @@ export const islandOn = () => { try { return localStorage.getItem(KEY) !== "off"
 export const setIslandOn = (on: boolean) => { try { localStorage.setItem(KEY, on ? "on" : "off"); } catch { /* ignore */ } };
 /** Show a sample pop-up (Settings → Phone app → "Show me"). */
 export const islandPreview = (sw: boolean) => window.dispatchEvent(new CustomEvent("itaos:island", {
-  detail: { id: "", name: sw ? "Mteja (mfano)" : "Customer (example)", text: sw ? "Habari, KayaTox inapatikana bei gani?" : "Hi, how much is KayaTox?", count: 1 } satisfies Note,
+  detail: { id: "", name: sw ? "Mteja (mfano)" : "Customer (example)", text: sw ? "Habari, bidhaa hii inapatikana bei gani?" : "Hi, how much is this one?", count: 1 } satisfies Note,
 }));
 
 const SHOW_MS = 5500;

@@ -1,5 +1,5 @@
 // Conversation signal detection (Kiswahili + English). Same rules as the Phase 0 engine.
-import { paidCustomer, paidCustomerAfterPay, mpesaSms, paidBusiness, shipped, usage } from "./money.ts";
+import { paidCustomer, paidCustomerAfterPay, mpesaSms, paidBusiness, shipped, deliveredHit } from "./money.ts";
 export type Msg = { direction: "in" | "out"; sent_at: string; body: string | null; type: string };
 
 const SIG = {
@@ -13,9 +13,8 @@ const SIG = {
   mpesaSms,
   paidBusiness,
   payInstr: /(lipa namba|till|paybill|akaunti|m-?pesa|tigo ?pesa|airtel ?money|halopesa|nalipa vipi|how do i pay)/i,
-  // Fulfilment language (how sales really look in chat: goods sent, picked up, usage explained)
+  // Fulfilment language (how sales really look in chat: goods sent or picked up)
   shipped,
-  usage,
   // "I received the goods" — must name what was received. Not "nianze kutumia?", "naomba maelekezo", "nimechukua namba yako".
   received: /(nime(pokea|upata|ipata|zipata|pata|chukua|shachukua|shapokea)\s+(\w+\s+){0,2}(mzigo|dawa|parcel|package|oda|order|kifurushi|bidhaa)|(mzigo|dawa|kifurushi)\s+(\w+\s+){0,2}(nimeupokea|nimeipokea|nimezipokea|nimepokea|nimeupata|nimeipata|nimezipata|imefika|umefika|zimefika)|dawa nimeacha|sijazifungua|i (have )?(received|got) (the|my) (order|parcel|package|medicine))/i,
   media: /(<media omitted>|<attached:|\[image\]|\[document\]|\[video\]|picha imeondolewa|image omitted|document omitted)/i,
@@ -39,7 +38,10 @@ export function extractAmount(text: string): number {
 
 const H = 3600e3;
 
-export function analyze(msgs: Msg[], now = Date.now()) {
+/** Each business's own wording (workspaces.rule_* columns). Missing = nothing business-specific. */
+export type Rules = { delivered?: string[] };
+
+export function analyze(msgs: Msg[], now = Date.now(), rules: Rules = {}) {
   const t = (m: Msg) => Date.parse(m.sent_at);
   const out = {
     first_response_sec: null as number | null,
@@ -81,7 +83,7 @@ export function analyze(msgs: Msg[], now = Date.now()) {
       }
       if (SIG.payInstr.test(b)) payInstrT = t(m);
       if (SIG.shipped.test(b)) shipped = true;
-      if (SIG.usage.test(b)) usage = true;
+      if (deliveredHit(b, rules.delivered)) usage = true;   // the business's own "goods delivered" texts
       if (SIG.paidBusiness.test(b)) { out.payment_signal = true; out.payment_amount = extractAmount(b) || out.payment_amount || lastPrice || null; }
       if (lastInT != null && t(m) - lastInT >= 12 * H) out.followed_up = true;
     }

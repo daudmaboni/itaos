@@ -1,4 +1,4 @@
-// The owner's ✅: a message the business sends that marks a payment as received becomes a
+// The owner's ✅ (only for businesses with workspaces.rule_owner_tick on): a message the business sends that marks a payment as received becomes a
 // confirmed paid order automatically, with no click in itaOS. Two forms are recognised:
 //
 //   1. A price followed by a tick, in the customer's chat: "175,000✅", "Tsh 175,000 ✅", "175000/= ✅".
@@ -130,8 +130,10 @@ export function lastPriceBefore(msgs: TickMsg[], at: string): number | null {
 export async function confirmTicks(db: SupabaseClient, conversationId: string, msgs: TickMsg[]) {
   const ticks = findTicks(msgs);
   if (!ticks.length) return 0;
-  const { data: conv } = await db.from("conversations").select("workspace_id, contact_id, contacts(wa_id, not_customer), workspaces(currency)").eq("id", conversationId).maybeSingle();
+  const { data: conv } = await db.from("conversations").select("workspace_id, contact_id, contacts(wa_id, not_customer), workspaces(currency, rule_owner_tick)").eq("id", conversationId).maybeSingle();
   if (!conv) return 0;
+  // Per business (Settings → How itaOS reads your chats): only businesses that mark payments with a ✅ use this.
+  if (!(conv as any).workspaces?.rule_owner_tick) return 0;
   const ws = conv.workspace_id as string;
   const currency = (conv as any).workspaces?.currency ?? "TZS";
   const ownWa = (conv as any).contacts?.wa_id as string | undefined;

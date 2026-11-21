@@ -24,7 +24,7 @@ const T = {
   signIn: { en: "Sign in", sw: "Ingia" },
   createAccount: { en: "Create account", sw: "Fungua akaunti" },
   business: { en: "Business name", sw: "Jina la biashara" },
-  businessPh: { en: "e.g. Kayani Herbs", sw: "mf. Kayani Herbs" },
+  businessPh: { en: "e.g. Mama Neema Shop", sw: "mf. Duka la Mama Neema" },
   email: { en: "Email", sw: "Barua pepe" },
   password: { en: "Password", sw: "Nenosiri" },
   newPassword: { en: "New password", sw: "Nenosiri jipya" },

@@ -54,7 +54,7 @@ export function momentWhy(kind: PayMoment["kind"], T: (en: string, sw: string) =
     : kind === "receipt" ? T("the customer's receipt / M-Pesa message", "risiti / ujumbe wa M-Pesa wa mteja")
     : kind === "customer_said_paid" ? T("a payment message in the chat (no after-payment message, screenshot or ✅ found)", "ujumbe wa malipo kwenye chat (hakuna ujumbe wa baada ya malipo, picha ya malipo wala ✅)")
     : kind === "business_confirmed" ? T("your message right after payment", "ujumbe wako baada ya malipo")
-    : kind === "goods_received" ? T("your \"Matumizi ya…\" message, sent the day they paid", "ujumbe wako wa \"Matumizi ya…\", uliotumwa siku aliyolipa")
+    : kind === "goods_received" ? T("your after-delivery message (Settings → Rules), sent the day they paid", "ujumbe wako wa baada ya kupata bidhaa (Mipangilio → Kanuni), uliotumwa siku aliyolipa")
     : T("the customer's last message (no payment message found)", "ujumbe wa mwisho wa mteja (hakuna ujumbe wa malipo)");
 }
 

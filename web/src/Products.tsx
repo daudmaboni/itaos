@@ -156,7 +156,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
     <form className="card prod-form" onSubmit={save}>
       <b>{p ? T(`Edit ${p.name}`, `Hariri ${p.name}`) : T("Add a product", "Ongeza bidhaa")}</b>
       <div className="map">
-        <label>{T("Name", "Jina")}<input required value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="KayaPower" /></label>
+        <label>{T("Name", "Jina")}<input required value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder={T("e.g. Body lotion 200ml", "mf. Losheni 200ml")} /></label>
         <label>{T("Selling price", "Bei ya kuuza")} ({ws.currency})<input inputMode="decimal" value={price} onChange={moneyInput(setPrice)} placeholder={T("what customers pay", "anacholipa mteja")} /></label>
         <label>{T("What one costs you", "Gharama ya moja kwako")} ({ws.currency})<input inputMode="decimal" value={cost} onChange={moneyInput(setCost)} placeholder={T("product + delivery", "bidhaa + usafiri")} />
           {margin != null && <span className={"small " + (margin >= 0 ? "muted" : "err")}>{T("Profit per unit", "Faida kwa kimoja")}: {money(margin, ws.currency)}</span>}</label>
