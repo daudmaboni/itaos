@@ -345,3 +345,18 @@ html[data-screen="auth"]::-webkit-scrollbar { display: none; }
   .ax-show-copy, .ax-big { display: none !important; }
   .ax-show { padding-bottom: 40px; }
 }
+
+/* ---- 21 Nov: lock the phone sign-in screen. Everything fits in one screen (above), so the page itself
+   never scrolls or rubber-bands. Very short screens (< 560px tall) keep scrolling so nothing is cut off. */
+@media (max-width: 760px) and (min-height: 560px) {
+  html[data-screen="auth"], html[data-screen="auth"] body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  html[data-screen="auth"] #root { height: 100%; overflow: hidden; }
+  .ax { height: 100dvh; overflow: hidden; touch-action: manipulation; }
+}
+/* very short phones: a little less spacing so "Create account" (one more field) also fits */
+@media (max-width: 760px) and (max-height: 640px) {
+  .ax-form { gap: 8px; }
+  .ax-side { padding-top: 18px; }
+  .ax-input input { min-height: 44px; }
+  .ax .auth-google { min-height: 44px; }
+}
