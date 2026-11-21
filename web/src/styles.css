@@ -1520,3 +1520,26 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
 
 /* Voice-note text inside your own (purple) bubbles was grey on purple: make it readable */
 .chats .inbox.frame .wa-msg.out .mv-heard, .chats .inbox.frame .wa-msg.out .mv-heard b { color: rgba(255, 255, 255, .92); }
+
+/* Settings → Your receipts (0059). Everything wraps so the card never gets wider than a phone. */
+.rl-card .field { min-width: 0; }
+.rl-logo, .rl-swatch { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
+.rl-mark { width: 48px; height: 48px; flex: none; border-radius: 999px; color: #fff; display: grid; place-items: center; overflow: hidden; font-weight: 800; font-size: 22px; border: 1px solid var(--line); }
+.rl-mark.sm { width: 38px; height: 38px; font-size: 17px; }
+.rl-mark img { width: 86%; height: 86%; object-fit: contain; }
+.rl-swatch input[type="color"] { width: 44px; height: 36px; flex: none; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: none; cursor: pointer; }
+.rl-swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 3px; }
+.rl-swatch input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 7px; }
+.rl-preview { width: 100%; max-width: 360px; box-sizing: border-box; background: #fffdf8; color: #13231a; border-radius: 16px; padding: 16px; display: grid; gap: 10px; border: 1px solid var(--line); }
+.rl-prev-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rl-prev-name { display: flex; flex-direction: column; min-width: 0; }
+.rl-prev-name b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-prev-name small, .rl-prev-line span { color: #56665c; font-size: 12.5px; }
+.rl-prev-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; border-top: 1px dashed #e3dccd; padding-top: 8px; }
+.rl-prev-line b { font-weight: 600; overflow-wrap: anywhere; text-align: right; }
+.rl-prev-total { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #fff; border-radius: 12px; padding: 11px 14px; font-size: 14px; }
+.rl-prev-total i { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+@media (max-width: 520px) {
+  .rl-card .saverow { flex-direction: column; align-items: stretch; }
+  .rl-card .saverow button.primary { width: 100%; }
+}

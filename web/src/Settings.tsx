@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle } from "./MoneyHero";
 import type { HeroStyle } from "./MoneyHero";
 import { createPortal } from "react-dom";
@@ -593,6 +593,7 @@ function ReceiptLook({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => v
   const [pay, setPay] = useState(ws.pay_method ?? "");
   const [logo, setLogo] = useState<string | null>(null);
   const [logoMsg, setLogoMsg] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
   const { msg, busy, save } = useSave(ws, onWs);
   useEffect(() => {
     supabase.from("workspaces").select("brand_logo").eq("id", ws.id).single().then(({ data }) => setLogo((data as any)?.brand_logo ?? null));
@@ -615,22 +616,26 @@ function ReceiptLook({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => v
       form, T("Saved. New receipts use this look.", "Imehifadhiwa. Risiti mpya zinatumia muonekano huu."));
   }
   const sw = (v: string, set: (v: string) => void, id: string, fallback: string) => (
-    <span className="row" style={{ gap: 8, alignItems: "center" }}>
-      <input type="color" id={id} value={v || fallback} disabled={!manager} onChange={(e) => set(e.target.value)} style={{ width: 44, height: 32, padding: 0, border: "none", background: "none" }} />
+    <span className="rl-swatch">
+      <input type="color" id={id} value={v || fallback} disabled={!manager} onChange={(e) => set(e.target.value)} />
       <code className="small">{v || T("itaOS default", "kawaida ya itaOS")}</code>
       {v && manager && <button type="button" className="small" onClick={() => set("")}>{T("Reset", "Rudisha")}</button>}
     </span>
   );
   return (
-    <form className="card" onSubmit={submit}>
+    <form className="card rl-card" onSubmit={submit}>
       <div><h2>{T("Your receipts", "Risiti zako")}</h2><span className="small muted">{T("Your logo, colours and details on printed receipts and on the page the receipt's QR opens. For this business only.", "Nembo, rangi na taarifa zako kwenye risiti zinazochapishwa na kwenye ukurasa unaofunguliwa na QR ya risiti. Kwa biashara hii tu.")}</span></div>
       <Field id="rl-logo" label={T("Logo", "Nembo")} hint={T("A square picture works best. It's made small automatically.", "Picha ya mraba ni bora zaidi. Inapunguzwa ukubwa yenyewe.")}>
-        <span className="row" style={{ gap: 12, alignItems: "center" }}>
-          <span style={{ width: 48, height: 48, borderRadius: 999, background: logo ? "#fff" : p.green, color: "#fff", display: "grid", placeItems: "center", overflow: "hidden", fontWeight: 800, fontSize: 22, border: "1px solid var(--line)" }}>
-            {logo ? <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : ws.name.trim().charAt(0).toUpperCase()}
+        <span className="rl-logo">
+          <span className="rl-mark" style={{ background: logo ? "#fff" : p.green }}>
+            {logo ? <img src={logo} alt="" /> : ws.name.trim().charAt(0).toUpperCase()}
           </span>
-          {manager && <input id="rl-logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={pick} />}
-          {logo && manager && <button type="button" className="small" onClick={() => setLogo(null)}>{T("Remove", "Ondoa")}</button>}
+          {manager && <>
+            {/* The real file input is hidden: the app styles every input full width, which pushed this card off small screens. */}
+            <input id="rl-logo" ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={pick} hidden />
+            <button type="button" className="small" onClick={() => fileRef.current?.click()}>{logo ? T("Change logo", "Badilisha nembo") : T("Choose logo", "Chagua nembo")}</button>
+            {logo && <button type="button" className="small" onClick={() => setLogo(null)}>{T("Remove", "Ondoa")}</button>}
+          </>}
         </span>
         {logoMsg && <span className="err small">{logoMsg}</span>}
       </Field>
@@ -642,8 +647,15 @@ function ReceiptLook({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => v
       <Field id="rl-p" label={T("How customers pay you", "Wateja wanakulipa kwa njia gani")} hint={T("Shown next to the payment code, e.g. M-Pesa, Tigo Pesa, Lipa Namba, CRDB. Leave empty to show just \"Payment\".", "Inaonekana pembeni ya namba ya muamala, mf. M-Pesa, Tigo Pesa, Lipa Namba, CRDB. Acha wazi kuonyesha \"Malipo\" tu.")}>
         <input id="rl-p" value={pay} maxLength={40} disabled={!manager} placeholder="M-Pesa" onChange={(e) => setPay(e.target.value)} />
       </Field>
-      <div aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: p.green, color: "#fff", borderRadius: 14, padding: "12px 16px", maxWidth: 420 }}>
-        <span>{T("Total", "Jumla")}</span><b>TZS 75,000 <span style={{ color: p.honey }}>●</span></b>
+      {/* A small receipt so the owner sees the look before saving. */}
+      <div className="rl-preview" aria-label={T("Preview", "Mfano")}>
+        <div className="rl-prev-head">
+          <span className="rl-mark sm" style={{ background: logo ? "#fff" : p.green }}>{logo ? <img src={logo} alt="" /> : ws.name.trim().charAt(0).toUpperCase()}</span>
+          <span className="rl-prev-name"><b style={{ color: p.greenText }}>{ws.name}</b><small>{town.trim() || T("Your phone number", "Namba yako ya simu")}</small></span>
+        </div>
+        <div className="rl-prev-line"><span>{T("Receipt no.", "Kumbukumbu Na.")}</span><b>001</b></div>
+        <div className="rl-prev-line"><span>{pay.trim() ? `Muamala ${pay.trim()}` : "Muamala"}</span><b>QK41ABC9XY</b></div>
+        <div className="rl-prev-total" style={{ background: p.green }}><span>{T("Total", "Jumla")}</span><b>TZS 75,000 <i style={{ background: p.honey }} /></b></div>
       </div>
       {manager && <SaveRow busy={busy} msg={msg} T={T} />}
     </form>
