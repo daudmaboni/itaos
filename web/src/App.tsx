@@ -344,11 +344,16 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
     nav.current?.querySelectorAll("[data-tab].lensed").forEach((el) => el !== a && el.classList.remove("lensed"));
     a?.classList.add("lensed");
     if (!a) { g.classList.remove("on"); return; }
-    // Measure against the bar itself: the More button sits inside its own positioned wrapper, so its
-    // offsetLeft is 0 and the pill used to jump to the far left (under Dashboard) on More pages.
-    const left = a.getBoundingClientRect().left - (nav.current?.getBoundingClientRect().left ?? 0) - (nav.current?.clientLeft ?? 0);
+    // Layout position inside the bar, summed up the offsetParent chain (the More button sits inside its own
+    // positioned wrapper, so its own offsetLeft is 0). Layout numbers ignore CSS transforms: screen-based
+    // getBoundingClientRect read short while the page was still animating in on first load, leaving the
+    // pill ~20px left, half under "Ask Kito".
+    let left = 0;
+    for (let el: HTMLElement | null = a; el && el !== nav.current; el = el.offsetParent as HTMLElement | null) {
+      left += el.offsetLeft + (el !== a ? el.clientLeft : 0);
+    }
     g.style.width = a.offsetWidth + "px";
-    g.style.transform = `translateX(${left - 4}px)`;
+    g.style.transform = `translateX(${left}px)`;
     g.classList.add("on");
   };
   const current = () => nav.current?.querySelector<HTMLElement>("[data-tab].on") ?? null;
@@ -362,7 +367,10 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
     // arrive late), which left the pill half under "Ask Kito". Re-measure whenever the bar or any tab changes size.
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
     if (ro && nav.current) { ro.observe(nav.current); nav.current.querySelectorAll("[data-tab]").forEach((el) => ro.observe(el)); }
-    return () => { window.removeEventListener("resize", onResize); ro?.disconnect(); };
+    // and when a tab's label or contents change (language switch, a tab appearing)
+    const mo = nav.current ? new MutationObserver(onResize) : null;
+    if (mo && nav.current) mo.observe(nav.current, { childList: true, subtree: true, characterData: true });
+    return () => { window.removeEventListener("resize", onResize); ro?.disconnect(); mo?.disconnect(); };
   }, [view]);
   return (
     <nav className="tabs glass-tabs" aria-label="Sections" ref={nav} data-tone={tone}
