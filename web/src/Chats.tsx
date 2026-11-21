@@ -366,6 +366,15 @@ export default function Chats({ ws }: { ws: Workspace }) {
   ];
   // Chats in this list where the customer wrote last: the empty panel offers to open the newest one.
   const waitingRows = rows.filter((r) => statusOf(r, T, ws.currency).key === "waiting");
+  // On a computer, open a chat straight away (the newest one waiting for a reply, else the newest)
+  // so the right side is never an empty "pick a customer" panel. Once per filter; closing a chat keeps it closed.
+  const autoOpened = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || openId || !rows.length || autoOpened.current === filter) return;
+    if (!window.matchMedia("(min-width: 900px)").matches) return;
+    autoOpened.current = filter;
+    setOpenId((waitingRows[0] ?? rows[0]).id);
+  }, [loading, rows, filter, openId]);
   const emptyText = filter === "follow" ? T("Nobody to follow up right now.", "Hakuna wa kufuatilia kwa sasa.")
     : filter === "signals" ? T("No payments to check.", "Hakuna malipo ya kuhakiki.")
     : T("No chats here yet.", "Hakuna chat hapa bado.");
