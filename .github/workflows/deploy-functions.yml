@@ -50,7 +50,7 @@ jobs:
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.token.outputs.ok == 'true'
         with:
           fetch-depth: 0
@@ -96,7 +96,7 @@ jobs:
             flag=""
             case " $NO_JWT " in *" $f "*) flag="--no-verify-jwt";; esac
             echo "::group::$f $flag"
-            if supabase functions deploy "$f" --project-ref "$PROJECT_REF" --use-api $flag; then
+            if supabase functions deploy "$f" --remote="$PROJECT_REF" --use-api --yes $flag; then
               echo "deployed $f"
             else
               failed="$failed $f"
