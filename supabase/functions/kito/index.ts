@@ -242,12 +242,13 @@ const DRAFT_TOOL = {
   input_schema: {
     type: "object",
     properties: {
+      chat_lang: { type: "string", enum: ["sw", "en"], description: "The language the CUSTOMER writes in: sw for Kiswahili (or mostly Kiswahili / mixed), en for English." },
       draft_sw: { type: "string" }, draft_en: { type: "string" },
       why: { type: "string" },
       grounded_on: { type: "array", items: { type: "string" }, maxItems: 4 },
       missing: { type: "array", items: { type: "string" }, maxItems: 4 },
     },
-    required: ["draft_sw", "draft_en", "why", "grounded_on", "missing"],
+    required: ["chat_lang", "draft_sw", "draft_en", "why", "grounded_on", "missing"],
   },
 };
 
@@ -268,6 +269,7 @@ Rules:
 - Never promise delivery times, discounts, stock, results or anything not in the profile. If a needed fact is missing from the profile, write a placeholder like [bei] / [price] and list it in "missing".
 - No health or effectiveness claims about any product. Do not mention the customer's health or personal circumstances beyond what they wrote.
 - Natural Tanzanian Kiswahili for draft_sw (2–4 sentences, friendly, one clear question at the end). Plain English for draft_en with the same meaning.${customerName ? ` The customer's saved name is "${redact(customerName)}"; use a first name only if it looks like a real name.` : ""}
+- "chat_lang": the language the customer writes in (their own messages, not the business's). The owner will send the draft in that language.
 - "why": one sentence on what this message is trying to unblock. "grounded_on": up to 4 short quotes from the chat you relied on.`;
 }
 
@@ -287,7 +289,13 @@ async function draftReply(db: ReturnType<typeof admin>, ws: string, conversation
   const out = parse(r.body);
   const str = (v: unknown, max: number) => String(v ?? "").slice(0, max);
   const arr = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === "string").map((x) => String(x).slice(0, 160)).slice(0, 4) : []);
-  return { draft_sw: str(out.draft_sw, 1200), draft_en: str(out.draft_en, 1200), why: str(out.why, 300), grounded_on: arr(out.grounded_on), missing: arr(out.missing), profile_used: !!profile, model: MODEL };
+  // The customer's language: Kito's answer, else a quick check of the customer's own words.
+  const theirs = msgs.filter((m) => m.direction === "in" && m.body).map((m) => String(m.body)).join(" ").toLowerCase();
+  const swHits = (theirs.match(/\b(habari|bei|naomba|nataka|ngapi|asante|sawa|mnapatikana|wapi|dawa|nina|una|kwa|na|ya|ni|je|gani|shilingi|mzigo|nitumie)\b/g) ?? []).length;
+  const enHits = (theirs.match(/\b(the|is|how|much|price|want|please|where|you|can|deliver|thanks|hello|what|do|have)\b/g) ?? []).length;
+  const guess = enHits > swHits * 1.5 ? "en" : "sw";
+  const chat_lang = out.chat_lang === "en" || out.chat_lang === "sw" ? out.chat_lang : guess;
+  return { chat_lang, draft_sw: str(out.draft_sw, 1200), draft_en: str(out.draft_en, 1200), why: str(out.why, 300), grounded_on: arr(out.grounded_on), missing: arr(out.missing), profile_used: !!profile, model: MODEL };
 }
 
 type WsInfo = { language: string; currency: string; paid: string[]; tz: string };
