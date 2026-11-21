@@ -330,22 +330,10 @@ html[data-screen="auth"]::-webkit-scrollbar { display: none; }
    gets the rest (up to 330px), dropping the chart, then the big number, on shorter screens. */
 @media (max-width: 760px) {
   .ax-split { height: 100dvh; min-height: 0; }
-  .ax-show { flex: 0 1 330px; min-height: 0; }
+  .ax-show { flex: 0 1 330px; min-height: auto; }
   .ax-side { flex: 1 0 auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  .ax:has(#biz) .ax-show { min-height: 0; flex-basis: 250px; }
+  .ax:has(#biz) .ax-show { min-height: auto; flex-basis: 250px; }
 }
-@media (max-width: 760px) and (max-height: 820px) {
-  .ax-show { padding-bottom: 42px; }
-  .ax-show-copy { margin-top: 14px; }
-  .ax-big { margin-top: 6px; }
-  .ax-big-txt b { font-size: 32px; }
-  .ax-big-bars { display: none; }
-}
-@media (max-width: 760px) and (max-height: 720px) {
-  .ax-show-copy, .ax-big { display: none !important; }
-  .ax-show { padding-bottom: 40px; }
-}
-
 /* ---- 21 Nov: lock the phone sign-in screen. Everything fits in one screen (above), so the page itself
    never scrolls or rubber-bands. Very short screens (< 560px tall) keep scrolling so nothing is cut off. */
 @media (max-width: 760px) and (min-height: 560px) {
@@ -359,4 +347,14 @@ html[data-screen="auth"]::-webkit-scrollbar { display: none; }
   .ax-side { padding-top: 18px; }
   .ax-input input { min-height: 44px; }
   .ax .auth-google { min-height: 44px; }
+}
+/* the big number only shows when it fully fits: not on short phones, not on "Create account" (one more field) */
+@media (max-width: 760px) and (max-height: 700px) { .ax-big { display: none !important; } }
+@media (max-width: 760px) { .ax:has(#biz) .ax-big { display: none !important; } }
+@media (max-width: 760px) and (max-height: 700px) { .ax:has(#biz) .ax-show-copy { display: none !important; } }
+
+/* no zoom on the sign-in screen: 16px inputs stop iPhone's zoom-on-tap, and double-tap zoom is off */
+@media (max-width: 760px) {
+  .ax-input input { font-size: 16px; }
+  .ax, .ax * { touch-action: manipulation; }
 }

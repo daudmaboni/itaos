@@ -14,7 +14,20 @@ export function initialLang(): Lang {
 function useAuthScreen() {
   useEffect(() => {
     document.documentElement.dataset.screen = "auth";
-    return () => { delete document.documentElement.dataset.screen; };
+    // No pinch-zoom on the sign-in screen (iPhone ignores the viewport tag for this, so block the gesture).
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const before = meta?.content;
+    if (meta) meta.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+    const stop = (e: Event) => e.preventDefault();
+    const pinch = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+    document.addEventListener("gesturestart", stop, { passive: false });
+    document.addEventListener("touchmove", pinch, { passive: false });
+    return () => {
+      delete document.documentElement.dataset.screen;
+      if (meta && before) meta.content = before;
+      document.removeEventListener("gesturestart", stop);
+      document.removeEventListener("touchmove", pinch);
+    };
   }, []);
 }
 function saveLang(l: Lang) { try { localStorage.setItem(LANG_KEY, l); } catch { /* storage unavailable */ } }
