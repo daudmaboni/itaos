@@ -355,10 +355,14 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
   const tone = NAV_TONE;
   useEffect(() => {
     if (!hovering.current) place(current());
-    const onResize = () => place(current());
+    const onResize = () => { if (!hovering.current) place(current()); };
     window.addEventListener("resize", onResize);
     document.fonts?.ready.then(onResize);
-    return () => window.removeEventListener("resize", onResize);
+    // On first load the tabs keep shifting after the first measure (fonts, the Kito logo, labels and badges
+    // arrive late), which left the pill half under "Ask Kito". Re-measure whenever the bar or any tab changes size.
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
+    if (ro && nav.current) { ro.observe(nav.current); nav.current.querySelectorAll("[data-tab]").forEach((el) => ro.observe(el)); }
+    return () => { window.removeEventListener("resize", onResize); ro?.disconnect(); };
   }, [view]);
   return (
     <nav className="tabs glass-tabs" aria-label="Sections" ref={nav} data-tone={tone}
