@@ -71,7 +71,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   const why = r.kito_temp && !kitoStale(r) ? r.kito_blocker : (r.objections ?? [])[0] ?? null;
 
   async function loadMsgs() {
-    const { data } = await supabase.from("messages").select("id,direction,sent_at,body,origin,type,media").eq("conversation_id", r.id).order("sent_at", { ascending: false }).limit(1000);
+    const { data } = await supabase.from("messages").select("id,direction,sent_at,body,origin,type,media,status:raw->>status,status_error:raw->status_error").eq("conversation_id", r.id).order("sent_at", { ascending: false }).limit(1000);
     setMsgs(((data as Msg[]) ?? []).reverse());
   }
   useEffect(() => {
@@ -191,7 +191,8 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
                       <div className="wa-bub">
                         {m.media?.path ? <MediaView m={m} ws={ws} T={T} /> : <span className={"wa-text" + (special(m) ? " wa-special" : "")}>{special(m) ?? m.body ?? ""}</span>}
                         {/* time inside the bubble, bottom right, like WhatsApp */}
-                        <span className="wa-tm">{m.origin === "itaos" && <span className="wa-via" title={T("Sent from itaOS", "Imetumwa kutoka itaOS")}>itaOS · </span>}{hhmm(m.sent_at)}{m.direction === "out" && <svg className="wa-tk" viewBox="0 0 16 11" width="16" height="11" aria-hidden><path d="M11.07.66 4.86 7.32 2.2 4.6 1.1 5.68l3.77 3.85L12.2 1.74zM15.1.66l-6.21 6.66-.73-.75-1.1 1.13 1.84 1.83L16.2 1.74z" fill="currentColor" /></svg>}</span>
+                        <span className="wa-tm">{m.origin === "itaos" && <span className="wa-via" title={T("Sent from itaOS", "Imetumwa kutoka itaOS")}>itaOS · </span>}{hhmm(m.sent_at)}{m.direction === "out" && <Ticks m={m} T={T} />}</span>
+                        {m.status === "failed" && <span className="wa-fail">{T("Not delivered", "Haukufika")}{m.status_error?.title ? ` · ${m.status_error.title}` : ""}{m.status_error?.code ? ` (${m.status_error.code})` : ""}</span>}
                       </div>
                     </div>
                   );
@@ -321,6 +322,8 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
     try {
       await callFn("wa-send", { workspace_id: ws.id, conversation_id: r.id, text: t });
       setText(""); await onSent();
+      // WhatsApp's delivery report comes a few seconds later: look again so a failed send shows up.
+      window.setTimeout(() => { void onSent(); }, 5000); window.setTimeout(() => { void onSent(); }, 15000);
     } catch (e) { setErr((e as Error).message); }
     setSending(false); box.current?.focus();
   }
@@ -600,4 +603,16 @@ function TempFix({ r, T, onChange }: { r: Outcome; T: Tr; onChange: () => void }
       {note && <span className={"small " + (/Saved|Imehifadhiwa/.test(note) ? "muted" : "err")} style={{ flexBasis: "100%" }}>{note}</span>}
     </div>
   );
+}
+
+/** WhatsApp ticks. Messages sent from itaOS show their real delivery report: one tick = sent, two = delivered,
+ *  blue = read, red ! = WhatsApp did not deliver it. Other messages keep the plain double tick. */
+function Ticks({ m, T }: { m: Msg; T: Tr }) {
+  const one = "M11.07.66 4.86 7.32 2.2 4.6 1.1 5.68l3.77 3.85L12.2 1.74z";
+  const two = "M11.07.66 4.86 7.32 2.2 4.6 1.1 5.68l3.77 3.85L12.2 1.74zM15.1.66l-6.21 6.66-.73-.75-1.1 1.13 1.84 1.83L16.2 1.74z";
+  if (m.origin === "itaos" && m.status === "failed")
+    return <svg className="wa-tk wa-tk-fail" viewBox="0 0 16 16" width="15" height="15" role="img" aria-label={T("Not delivered", "Haukufika")}><circle cx="8" cy="8" r="7" fill="currentColor" /><path d="M8 4v5M8 11.5v.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg>;
+  const st = m.origin === "itaos" ? m.status : "delivered";
+  const label = st === "read" ? T("Read", "Imesomwa") : st === "delivered" ? T("Delivered", "Imefika") : st === "sent" ? T("Sent", "Imetumwa") : T("Waiting for WhatsApp", "Inasubiri WhatsApp");
+  return <svg className={"wa-tk" + (st === "read" ? " wa-tk-read" : "") + (!st ? " wa-tk-wait" : "")} viewBox="0 0 16 11" width="16" height="11" role="img" aria-label={label}><title>{label}</title><path d={st === "sent" || !st ? one : two} fill="currentColor" /></svg>;
 }

@@ -6,7 +6,10 @@ import { inferredFrom, kitoChecking } from "./Orders";
 export type Source = "any" | "live" | "import";
 export type Run = { id: number; trigger: "auto" | "manual"; ran_at: string; checked: number; failed: number; remaining: number; note: string | null };
 export type Receipt = { is_receipt: boolean; amount: number | null; currency: string | null; txn_code: string | null; provider: string | null; paid_to: string | null; sender: string | null; paid_at: string | null; confidence: string; notes: string | null };
-export type Msg = { id: string; direction: "in" | "out"; sent_at: string; body: string | null; origin: string; type: string; media: { path?: string; mime?: string; receipt?: Receipt | null; error?: string; product_match?: ProductMatch | null } | null };
+export type Msg = { id: string; direction: "in" | "out"; sent_at: string; body: string | null; origin: string; type: string;
+  /** WhatsApp's delivery report, kept for messages sent from itaOS (wa-webhook) */
+  status?: "sent" | "delivered" | "read" | "failed" | null; status_error?: { code?: number | null; title?: string; details?: string } | null;
+  media: { path?: string; mime?: string; receipt?: Receipt | null; error?: string; product_match?: ProductMatch | null } | null };
 export type Lite = { id: string; outcome: string | null; kito_temp: string | null; warm: boolean; paid_orders: number; payment_signal: boolean; kito_outcome: string | null; kito_confidence?: string | null; outcome_override: string | null; override_by: string | null; phone_number_id: string };
 export type Tr = (en: string, sw: string) => string;
 

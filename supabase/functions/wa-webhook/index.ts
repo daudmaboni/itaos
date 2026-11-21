@@ -252,6 +252,39 @@ async function processInBackground(db: SupabaseClient, saved: { id: number; fiel
   }
 }
 
+const STATUS_RANK: Record<string, number> = { sent: 1, delivered: 2, read: 3, failed: 9 };
+/** Saves WhatsApp's delivery report on messages sent from itaOS (raw.status, raw.status_at, raw.status_error).
+ *  A later report never steps back (a late "sent" can't undo "read"); "failed" always wins. Failures are
+ *  logged with WhatsApp's error code so they show in the function logs. */
+async function recordStatuses(db: SupabaseClient, statuses: any[]) {
+  for (const s of statuses) {
+    if (s?.status === "failed") {
+      const e = s.errors?.[0] ?? {};
+      console.error("wa delivery failed", String(s.id ?? "").slice(-12), e.code ?? "", String(e.title ?? "").slice(0, 80), String(e.error_data?.details ?? e.message ?? "").slice(0, 160));
+    }
+  }
+  const ids = [...new Set(statuses.map((s) => String(s?.id ?? "")).filter(Boolean))];
+  if (!ids.length) return;
+  const { data: rows, error } = await db.from("messages").select("id,raw").in("id", ids).eq("origin", "itaos");
+  if (error) throw new Error("could not read sent messages");
+  for (const row of rows ?? []) {
+    let raw = { ...(row.raw ?? {}) } as Record<string, unknown>;
+    let changed = false;
+    for (const s of statuses.filter((x) => x?.id === row.id)) {
+      const rank = STATUS_RANK[s.status] ?? 0;
+      if (!rank || rank <= (STATUS_RANK[String(raw.status ?? "")] ?? 0)) continue;
+      const e = s.errors?.[0];
+      raw = { ...raw, status: s.status, status_at: s.timestamp ? new Date(Number(s.timestamp) * 1000).toISOString() : new Date().toISOString(),
+        ...(e ? { status_error: { code: e.code ?? null, title: String(e.title ?? "").slice(0, 120), details: String(e.error_data?.details ?? e.message ?? "").slice(0, 300) } } : {}) };
+      changed = true;
+    }
+    if (changed) {
+      const { error: upErr } = await db.from("messages").update({ raw }).eq("id", row.id);
+      if (upErr) throw new Error("could not save delivery status");
+    }
+  }
+}
+
 async function persistChanges(body: Envelope | any) {
   const db = admin();
   const ids: number[] = [];
@@ -259,7 +292,13 @@ async function persistChanges(body: Envelope | any) {
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {
       const value = change.value ?? {};
-      if (change.field === "messages" && !value.messages) continue; // delivery statuses are not needed for analysis
+      if (change.field === "messages" && !value.messages) {
+        // Delivery reports (sent / delivered / read / failed). Not needed for analysis, but they're the only
+        // way to know whether a reply sent FROM itaOS actually reached the customer, so those are kept
+        // on the message (22 Nov 2026; before, they were dropped and failed sends looked like sent ones).
+        if (Array.isArray(value.statuses) && value.statuses.length) await recordStatuses(db, value.statuses).catch((e) => console.error("wa status", safeError(e)));
+        continue;
+      }
       const key = await eventKey(entry.id, change);
       const phoneNumberId = value.metadata?.phone_number_id;
       let workspaceId: string | null = null;

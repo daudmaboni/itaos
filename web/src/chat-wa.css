@@ -132,3 +132,9 @@
   :root[data-screen="chat"]:not([data-theme="light"]), :root[data-screen="chat"]:not([data-theme="light"]) body { background: #0b141a; }
   :root:not([data-theme="light"]) .chats .inbox.frame .wa-pane .wa-head { border-bottom: 0; }
 }
+
+/* Delivery report for messages sent from itaOS (22 Nov 2026) */
+.wa-pane .wa-tk.wa-tk-read, .chats .inbox.frame .wa-pane .wa-msg.out .wa-tk.wa-tk-read { color: #53bdeb; }
+.wa-pane .wa-tk.wa-tk-wait { opacity: .5; }
+.wa-pane .wa-tk.wa-tk-fail, .chats .inbox.frame .wa-pane .wa-msg.out .wa-tk.wa-tk-fail { color: #e5484d; }
+.wa-fail { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; color: #e5484d; }
