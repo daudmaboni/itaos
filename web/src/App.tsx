@@ -441,8 +441,35 @@ function phoneSwitch(from: View, next: View): boolean {
   html.classList.add("vt-phone");
   navFlags.busy = true; // no swipe can start while the browser is mid-transition (it would cut it short)
   const done = () => { html.classList.remove("vt-phone"); html.style.removeProperty("--vt-dir"); navFlags.busy = false; };
-  try { doc.startViewTransition(swap).finished.then(done, done); } catch { done(); swap(); }
+  try {
+    const vt = (doc.startViewTransition as any)(swap) as LiveVT;
+    liveVT = vt;
+    vt.finished.then(done, done).then(() => { if (liveVT === vt) liveVT = null; });
+  } catch { done(); swap(); }
   return true;
+}
+
+/* Taps during a page change (22 Nov 2026). While the browser animates a View Transition, every tap lands on
+   <html> instead of the button under the finger (checked in Chromium), so a tab pressed while the previous
+   page was still sliding in did nothing and needed a second press, mostly on slower Android phones. Now a
+   tap that lands on <html> mid-transition ends the animation at once and is passed on to whatever is under
+   the finger. */
+type LiveVT = { skipTransition: () => void; finished: Promise<void> };
+let liveVT: LiveVT | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const vt = liveVT;
+    if (!vt || e.target !== document.documentElement) return;
+    e.preventDefault(); e.stopPropagation();
+    const x = e.clientX, y = e.clientY;
+    liveVT = null;
+    try { vt.skipTransition(); } catch { /* already over */ }
+    const replay = () => requestAnimationFrame(() => {
+      const el = document.elementFromPoint(x, y);
+      if (el && el !== document.documentElement) el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y }));
+    });
+    vt.finished.then(replay, replay);
+  }, true);
 }
 const setViewRef: { current: ((v: View) => void) | null } = { current: null };
 /** Every page in bar order: Home, Kito, Chats, then the More menu's pages top to bottom. */
@@ -504,7 +531,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
   const go = (i: number) => {
     if (i >= SLOTS - 1) { setOpen(true); setLens(SLOTS - 1, false); return; }
     setOpen(false); // always close the More sheet first, so the tab works on the first tap
-    if (ORDER[i] !== view) { window.scrollTo({ top: 0 }); phoneGo(ORDER[i]); }
+    if (ORDER[i] !== view) { setLens(i, false); window.scrollTo({ top: 0 }); phoneGo(ORDER[i]); } // pill moves at once, even if the page takes a moment
     else setLens(i, false);
   };
 
