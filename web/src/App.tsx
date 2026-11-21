@@ -344,8 +344,11 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
     nav.current?.querySelectorAll("[data-tab].lensed").forEach((el) => el !== a && el.classList.remove("lensed"));
     a?.classList.add("lensed");
     if (!a) { g.classList.remove("on"); return; }
+    // Measure against the bar itself: the More button sits inside its own positioned wrapper, so its
+    // offsetLeft is 0 and the pill used to jump to the far left (under Dashboard) on More pages.
+    const left = a.getBoundingClientRect().left - (nav.current?.getBoundingClientRect().left ?? 0) - (nav.current?.clientLeft ?? 0);
     g.style.width = a.offsetWidth + "px";
-    g.style.transform = `translateX(${a.offsetLeft - 4}px)`;
+    g.style.transform = `translateX(${left - 4}px)`;
     g.classList.add("on");
   };
   const current = () => nav.current?.querySelector<HTMLElement>("[data-tab].on") ?? null;
