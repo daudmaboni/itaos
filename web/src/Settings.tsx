@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle } from "./MoneyHero";
 import type { HeroStyle } from "./MoneyHero";
 import { createPortal } from "react-dom";
@@ -39,7 +39,7 @@ export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; 
       {tab === "business" && <Business ws={ws} onWs={onWs} T={T} />}
       {tab === "profile" && <Profile ws={ws} T={T} />}
       {tab === "appearance" && <Appearance ws={ws} onWs={onWs} theme={theme} onTheme={onTheme} T={T} />}
-      {tab === "rules" && <><PaymentsCurrency ws={ws} onWs={onWs} T={T} /><Rates ws={ws} onWs={onWs} T={T} /><ChatRules ws={ws} onWs={onWs} T={T} /><Replying ws={ws} onWs={onWs} T={T} /></>}
+      {tab === "rules" && <><PaymentsCurrency ws={ws} onWs={onWs} T={T} /><Rates ws={ws} onWs={onWs} T={T} /><ChatRules ws={ws} onWs={onWs} T={T} /><NameWords ws={ws} T={T} /><Replying ws={ws} onWs={onWs} T={T} /></>}
       {tab === "app" && <PhoneApp ws={ws} T={T} />}
       {tab === "account" && <><MyProfile ws={ws} T={T} /><Account email={email} T={T} /></>}
     </div>
@@ -220,6 +220,106 @@ function ChatRules({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => voi
       </Field>
       {manager && <SaveRow busy={busy} msg={msg} T={T} />}
     </form>
+  );
+}
+
+// "Customer names on receipts" (migration 0058): this business's own label words. Many businesses save
+// customers as "Michael Oct TTS Leads A 1182"; these words are taken out to find the real name for receipts.
+// Kito also reads the chat for the name the customer gave, which comes first. Everything here is per business.
+type NameRules = { tags: string[]; names: string[]; auto: { word: string; uses: number }[]; products: string[]; builtin: string[];
+  examples: { saved: string; shown: string | null; source: string | null }[] };
+
+function NameWords({ ws, T }: { ws: Workspace; T: Tr }) {
+  const manager = canManage(ws);
+  const [r, setR] = useState<NameRules | null>(null);
+  const [add, setAdd] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [allAuto, setAllAuto] = useState(false);
+  useEffect(() => { supabase.rpc("name_rules", { p_ws: ws.id }).then(({ data, error }) => { if (error) setErr(error.message); else setR(data as NameRules); }); }, [ws.id]);
+  const change = async (words: string[], kind: "tag" | "name" | null) => {
+    if (!words.length) return;
+    setBusy(true); setErr("");
+    const { data, error } = await supabase.rpc("set_name_words", { p_ws: ws.id, p_words: words, p_kind: kind });
+    setBusy(false);
+    if (error) { setErr(T("Couldn't save. Try again.", "Imeshindwa kuhifadhi. Jaribu tena.")); return; }
+    setR(data as NameRules);
+  };
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const words = add.split(/[\s,;]+/).map((w) => w.trim()).filter(Boolean);
+    change(words, "tag").then(() => setAdd(""));
+  };
+  const src = (s: string | null) => s === "kito" ? T("from the chat", "kutoka kwenye chat") : s === "owner" ? T("typed by you", "umeandika wewe")
+    : s === "clean" ? T("from the saved name", "kutoka jina lililohifadhiwa") : s === "auto" ? T("from the delivery message", "kutoka ujumbe wa mzigo") : "";
+  const x = (label: string, onClick: () => void) => manager
+    ? <button type="button" className="nw-x" aria-label={label} title={label} disabled={busy} onClick={onClick}>×</button> : null;
+  const auto = r ? (allAuto ? r.auto : r.auto.slice(0, 24)) : [];
+  return (
+    <section className="card" style={{ display: "grid", gap: 14 }}>
+      <style>{`.nw-chips{display:flex;flex-wrap:wrap;gap:6px}
+        .nw-chip{display:inline-flex;align-items:center;gap:4px;font-size:13px;padding:4px 6px 4px 11px;border-radius:999px;background:var(--raised);border:1px solid var(--line)}
+        .nw-chip.ro{padding-right:11px}.nw-chip .muted{font-size:11px}
+        .nw-x{all:unset;cursor:pointer;width:22px;height:22px;display:inline-grid;place-items:center;border-radius:999px;font-size:15px;line-height:1;color:var(--muted)}
+        .nw-x:hover{background:var(--line);color:var(--ink)}.nw-x:focus-visible{outline:2px solid var(--accent)}
+        .nw-keep{all:unset;cursor:pointer;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;color:var(--muted);border:1px solid var(--line)}
+        .nw-keep:hover{color:var(--ink);border-color:var(--line-2)}.nw-keep:focus-visible{outline:2px solid var(--accent)}
+        .nw-ex{display:grid;grid-template-columns:1fr auto 1fr;gap:4px 10px;align-items:baseline;font-size:13px}
+        .nw-ex .from{color:var(--muted);overflow-wrap:anywhere}`}</style>
+      <div><h2>{T("Customer names on receipts", "Majina ya wateja kwenye risiti")}</h2>
+        <span className="small muted">{T("If you save customers with your own labels (campaign, month, list number…), itaOS takes those words out to find the person's real name for receipts. Kito also reads the chat for the name the customer gave, and that comes first. These words are for this business only.",
+          "Ukihifadhi wateja kwa alama zako (kampeni, mwezi, namba ya orodha…), itaOS inaondoa maneno hayo kupata jina halisi la mtu kwa risiti. Kito pia husoma chat kupata jina alilotaja mteja, na hilo linatangulia. Maneno haya ni ya biashara hii tu.")}</span></div>
+      {err && <span className="small err">{err}</span>}
+      {!r && !err && <span className="small muted">{T("Loading…", "Inapakia…")}</span>}
+      {r && <>
+        <div style={{ display: "grid", gap: 8 }}>
+          <h3 style={{ margin: 0 }}>{T("Your label words", "Maneno ya alama zako")}</h3>
+          <span className="small muted">{T("Always removed from saved names.", "Yanaondolewa kila mara kwenye majina yaliyohifadhiwa.")}</span>
+          <div className="nw-chips">
+            {r.tags.length === 0 && <span className="small muted">{T("None yet.", "Bado hakuna.")}</span>}
+            {r.tags.map((w) => <span key={w} className="nw-chip">{w.toUpperCase()}{x(T(`Remove ${w}`, `Ondoa ${w}`), () => change([w], null))}</span>)}
+          </div>
+          {manager && <form onSubmit={submit} className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <input value={add} onChange={(e) => setAdd(e.target.value)} placeholder={T("e.g. TTS NGV Q4", "mf. TTS NGV Q4")} aria-label={T("Words to add", "Maneno ya kuongeza")}
+              style={{ flex: "1 1 220px", maxWidth: 360 }} maxLength={300} />
+            <button type="submit" disabled={busy || !add.trim()}>{busy ? T("Saving…", "Inahifadhi…") : T("Add", "Ongeza")}</button>
+          </form>}
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <h3 style={{ margin: 0 }}>{T("Found automatically", "Yamegunduliwa yenyewe")} <span className="small muted">{r.auto.length}</span></h3>
+          <span className="small muted">{T("Words that appear in many of your saved names, so itaOS treats them as labels. Checked every night. If one is really part of people's names, tap \"It's a name\".",
+            "Maneno yanayojitokeza kwenye majina mengi uliyohifadhi, hivyo itaOS inayachukulia kama alama. Yanaangaliwa kila usiku. Kama moja ni sehemu ya majina ya watu, bonyeza \"Ni jina\".")}</span>
+          <div className="nw-chips">
+            {r.auto.length === 0 && <span className="small muted">{T("None yet.", "Bado hakuna.")}</span>}
+            {auto.map((a) => <span key={a.word} className={"nw-chip" + (manager ? "" : " ro")}>{a.word.toUpperCase()} <span className="muted">{a.uses.toLocaleString()}</span>
+              {manager && <button type="button" className="nw-keep" disabled={busy} onClick={() => change([a.word], "name")}>{T("It's a name", "Ni jina")}</button>}</span>)}
+            {r.auto.length > 24 && <button type="button" className="nw-keep" onClick={() => setAllAuto((v) => !v)}>{allAuto ? T("Show fewer", "Onyesha machache") : T(`Show all ${r.auto.length}`, `Onyesha yote ${r.auto.length}`)}</button>}
+          </div>
+        </div>
+
+        {r.names.length > 0 && <div style={{ display: "grid", gap: 8 }}>
+          <h3 style={{ margin: 0 }}>{T("Never removed", "Hayaondolewi kamwe")}</h3>
+          <span className="small muted">{T("Kept as part of a name, even when they look like a label or a place.", "Yanabaki kama sehemu ya jina, hata yakionekana kama alama au mahali.")}</span>
+          <div className="nw-chips">{r.names.map((w) => <span key={w} className="nw-chip">{w.charAt(0).toUpperCase() + w.slice(1)}{x(T(`Stop keeping ${w}`, `Acha kubakiza ${w}`), () => change([w], null))}</span>)}</div>
+        </div>}
+
+        <span className="small muted">
+          {r.products.length > 0 && <>{T("Also removed: words from your product names", "Pia yanaondolewa: maneno ya majina ya bidhaa zako")} ({r.products.join(", ")}) · </>}
+          {T("months, place names and common words like", "miezi, majina ya mahali na maneno ya kawaida kama")} {r.builtin.filter((w) => w.length > 2).slice(0, 8).join(", ")}…
+        </span>
+
+        {r.examples.length > 0 && <div style={{ display: "grid", gap: 8 }}>
+          <h3 style={{ margin: 0 }}>{T("Your latest buyers", "Wanunuzi wako wa karibuni")}</h3>
+          <div className="nw-ex">
+            {r.examples.map((e, i) => <Fragment key={i}>
+              <span className="from">{e.saved}</span><span className="muted">→</span>
+              <span><b>{e.shown ?? T("phone number", "namba ya simu")}</b>{e.source && <span className="small muted"> · {src(e.source)}</span>}</span>
+            </Fragment>)}
+          </div>
+        </div>}
+      </>}
+    </section>
   );
 }
 

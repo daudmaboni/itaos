@@ -4,12 +4,14 @@
 // from the chat and marked "suggested" until the owner saves them. Data: list_buyers / save_customer
 // (migration 0054). The saved details feed Find a payment and printed receipts.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase, Workspace, money, canEdit, localDay } from "./lib";
+import { supabase, callFn, Workspace, money, canEdit, localDay } from "./lib";
 
 export type Buyer = {
   contact_id: string; wa_name: string | null; full_name: string | null; phone: string | null; alt_phone: string | null;
   delivery_place: string | null; region: string | null; district: string | null; area: string | null; landmark: string | null; delivery_note: string | null;
-  location_source: "auto" | "owner" | null; location_evidence: string | null; name_source: "auto" | "owner" | null;
+  location_source: "auto" | "owner" | null; location_evidence: string | null;
+  // where the name came from (0056): typed by the owner, read by Kito in the chat, the delivery message, or the saved label cleaned
+  name_source: "auto" | "owner" | "kito" | "clean" | null; name_evidence?: string | null; receiver_name?: string | null;
   orders: number; spent: number; currency: string | null; first_at: string | null; last_at: string | null;
   last_conversation_id: string | null; last_receipt: string | null; products: string | null;
 };
@@ -24,6 +26,8 @@ export const placeOf = (b: Pick<Buyer, "delivery_place" | "area" | "district" | 
   if (b.delivery_place) return b.region && !b.delivery_place.toLowerCase().includes(b.region.toLowerCase().split(" ")[0]) ? `${b.delivery_place} · ${b.region}` : b.delivery_place;
   return [b.area, b.district, b.region].filter(Boolean).join(", ");
 };
+// A name or place itaOS guessed (not read from the chat, not typed by the owner) is worth a look.
+const toCheck = (b: Buyer) => b.location_source === "auto" || b.name_source === "auto" || b.name_source === "clean" || !b.full_name;
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Dar_es_Salaam" }) : "–";
 
 export default function Buyers({ ws }: { ws: Workspace }) {
@@ -48,11 +52,11 @@ export default function Buyers({ ws }: { ws: Workspace }) {
   useEffect(() => { const t = window.setTimeout(load, q ? 300 : 0); return () => window.clearTimeout(t); }, [q, region, ws.id]);
 
   const shown = useMemo(() => (rows ?? []).filter((b) =>
-    only === "all" ? true : only === "nolocation" ? !b.region && !b.delivery_place : b.location_source === "auto" || b.name_source === "auto"), [rows, only]);
+    only === "all" ? true : only === "nolocation" ? !b.region && !b.delivery_place : toCheck(b)), [rows, only]);
   const counts = useMemo(() => ({
     all: rows?.length ?? 0,
     nolocation: (rows ?? []).filter((b) => !b.region && !b.delivery_place).length,
-    suggested: (rows ?? []).filter((b) => b.location_source === "auto" || b.name_source === "auto").length,
+    suggested: (rows ?? []).filter(toCheck).length,
   }), [rows]);
   const regionsInData = useMemo(() => Array.from(new Set([...(rows ?? []).map((b) => b.region).filter(Boolean) as string[]])).sort(), [rows]);
 
@@ -114,13 +118,13 @@ export default function Buyers({ ws }: { ws: Workspace }) {
         <section className="card flat" style={{ display: "grid", gap: 0 }}>
           {shown.map((b) => {
             const isOpen = open === b.contact_id;
-            const name = b.full_name || b.wa_name || local(b.phone);
+            const name = b.full_name || local(b.phone);
             const place = placeOf(b);
             return (
               <div key={b.contact_id}>
                 <button type="button" className={"by-row" + (isOpen ? " open" : "")} aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : b.contact_id)}>
                   <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                    <span><b>{name}</b>{b.name_source === "auto" && <span className="by-tag">{T("name suggested", "jina limependekezwa")}</span>}</span>
+                    <span><b>{name}</b>{(b.name_source === "auto" || b.name_source === "clean") && <span className="by-tag">{T("name suggested", "jina limependekezwa")}</span>}</span>
                     <span className="small muted">{local(b.phone)}{b.alt_phone ? ` · ${b.alt_phone}` : ""}</span>
                     <span className="small">{place || <span className="muted">{T("No location yet", "Bado hakuna mahali")}</span>}
                       {place && (b.location_source === "owner" ? <span className="by-tag ok">{T("confirmed", "imethibitishwa")}</span> : <span className="by-tag">{T("suggested", "imependekezwa")}</span>)}</span>
@@ -155,8 +159,26 @@ export function BuyerEdit({ b, T, editor, onSaved }: { b: Buyer; T: (en: string,
       location_source: hasLoc ? "owner" : null, name_source: f.full_name.trim() ? "owner" : null, location_evidence: null } as Buyer);
     setMsg(T("Saved", "Imehifadhiwa"));
   };
+  const [reading, setReading] = useState(false);
+  const reread = async () => {
+    setReading(true); setMsg("");
+    try {
+      await callFn("names", { contact_id: b.contact_id });
+      const { data } = await supabase.from("contacts").select("full_name,name_source,name_evidence,receiver_name").eq("id", b.contact_id).single();
+      if (data) { const nb = { ...b, ...(data as Partial<Buyer>) } as Buyer; onSaved(nb); setF((x) => ({ ...x, full_name: nb.full_name ?? "" })); }
+      setMsg(data?.name_source === "kito" ? T("Name read from the chat", "Jina limesomwa kwenye chat") : T("No name in the chat — kept the best guess", "Hakuna jina kwenye chat — tumebaki na makadirio bora"));
+    } catch { setMsg(T("Kito couldn't read the chat now. Try again.", "Kito hakuweza kusoma chat sasa. Jaribu tena.")); }
+    setReading(false);
+  };
+  const nameFrom = b.name_source === "owner" ? T("Name typed by you. Receipts use it as it is.", "Jina umeandika wewe. Risiti zinalitumia kama lilivyo.")
+    : b.name_source === "kito" ? T("Name Kito found in the chat", "Jina Kito alilopata kwenye chat")
+    : b.name_source === "auto" ? T("Name taken from their delivery message", "Jina limetoka kwenye ujumbe wao wa mzigo")
+    : b.name_source === "clean" ? T(`Guessed from the saved name "${b.wa_name ?? ""}"`, `Limekadiriwa kutoka jina lililohifadhiwa "${b.wa_name ?? ""}"`)
+    : T("No name found yet. Receipts show the phone number.", "Bado jina halijapatikana. Risiti zinaonyesha namba ya simu.");
   return (
     <div className="by-edit">
+      <span className="small muted" style={{ overflowWrap: "anywhere" }}>{nameFrom}{b.name_source === "kito" && b.name_evidence ? <>: <i>“{b.name_evidence}”</i></> : null}
+        {b.receiver_name ? <> · {T("parcel for", "mzigo ni wa")} <b>{b.receiver_name}</b></> : null}</span>
       {b.location_source === "auto" && b.location_evidence && (
         <span className="small muted">{T("Taken from their delivery message:", "Imetoka kwenye ujumbe wao wa mzigo:")} <i>“{b.location_evidence}”</i></span>
       )}
@@ -176,10 +198,11 @@ export function BuyerEdit({ b, T, editor, onSaved }: { b: Buyer; T: (en: string,
         <label htmlFor={id("dn")} className="by-wide">{T("Delivery note", "Maelezo ya kusafirisha")}<textarea id={id("dn")} rows={2} value={f.delivery_note} onChange={set("delivery_note")} disabled={!editor} placeholder={T("e.g. send by bus to Kyela, picks up at the stand", "mfano tuma kwa basi Kyela, atachukua stendi")} /></label>
       </div>
       <div className="row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        {editor && <button type="button" className="primary" disabled={busy} onClick={save}>{busy ? T("Saving…", "Inahifadhi…") : b.location_source === "auto" || b.name_source === "auto" ? T("Confirm and save", "Thibitisha na uhifadhi") : T("Save", "Hifadhi")}</button>}
+        {editor && <button type="button" className="primary" disabled={busy} onClick={save}>{busy ? T("Saving…", "Inahifadhi…") : toCheck(b) ? T("Confirm and save", "Thibitisha na uhifadhi") : T("Save", "Hifadhi")}</button>}
+        {editor && b.name_source !== "owner" && <button type="button" disabled={reading || busy} onClick={reread}>{reading ? T("Reading the chat…", "Inasoma chat…") : T("Read name from chat again", "Soma jina kwenye chat tena")}</button>}
         {b.last_conversation_id && <a href={"#chats/open=" + b.last_conversation_id}>{T("Open chat →", "Fungua chat →")}</a>}
         {b.last_receipt && <a href={"#receipts/q=" + encodeURIComponent(b.last_receipt)}>{T("Last receipt", "Risiti ya mwisho")} {b.last_receipt} →</a>}
-        {msg && <span className={"small " + (/Saved|Imehifadhiwa/.test(msg) ? "ok" : "err")}>{msg}</span>}
+        {msg && <span className={"small " + (/Saved|Imehifadhiwa|read from|imesomwa|best guess|makadirio/.test(msg) ? "ok" : "err")}>{msg}</span>}
       </div>
     </div>
   );
