@@ -95,7 +95,7 @@ function Receipt({ d }: { d: Check }) {
       <dl className="rc-rows">
         <div><dt>Kumbukumbu Na. <small>Receipt no.</small></dt><dd className="mono">{d.receipt_no}</dd></div>
         <div><dt>Tarehe <small>Date</small></dt><dd>{date} · {time}</dd></div>
-        {d.customer && <div><dt>Mteja <small>Customer</small></dt><dd>{d.customer}</dd></div>}
+        {d.customer && <div><dt>Jina <small>Name</small></dt><dd>{d.customer}</dd></div>}
         {d.items.length > 0 && <div><dt>Bidhaa <small>Items</small></dt><dd>{d.items.map((i, k) => <span key={k} className="rc-item">{i.name}{i.qty > 1 ? ` × ${i.qty}` : ""}</span>)}</dd></div>}
         {d.payment_ref_end && <div><dt>Muamala M-Pesa <small>Payment code</small></dt><dd className="mono">•••• {d.payment_ref_end}</dd></div>}
         {d.status === "paid" && d.delivery && DELIVERY[d.delivery] && <div><dt>Mzigo <small>Delivery</small></dt><dd>{DELIVERY[d.delivery][0]} <small>{DELIVERY[d.delivery][1]}</small></dd></div>}

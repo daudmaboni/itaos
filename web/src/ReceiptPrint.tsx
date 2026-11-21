@@ -220,7 +220,7 @@ function Till({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ textAlign: "center" }}><Label color={C.ink}>RISITI · RECEIPT</Label></div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-          <Line k="Kumbukumbu Na." v={r.no} /><Line k="Tarehe" v={r.dateTime} /><Line k="Mteja" v={r.customer} />{r.place && <Line k="Mahali" v={r.place} />}
+          <Line k="Kumbukumbu Na." v={r.no} /><Line k="Tarehe" v={r.dateTime} /><Line k="Jina" v={r.customer} />{r.place && <Line k="Mahali" v={r.place} />}
         </div>
         <div style={{ borderTop: `2px dashed ${C.line}` }} />
         <Items r={r} />
@@ -253,7 +253,7 @@ function Letterhead({ r, qr }: { r: R; qr: string | null }) {
         <div style={{ textAlign: "right", display: "flex", flexDirection: "column" }}><span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 30, color: C.greenText }}>Risiti</span><span style={{ fontSize: 12, color: C.muted }}>Receipt</span></div>
       </div>
       <div style={{ padding: "28px 48px 0", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16, fontSize: 13 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><Label>MTEJA</Label><span style={{ fontWeight: 600 }}>{r.customer}</span>{r.custPhone && <span style={{ color: C.muted }}>{r.custPhone}</span>}{r.place && <span style={{ color: C.muted }}>{r.place}</span>}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><Label>JINA</Label><span style={{ fontWeight: 600 }}>{r.customer}</span>{r.custPhone && <span style={{ color: C.muted }}>{r.custPhone}</span>}{r.place && <span style={{ color: C.muted }}>{r.place}</span>}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><Label>KUMBUKUMBU NA.</Label><span style={{ fontWeight: 600 }}>{r.no}</span></div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><Label>TAREHE</Label><span style={{ fontWeight: 600 }}>{r.date}</span></div>
       </div>
@@ -287,7 +287,7 @@ function Stamp({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ borderTop: `1px solid ${C.line}` }} />
       <Items r={r} />
       <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 16, paddingTop: 8, borderTop: `1px solid ${C.line}` }}><span>Jumla</span><span>{r.total}</span></div>
-      <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Mteja: {r.customer}{r.place ? ` · ${r.place}` : ""}</span><span>{r.date}{r.ref ? ` · M-Pesa ${r.ref}` : ""}</span></div>
+      <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Jina: {r.customer}{r.place ? ` · ${r.place}` : ""}</span><span>{r.date}{r.ref ? ` · M-Pesa ${r.ref}` : ""}</span></div>
       <div style={{ alignSelf: "center", marginTop: 4, transform: "rotate(-8deg)", border: `4px solid ${C.greenText}`, outline: `2px solid ${C.greenText}`, outlineOffset: 5, borderRadius: 9999, width: 180, height: 180, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: C.greenText, textAlign: "center" }}>
         <Label color={C.greenText}>{r.biz.toUpperCase().slice(0, 18)}</Label>
         <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 32 }}>IMELIPWA</span>
@@ -313,7 +313,7 @@ function TearOff({ r, qr }: { r: R; qr: string | null }) {
         <div style={{ fontSize: 12, color: C.muted }}>Customer copy · {r.no} · {r.date}</div>
         <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14 }}><Items r={r} /></div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.green, color: "#fff", borderRadius: 16, padding: "14px 18px" }}><span style={{ fontWeight: 700 }}>Jumla</span><span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24 }}>{r.total}</span></div>
-        <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Mteja: {r.customer}</span>{r.place && <span>Mahali: {r.place}</span>}{r.ref && <span>M-Pesa: {r.ref}</span>}</div>
+        <div style={{ fontSize: 13, color: C.muted, display: "flex", flexDirection: "column", gap: 3 }}><span>Jina: {r.customer}</span>{r.place && <span>Mahali: {r.place}</span>}{r.ref && <span>M-Pesa: {r.ref}</span>}</div>
         <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
           <span style={{ fontSize: 13 }}>Asante kwa kutuamini. Hifadhi risiti hii. · Keep this receipt.</span>
           <Qr qr={qr} size={64} caption={false} />
@@ -326,7 +326,7 @@ function TearOff({ r, qr }: { r: R; qr: string | null }) {
       <div style={{ padding: "26px 40px 36px", display: "flex", flexDirection: "column", gap: 12, background: C.cream, flexGrow: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 18 }}>{r.no}</span><Label>NAKALA YA DUKA</Label></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, fontSize: 13 }}>
-          <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Mteja</span><span style={{ fontWeight: 600 }}>{r.customer}</span></div>
+          <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Jina</span><span style={{ fontWeight: 600 }}>{r.customer}</span></div>
           <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Simu</span><span style={{ fontWeight: 600 }}>{r.custPhone ?? "—"}</span></div>
           <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>Jumla</span><span style={{ fontWeight: 600 }}>{r.total}</span></div>
           <div style={{ display: "flex", flexDirection: "column" }}><span style={{ color: C.muted }}>M-Pesa</span><span style={{ fontWeight: 600 }}>{r.ref ?? "—"}</span></div>
@@ -351,7 +351,7 @@ function Mono({ r, qr }: { r: R; qr: string | null }) {
       </div>
       <div style={{ textAlign: "center", fontWeight: 700, letterSpacing: "0.08em", borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "6px 0" }}>RISITI YA MALIPO</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, fontFamily: MONO }}>
-        <Line k="KUMB NA:" v={r.no} kc="#000" /><Line k="TAREHE:" v={r.dateTime} kc="#000" /><Line k="MTEJA:" v={r.customer.toUpperCase()} kc="#000" />{r.place && <Line k="MAHALI:" v={r.place.toUpperCase()} kc="#000" />}
+        <Line k="KUMB NA:" v={r.no} kc="#000" /><Line k="TAREHE:" v={r.dateTime} kc="#000" /><Line k="JINA:" v={r.customer.toUpperCase()} kc="#000" />{r.place && <Line k="MAHALI:" v={r.place.toUpperCase()} kc="#000" />}
       </div>
       <div style={{ borderTop: "1px dashed #000" }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: MONO }}>{r.items.map((x, i) => <span key={i}>{x.toUpperCase()}</span>)}</div>
@@ -419,8 +419,8 @@ function Bilingual({ r, qr }: { r: R; qr: string | null }) {
         <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em" }}>KUMBUKUMBU NA. {r.no}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", flexGrow: 1 }}>
-        <div style={{ borderRight: `1px solid ${C.line}`, display: "flex" }}>{col("KISWAHILI", "Risiti ya malipo", ["Mteja", "Bidhaa", "Tarehe", "Muamala M-Pesa", "Mahali"], "Asante kwa kutuamini.", "32px 44px")}</div>
-        {col("ENGLISH", "Payment receipt", ["Customer", "Items", "Date", "M-Pesa ref", "Location"], "Thank you for trusting us.", "32px 44px")}
+        <div style={{ borderRight: `1px solid ${C.line}`, display: "flex" }}>{col("KISWAHILI", "Risiti ya malipo", ["Jina", "Bidhaa", "Tarehe", "Muamala M-Pesa", "Mahali"], "Asante kwa kutuamini.", "32px 44px")}</div>
+        {col("ENGLISH", "Payment receipt", ["Name", "Items", "Date", "M-Pesa ref", "Location"], "Thank you for trusting us.", "32px 44px")}
       </div>
       <div style={{ margin: "0 44px 36px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 24, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontWeight: 700 }}>Jumla · Total</span>
