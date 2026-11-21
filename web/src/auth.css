@@ -323,3 +323,25 @@ html[data-screen="auth"]::-webkit-scrollbar { display: none; }
   .ax:has(#biz) .ax-big-bars { display: none; }
 }
 @media (max-width: 760px) and (max-height: 700px) { .ax-show { min-height: 260px; } .ax-big-bars { display: none; } }
+
+/* ---- 21 Nov: the whole sign-in form (down to the staff link) fits on one phone screen ----
+   The green banner was a fixed 330px, so with the notch, home bar and Google button the footer fell off
+   the bottom. Now the screen is exactly one viewport tall: the form takes what it needs and the banner
+   gets the rest (up to 330px), dropping the chart, then the big number, on shorter screens. */
+@media (max-width: 760px) {
+  .ax-split { height: 100dvh; min-height: 0; }
+  .ax-show { flex: 0 1 330px; min-height: 0; }
+  .ax-side { flex: 1 0 auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .ax:has(#biz) .ax-show { min-height: 0; flex-basis: 250px; }
+}
+@media (max-width: 760px) and (max-height: 820px) {
+  .ax-show { padding-bottom: 42px; }
+  .ax-show-copy { margin-top: 14px; }
+  .ax-big { margin-top: 6px; }
+  .ax-big-txt b { font-size: 32px; }
+  .ax-big-bars { display: none; }
+}
+@media (max-width: 760px) and (max-height: 720px) {
+  .ax-show-copy, .ax-big { display: none !important; }
+  .ax-show { padding-bottom: 40px; }
+}
