@@ -324,17 +324,8 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
   useEffect(() => { const el = box.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; } }, [text]);
 
   const openWa = phone && <a className="btn small" href={waLink(phone)} target="_blank" rel="noopener noreferrer">{T("Open WhatsApp ↗", "Fungua WhatsApp ↗")}</a>;
-  if (!canManage(ws) || ws.send_enabled === false || (r as any).phone_number_id === "import") {
-    return (
-      <div className="wa-compose">
-        <span>{(r as any).phone_number_id === "import" ? T("This chat came from an uploaded file. Reply from WhatsApp.", "Chat hii imetoka kwenye faili. Jibu kupitia WhatsApp.")
-          : !canManage(ws) ? T("Only the owner or an admin can reply from itaOS.", "Mmiliki au admin pekee anaweza kujibu kutoka itaOS.")
-          : T("Replying from itaOS is turned off in Settings.", "Kujibu kutoka itaOS kumezimwa kwenye Mipangilio.")}</span>
-        {openWa}
-      </div>
-    );
-  }
-  if (meta.locked) {
+  // Meta's block comes before the Settings switch: it says why sending can't work and what to do.
+  if (meta.locked && canManage(ws) && (r as any).phone_number_id !== "import") {
     return (
       <div className="wa-compose wa-verify" role="note">
         <span className="wa-verify-ico" aria-hidden>
@@ -351,6 +342,16 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
           {openWa}
           <button type="button" className="linkish small" onClick={() => { meta.retry(); }}>{T("Meta approved? Try again", "Meta imeidhinisha? Jaribu tena")}</button>
         </div>
+      </div>
+    );
+  }
+  if (!canManage(ws) || ws.send_enabled === false || (r as any).phone_number_id === "import") {
+    return (
+      <div className="wa-compose">
+        <span>{(r as any).phone_number_id === "import" ? T("This chat came from an uploaded file. Reply from WhatsApp.", "Chat hii imetoka kwenye faili. Jibu kupitia WhatsApp.")
+          : !canManage(ws) ? T("Only the owner or an admin can reply from itaOS.", "Mmiliki au admin pekee anaweza kujibu kutoka itaOS.")
+          : T("Replying from itaOS is turned off in Settings.", "Kujibu kutoka itaOS kumezimwa kwenye Mipangilio.")}</span>
+        {openWa}
       </div>
     );
   }
