@@ -110,7 +110,7 @@
     @keyframes pl-a11 {0%,24%{ transform:scale(0) } 55%,80%{ transform:scale(1) } 96%,100%{ transform:scale(0) } }
     @keyframes pl-a11dot {0%,16%{ transform:scale(1) } 8%{ transform:scale(1.35) } 20%{ transform:scale(1.5) } 30%,100%{ transform:scale(1) } }
     /* 12 · Glitch — still, then short digital glitch bursts with colour split */
-    #preloader .a12 .g1 .l {fill:#f5c84c; }
+    #preloader .a12 .g1 .l {fill:var(--t-dot); }
     #preloader .a12 .g2 .l {fill:#4ad48f; }
     #preloader .a12 .g1 {animation:pl-a12a 2.4s steps(1,end) infinite; }
     #preloader .a12 .g2 {animation:pl-a12b 2.4s steps(1,end) infinite; }
@@ -338,6 +338,24 @@
   })();
   </script>
   <div id="preloader" role="status" aria-label="Loading itaOS"><div id="pl-stage" class="pl-stage"></div></div>
+  <script>/* Loader colours (22 Nov 2026): black, white and the homepage green, mixed at random on every load.
+     The screen is one of the three, the logo tile another, and the dot the third (letters contrast the tile). */
+  (function () {
+    var C = { black: "#121417", white: "#ffffff", green: "#0f7a4f" }, names = ["black", "white", "green"];
+    var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
+    var bg = pick(names), tile = pick(names.filter(function (n) { return n !== bg; }));
+    var dot = names.filter(function (n) { return n !== bg && n !== tile; })[0];
+    var ink = function (n) { return n === "white" ? C.black : C.white; };
+    var p = document.getElementById("preloader"), st = p.style;
+    st.background = C[bg];
+    st.setProperty("--t-bg", C[tile]); st.setProperty("--t-fg", ink(tile)); st.setProperty("--t-dot", C[dot]);
+    st.setProperty("--t-edge", tile === "white" ? "#e6e8ec" : "rgba(255,255,255,.14)");
+    st.setProperty("--sheen", "#ffffff");
+    // first-screen liquid loader draws straight on the screen colour
+    st.setProperty("--lq-ink", ink(bg)); st.setProperty("--lq-dot", C[bg === "green" ? "white" : "green"]);
+    var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute("content", C[bg]);
+  })();
+  </script>
   <script>/* Pick one of the itaOS loading animations at random (never the same one twice in a row). Add ?loader=N to the URL to force one. */
   (function () {
 const I = "M18.75 0.0H85.9375V-206.25H18.75ZM52.1484375 -226.3671875C73.828125 -226.3671875 89.2578125 -240.625 89.2578125 -260.3515625C89.2578125 -280.078125 73.828125 -294.140625 52.1484375 -294.140625C30.6640625 -294.140625 15.234375 -280.078125 15.234375 -260.3515625C15.234375 -240.625 30.6640625 -226.3671875 52.1484375 -226.3671875Z";
@@ -385,9 +403,9 @@ function mark2(n, u) {
     case 13: return svg(`${tile}${WORD()}<g class="blink"><rect class="caret" x="200" y="330" width="26" height="296" rx="8"/></g>${DOT}`);
     case 14: return svg(`<defs><mask id="lq${u}"><g class="rise"><path class="wave" d="${WAVE}" fill="#fff"/></g></mask></defs>
       ${tile}${WORD()}${DOT}
-      <g mask="url(#lq${u})"><rect ${TILE} fill="#f5c84c"/><g transform="translate(182 624)"><path d="${I}" fill="#131a2a"/><path d="${T}" fill="#131a2a"/><path d="${A}" fill="#131a2a"/></g><circle cx="712" cy="586" r="52" fill="#131a2a"/></g>`);
+      <g mask="url(#lq${u})"><rect ${TILE} style="fill:var(--t-dot)"/><g transform="translate(182 624)" style="fill:var(--t-bg)"><path d="${I}"/><path d="${T}"/><path d="${A}"/></g><circle cx="712" cy="586" r="52" style="fill:var(--t-bg)"/></g>`);
     case 15: return svg(`${tile}<g class="lw">${WORD()}</g><circle class="m m1" cx="712" cy="586" r="52"/><circle class="m m2" cx="712" cy="586" r="52"/><circle class="m m3" cx="712" cy="586" r="52"/>`);
-    case 16: return svg(`<defs><filter id="gw${u}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16" result="b"/><feFlood flood-color="#f5c84c" flood-opacity=".9"/><feComposite in2="b" operator="in" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    case 16: return svg(`<defs><filter id="gw${u}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16" result="b"/><feFlood style="flood-color:var(--t-dot)" flood-opacity=".9"/><feComposite in2="b" operator="in" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
       ${tile}<g filter="url(#gw${u})">${WORD()}${DOT}</g>`);
     case 17: return svg(`<defs><g id="ct${u}"><rect ${TILE} style="fill:var(--t-bg);stroke:var(--t-edge);stroke-width:16"/><g transform="translate(182 624)" style="fill:var(--t-fg)"><path d="${I}"/><path d="${T}"/><path d="${A}"/></g><circle cx="712" cy="586" r="52" style="fill:var(--t-dot)"/></g>
       <clipPath id="k1${u}"><rect x="0" y="0" width="512" height="512"/></clipPath><clipPath id="k2${u}"><rect x="512" y="0" width="512" height="512"/></clipPath>
@@ -396,7 +414,7 @@ function mark2(n, u) {
       <g class="q q3"><use href="#ct${u}" clip-path="url(#k3${u})"/></g><g class="q q4"><use href="#ct${u}" clip-path="url(#k4${u})"/></g>`);
     case 18: {
       const card = (c, st) => `<svg class="mark ${c}" style="${st}" viewBox="0 0 1024 1024" aria-hidden="true">${tile}${WORD()}${DOT}</svg>`;
-      return `<div class="deck">${card("c3", "--t-bg:#f5c84c;--t-fg:#131a2a;--t-dot:#131a2a;--t-edge:#f5c84c")}${card("c2", "--t-bg:#ffffff;--t-fg:#131a2a;--t-dot:#f5c84c;--t-edge:#e6e8ec")}${card("c1", "--t-bg:#131a2a;--t-fg:#ffffff;--t-dot:#f5c84c;--t-edge:#2a3247")}</div>`;
+      return `<div class="deck">${card("c3", "--t-bg:#0f7a4f;--t-fg:#ffffff;--t-dot:#ffffff;--t-edge:#0f7a4f")}${card("c2", "--t-bg:#ffffff;--t-fg:#121417;--t-dot:#0f7a4f;--t-edge:#e6e8ec")}${card("c1", "--t-bg:#121417;--t-fg:#ffffff;--t-dot:#0f7a4f;--t-edge:#2a2d33")}</div>`;
     }
     case 19: return svg(`${tile}${WORD()}${DOT}`);
     case 20: {
