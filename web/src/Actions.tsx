@@ -7,6 +7,7 @@ import { supabase, callFn, Workspace, Outcome, Task, L, when, ago, canEdit } fro
 import { KitoLoader } from "./KitoLoader";
 import { PromiseList, dueBucket } from "./Promises";
 import { ReorderList } from "./Reorders";
+import { AfterPriceList, afterPriceCount } from "./AfterPrice";
 import { useKept, kept, put } from "./keep";
 
 type Member = { user_id: string; role: string; email: string };
@@ -27,7 +28,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const [loading, setLoading] = useState(!kept(K + ":loaded"));
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
-  const [tab, setTab] = useState<"promises" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : "promises"));
+  const [tab, setTab] = useState<"promises" | "after_price" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : location.hash.includes("tab=after_price") ? "after_price" : "promises"));
   const [reorderCount, setReorderCount] = useKept<number | null>(K + ":reorders", null);
   useEffect(() => {
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data }) => {
@@ -68,6 +69,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const promiseCount = useMemo(() => promises.filter((t) => t.status === "proposed" || ((t.status === "open" || t.status === "snoozed") && dueBucket(t) !== "upcoming")).length, [promises]);
   const open = useMemo(() => tasks.filter((t) => t.source !== "kito_promise").filter((t) => t.status === "open" || (t.status === "snoozed" && (!t.snoozed_until || Date.parse(t.snoozed_until) <= Date.now()))), [tasks]);
   const snoozed = useMemo(() => tasks.filter((t) => t.source !== "kito_promise" && t.status === "snoozed" && t.snoozed_until && Date.parse(t.snoozed_until) > Date.now()), [tasks]);
+  const quietCount = useMemo(() => afterPriceCount(rows, tasks), [rows, tasks]);
   const closed = useMemo(() => tasks.filter((t) => t.status === "done" || t.status === "dismissed").slice(0, 50), [tasks]);
   const handled = useMemo(() => new Set(tasks.filter((t) => t.status !== "done" && t.status !== "dismissed" && t.status !== "proposed" || (t.completed_at && Date.now() - Date.parse(t.completed_at) < 7 * 864e5)).map((t) => t.conversation_id)), [tasks]);
 
@@ -111,6 +113,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
         </div>
         <div className="seg" role="group" aria-label="View">
           <button className={tab === "promises" ? "on" : ""} onClick={() => setTab("promises")}>{T("Promises", "Ahadi")}{promiseCount ? ` (${promiseCount})` : ""}</button>
+          <button className={tab === "after_price" ? "on" : ""} onClick={() => setTab("after_price")}>{T("After price", "Baada ya bei")}{quietCount ? ` (${quietCount})` : ""}</button>
           <button className={tab === "reorders" ? "on" : ""} onClick={() => setTab("reorders")}>{T("Reorders", "Nunua tena")}{reorderCount ? ` (${reorderCount})` : ""}</button>
           <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>{T("Queue", "Foleni")} ({queue.length})</button>
           <button className={tab === "tasks" ? "on" : ""} onClick={() => setTab("tasks")}>{T("Tasks", "Kazi")} ({open.length + snoozed.length})</button>
@@ -122,6 +125,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
       <p className="small muted page-note"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>{T("itaOS never sends messages. Drafts here are suggestions: copy one, edit it and send it yourself from WhatsApp.", "itaOS haitumi ujumbe. Rasimu hapa ni mapendekezo: nakili, hariri na utume mwenyewe kutoka WhatsApp.")}</p>
 
       {tab === "promises" && <PromiseList tasks={tasks} rows={rows} ws={ws} editor={editor} onChange={refresh} />}
+      {tab === "after_price" && <AfterPriceList rows={rows} tasks={tasks} ws={ws} editor={editor} onChange={refresh} />}
       {tab === "reorders" && <ReorderList ws={ws} editor={editor} onCount={setReorderCount} />}
 
       {tab === "queue" && (
