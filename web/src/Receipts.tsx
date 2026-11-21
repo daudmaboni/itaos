@@ -10,6 +10,7 @@ import ReceiptPrint from "./ReceiptPrint";
 import DateRange from "./DateRange";
 import { RangeSel, resolveRange, addDays, presetLabel } from "./ranges";
 import { fromLocalInput } from "./Orders";
+import { local, initials, hue } from "./Buyers";
 
 type Found = {
   order: null | {
@@ -27,7 +28,7 @@ type Found = {
   matched?: "code" | "name" | "location" | "date";
   place?: string | null;
 };
-type Recent = { id: string; receipt_no: string; amount: number; discount: number; refund_amount: number; currency: string; paid_at: string | null; product: string | null };
+type Recent = { id: string; receipt_no: string; amount: number; discount: number; refund_amount: number; currency: string; paid_at: string | null; product: string | null; contact_id: string | null; contact: { full_name: string | null; wa_id: string | null } | null };
 type By = "any" | "code" | "name" | "location";
 const LIMIT = 200;
 
@@ -56,9 +57,9 @@ export default function Receipts({ ws }: { ws: Workspace }) {
   const period = range ? resolveRange(range, today, start) : null;
 
   useEffect(() => {
-    supabase.from("orders").select("id,receipt_no,amount,discount,refund_amount,currency,paid_at,product").eq("workspace_id", ws.id)
+    supabase.from("orders").select("id,receipt_no,amount,discount,refund_amount,currency,paid_at,product,contact_id,contact:contacts(full_name,wa_id)").eq("workspace_id", ws.id)
       .not("receipt_no", "is", null).order("receipt_seq", { ascending: false }).limit(8)
-      .then(({ data }) => setRecent((data as Recent[]) ?? []));
+      .then(({ data }) => setRecent((data as unknown as Recent[]) ?? []));
     supabase.from("orders").select("paid_at").eq("workspace_id", ws.id).eq("status", "paid").not("paid_at", "is", null)
       .order("paid_at", { ascending: true }).limit(1)
       .then(({ data }) => { const d = (data as { paid_at: string }[] | null)?.[0]?.paid_at; setStart(d ? localDay(d, tz) : null); });
@@ -110,15 +111,12 @@ export default function Receipts({ ws }: { ws: Workspace }) {
 
   return (
     <div className="stack" style={{ display: "grid", gap: 16 }}>
-      <style>{`.rcpt-row{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;color:inherit;font:inherit}
-        .rcpt-row:last-child{border-bottom:0}.rcpt-row:hover{background:var(--hover, rgba(0,0,0,.03))}.rcpt-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
-        .rcpt-row.open{border-bottom:0}
-        .pay-find{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}.pay-find input{flex:1 1 260px;min-width:0}
+      <style>{`.pay-find{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}.pay-find input{flex:1 1 260px;min-width:0}
         .pay-by{display:flex;gap:6px;flex-wrap:wrap}
         .pay-by button{all:unset;box-sizing:border-box;cursor:pointer;font:500 13px/1 var(--font);padding:9px 14px;min-height:38px;display:inline-flex;align-items:center;border-radius:999px;background:var(--raised);color:var(--ink-2,var(--ink));border:1px solid transparent}
         .pay-by button:hover{border-color:var(--line-2)}.pay-by button[aria-pressed=true]{background:var(--ink);color:var(--card)}
         .pay-by button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-        .pay-open{padding:0 0 14px;border-bottom:1px solid var(--line)}`}</style>
+        .pay-open{padding:0 8px 12px}`}</style>
       <section className="card flat" style={{ display: "grid", gap: 10 }}>
         <div>
           <h2 style={{ margin: 0 }}>{T("Find a payment", "Tafuta malipo")}</h2>
@@ -145,26 +143,23 @@ export default function Receipts({ ws }: { ws: Workspace }) {
       )}
 
       {res && res.length > 0 && (
-        <section className="card flat" style={{ display: "grid", gap: 0 }}>
-          <div className="row between" style={{ flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+        <section className="card by-list">
+          <div className="row between by-list-h" style={{ flexWrap: "wrap", gap: 8 }}>
             <h3 style={{ margin: 0 }}>{paid.length === 1 ? T("1 payment", "Malipo 1") : T(`${paid.length} payments`, `Malipo ${paid.length}`)}{when ? <span className="muted" style={{ fontWeight: 400 }}> · {when}</span> : null}</h3>
             {paid.length > 0 && <b>{money(total, cur)}</b>}
           </div>
-          {res.length >= LIMIT && <span className="small muted">{T(`Showing the latest ${LIMIT}. Narrow the dates to see older ones.`, `Inaonyesha ${LIMIT} za karibuni. Punguza tarehe kuona za zamani.`)}</span>}
+          {res.length >= LIMIT && <span className="small muted by-list-h">{T(`Showing the latest ${LIMIT}. Narrow the dates to see older ones.`, `Inaonyesha ${LIMIT} za karibuni. Punguza tarehe kuona za zamani.`)}</span>}
           {res.map((f, i) => {
             const k = keyOf(f, i), o = f.order, open = openKey === k;
-            const who = f.customer?.name || (f.customer?.phone ? "+" + f.customer.phone : T("Customer", "Mteja"));
-            return (
-              <div key={k}>
-                <button type="button" className={"rcpt-row" + (open ? " open" : "")} aria-expanded={open} onClick={() => setOpenKey(open ? null : k)}>
-                  <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                    <span><b>{o?.receipt_no ?? T("Payment message", "Ujumbe wa malipo")}</b> <span className="muted">· {who}</span></span>
-                    <span className="small muted" style={{ overflowWrap: "anywhere" }}>{o ? (itemsOf(o) || T("Products not recorded", "Bidhaa hazijaandikwa")) : T("Not recorded as a sale", "Haijarekodiwa kama mauzo")}</span>
-                    {f.matched === "location" && f.place && <span className="small" style={{ overflowWrap: "anywhere", display: "flex", gap: 4, alignItems: "flex-start" }}><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z" /><circle cx="12" cy="10" r="2.5" /></svg><span>“…{f.place}…”</span></span>}
-                    <span className="small muted">{fmt(o?.paid_at ?? f.evidence?.sent_at)}{o?.status === "refunded" ? ` · ${T("refunded", "imerudishwa")}` : ""}</span>
-                  </span>
-                  <b style={{ whiteSpace: "nowrap" }}>{o ? money(orderNet(o), o.currency) : "—"}</b>
-                </button>
+                        return (
+              <div key={k} className={"by-item" + (open ? " open" : "")}>
+                <PayRow seed={(o as any)?.contact_id ?? f.customer?.phone ?? k} name={f.customer?.name ?? null} phone={f.customer?.phone ?? null}
+                  receipt={o?.receipt_no ?? T("Payment message", "Ujumbe wa malipo")}
+                  prods={o ? split(itemsOf(o)) : [T("Not recorded as a sale", "Haijarekodiwa kama mauzo")]}
+                  place={f.matched === "location" && f.place ? `“…${f.place}…”` : f.customer?.location ?? null}
+                  when={fmt(o?.paid_at ?? f.evidence?.sent_at)} amount={o ? money(orderNet(o), o.currency) : "—"}
+                  note={o?.status === "refunded" ? T("refunded", "imerudishwa") : null}
+                  open={open} onClick={() => setOpenKey(open ? null : k)} T={T} />
                 {open && <div className="pay-open"><PaymentCard f={f} T={T} onPrint={setPrintId} /></div>}
               </div>
             );
@@ -175,23 +170,50 @@ export default function Receipts({ ws }: { ws: Workspace }) {
       {printId && <ReceiptPrint ws={ws} orderId={printId} onClose={() => setPrintId(null)} />}
 
       {!res && !busy && recent.length > 0 && (
-        <section className="card flat" style={{ display: "grid", gap: 0 }}>
-          <h3 style={{ margin: "0 0 4px" }}>{T("Latest receipts", "Risiti za karibuni")}</h3>
+        <section className="card by-list" aria-label={T("Latest receipts", "Risiti za karibuni")}>
+          <h3 className="by-list-h">{T("Latest receipts", "Risiti za karibuni")}</h3>
           {recent.map((r) => (
-            <button key={r.id} type="button" className="rcpt-row" onClick={() => { setBy("code"); setQ(r.receipt_no); }}>
-              <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                <b>{r.receipt_no}</b>
-                <span className="small muted" style={{ overflowWrap: "anywhere" }}>{r.product || T("Products not recorded", "Bidhaa hazijaandikwa")}</span>
-                <span className="small muted">{fmt(r.paid_at)}</span>
-              </span>
-              <b style={{ whiteSpace: "nowrap" }}>{money(orderNet(r), r.currency)}</b>
-            </button>
+            <div key={r.id} className="by-item">
+              <PayRow seed={r.contact_id ?? r.id} name={r.contact?.full_name ?? null} phone={r.contact?.wa_id ?? null} receipt={r.receipt_no}
+                prods={split(r.product)} when={fmt(r.paid_at)} amount={money(orderNet(r), r.currency)}
+                onClick={() => { setBy("code"); setQ(r.receipt_no); }} T={T} />
+            </div>
           ))}
         </section>
       )}
     </div>
   );
 }
+
+// One payment in a list, laid out like a row on the Buyers page: avatar, who + receipt, place, amount + date, product chips.
+function PayRow({ seed, name, phone, receipt, prods, place, when, amount, note, open, onClick, T }: {
+  seed: string; name: string | null; phone: string | null; receipt: string; prods: string[]; place?: string | null; when: string;
+  amount: string; note?: string | null; open?: boolean; onClick: () => void; T: (en: string, s: string) => string }) {
+  const ph = local(phone);
+  return (
+    <div role="button" tabIndex={0} className="by-row" aria-expanded={open} onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}>
+      <span className="by-av" style={{ ["--h" as any]: hue(seed) }} aria-hidden>{name && initials(name) ||
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>}</span>
+      <span className="by-main">
+        <span className="by-name">{name ? <b>{name}</b> : <b className="muted">{T("Customer", "Mteja")}</b>}</span>
+        <span className="by-phone">{receipt}{ph ? ` · ${ph}` : ""}</span>
+        {place && <span className="by-place">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>
+          {place}</span>}
+      </span>
+      <span className="by-money">
+        <b>{amount}</b>
+        <span>{when}</span>
+        {note && <span>{note}</span>}
+      </span>
+      {prods.length > 0
+        ? <span className="by-prods">{prods.slice(0, 4).map((x, i) => <span key={i} className="chip">{x}</span>)}{prods.length > 4 && <span className="chip">+{prods.length - 4}</span>}</span>
+        : <span className="by-prods"><span className="small muted">{T("Products not recorded", "Bidhaa hazijaandikwa")}</span></span>}
+    </div>
+  );
+}
+const split = (x: string | null | undefined) => (x ?? "").split(",").map((v) => v.trim()).filter(Boolean);
 
 function PaymentCard({ f, T, onPrint }: { f: Found; T: (en: string, s: string) => string; onPrint: (id: string) => void }) {
   const o = f.order, ev = f.evidence, rc = ev?.receipt ?? null;

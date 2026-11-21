@@ -1631,3 +1631,37 @@ nav.tabs.glass-tabs[data-tone] .more-menu a.more-item { color: var(--ink); }
 .wa-verify .linkish { color: #0f7a4f; font-size: inherit; padding: 0; }
 .wa-verify-how { margin: 6px 0 0 26px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 :root:not([data-theme="light"]) .wa-verify .linkish { color: #4ad48f; }
+
+/* ---- List rows shared by Buyers and Find a payment (avatar, name, details, money, product chips) ---- */
+.by-list{padding:6px;gap:0}
+.by-item{border-radius:16px}
+.by-item + .by-item{border-top:1px solid var(--line)}
+.by-item.open{background:var(--raised);border-top-color:transparent}
+.by-item.open + .by-item{border-top-color:transparent}
+.by-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 12px;cursor:pointer;border-radius:16px;outline:none;-webkit-tap-highlight-color:transparent}
+.by-row:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+@media (hover:hover){.by-item:not(.open) .by-row:hover{background:var(--raised)}}
+.by-row:active{background:var(--raised)}
+.by-av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 var(--font);letter-spacing:.02em;
+  background:hsl(var(--h) 55% 92%);color:hsl(var(--h) 45% 30%)}
+:root:not([data-theme="light"]) .by-av{background:hsl(var(--h) 35% 24%);color:hsl(var(--h) 60% 82%)}
+.by-main{display:grid;gap:3px;min-width:0}
+.by-name{display:flex;align-items:center;gap:8px;min-width:0;font-size:15.5px}
+.by-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.by-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+.by-phone{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.by-place{display:flex;align-items:flex-start;gap:5px;line-height:1.35;font-size:13.5px;min-width:0}
+.by-place svg{flex:none;color:var(--muted);margin-top:2px}
+.by-place.none{color:var(--muted)}
+.by-ok{color:var(--good);font-weight:700;font-size:12px}
+.by-prods{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:-6px}
+.by-prods .chip{margin:0;font-size:11.5px}
+.by-money{display:grid;justify-items:end;gap:2px;text-align:right;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.by-money b{font-size:15.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+@media (max-width:640px){
+  .by-list{padding:4px}
+  .by-row{grid-template-columns:40px minmax(0,1fr) auto;gap:11px;padding:12px 8px}
+  .by-av{width:40px;height:40px;font-size:14px}
+}
+.by-list-h{margin:0;padding:10px 12px 4px}
+h3.by-list-h{font-size:15px}

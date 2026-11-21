@@ -21,7 +21,7 @@ export const REGIONS = ["Arusha", "Dar es Salaam", "Dodoma", "Geita", "Iringa", 
   "Mara", "Mbeya", "Morogoro", "Mtwara", "Mwanza", "Njombe", "Pwani", "Rukwa", "Ruvuma", "Shinyanga", "Simiyu", "Singida", "Songwe",
   "Tabora", "Tanga", "Zanzibar"];
 
-const local = (wa: string | null | undefined) => { if (!wa) return ""; const d = wa.replace(/\D/g, ""); return d.startsWith("255") && d.length === 12 ? "0" + d.slice(3) : "+" + d; };
+export const local = (wa: string | null | undefined) => { if (!wa) return ""; const d = wa.replace(/\D/g, ""); return d.startsWith("255") && d.length === 12 ? "0" + d.slice(3) : "+" + d; };
 // The delivery location exactly as the customer wrote it; the region is added only when their words don't already say it.
 export const placeOf = (b: Pick<Buyer, "delivery_place" | "area" | "district" | "region">) => {
   if (b.delivery_place) return b.region && !b.delivery_place.toLowerCase().includes(b.region.toLowerCase().split(" ")[0]) ? `${b.delivery_place} · ${b.region}` : b.delivery_place;
@@ -31,9 +31,9 @@ export const placeOf = (b: Pick<Buyer, "delivery_place" | "area" | "district" | 
 const toCheck = (b: Buyer) => b.location_source === "auto" || b.name_source === "auto" || b.name_source === "clean" || !b.full_name;
 /** Places typed all in small or all in capital letters get tidy capitals ("tanga" → "Tanga", "ROMBO - TARAKEA" → "Rombo - Tarakea"). Mixed case is kept as typed. */
 const tidy = (s: string) => (s && (s === s.toLowerCase() || s === s.toUpperCase()) ? s.toLowerCase().replace(/(^|[\s,./(-])(\p{L})/gu, (_m, a, c) => a + c.toUpperCase()) : s);
-const initials = (n: string | null) => { const w = (n ?? "").trim().split(/\s+/).filter((x) => /\p{L}/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase() : ""; };
+export const initials = (n: string | null) => { const w = (n ?? "").trim().split(/\s+/).filter((x) => /\p{L}/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase() : ""; };
 /** A steady colour per customer for the initials circle. */
-const hue = (id: string) => { let h = 2166136261; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) % 360; };
+export const hue = (id: string) => { let h = 2166136261; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) % 360; };
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Dar_es_Salaam" }) : "–";
 
 export default function Buyers({ ws }: { ws: Workspace }) {
@@ -81,32 +81,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
 
   return (
     <div className="stack" style={{ display: "grid", gap: 16 }}>
-      <style>{`.by-list{padding:6px;gap:0}
-        .by-item{border-radius:16px}
-        .by-item + .by-item{border-top:1px solid var(--line)}
-        .by-item.open{background:var(--raised);border-top-color:transparent}
-        .by-item.open + .by-item{border-top-color:transparent}
-        .by-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 12px;cursor:pointer;border-radius:16px;outline:none;-webkit-tap-highlight-color:transparent}
-        .by-row:focus-visible{box-shadow:0 0 0 2px var(--accent)}
-        @media (hover:hover){.by-item:not(.open) .by-row:hover{background:var(--raised)}}
-        .by-row:active{background:var(--raised)}
-        .by-av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 var(--font);letter-spacing:.02em;
-          background:hsl(var(--h) 55% 92%);color:hsl(var(--h) 45% 30%)}
-        :root:not([data-theme="light"]) .by-av{background:hsl(var(--h) 35% 24%);color:hsl(var(--h) 60% 82%)}
-        .by-main{display:grid;gap:3px;min-width:0}
-        .by-name{display:flex;align-items:center;gap:8px;min-width:0;font-size:15.5px}
-        .by-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .by-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
-        .by-phone{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-        .by-place{display:flex;align-items:flex-start;gap:5px;line-height:1.35;font-size:13.5px;min-width:0}
-        .by-place svg{flex:none;color:var(--muted);margin-top:2px}
-        .by-place.none{color:var(--muted)}
-        .by-ok{color:var(--good);font-weight:700;font-size:12px}
-        .by-prods{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:-6px}
-        .by-prods .chip{margin:0;font-size:11.5px}
-        .by-money{display:grid;justify-items:end;gap:2px;text-align:right;font-size:12.5px;color:var(--muted);white-space:nowrap}
-        .by-money b{font-size:15.5px;color:var(--ink);font-variant-numeric:tabular-nums}
-        .by-layer .by-modal{position:relative;z-index:1;width:min(680px,100%);max-height:calc(100dvh - 48px);display:flex;flex-direction:column;padding:0;gap:0;overflow:hidden;
+      <style>{`.by-layer .by-modal{position:relative;z-index:1;width:min(680px,100%);max-height:calc(100dvh - 48px);display:flex;flex-direction:column;padding:0;gap:0;overflow:hidden;
           border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.12);animation:dr-pop-in .3s cubic-bezier(.2,.9,.3,1.15) both}
         .by-layer.closing .by-modal{animation:by-out .18s ease-in both}
         @keyframes by-out{to{opacity:0;transform:translateY(8px) scale(.97)}}
@@ -132,11 +107,6 @@ export default function Buyers({ ws }: { ws: Workspace }) {
           .by-m-title h2{font-size:18px}
           .by-m-body{padding:14px 16px calc(22px + env(safe-area-inset-bottom))}
           .by-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
-        }
-        @media (max-width:640px){
-          .by-list{padding:4px}
-          .by-row{grid-template-columns:40px minmax(0,1fr) auto;gap:11px;padding:12px 8px}
-          .by-av{width:40px;height:40px;font-size:14px}
         }
         .by-filters{display:flex;gap:6px;flex-wrap:wrap}
         .by-filters button{all:unset;box-sizing:border-box;cursor:pointer;font:500 13px/1 var(--font);padding:9px 14px;min-height:38px;display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:var(--raised);border:1px solid transparent}
