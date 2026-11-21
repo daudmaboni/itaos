@@ -225,8 +225,11 @@ function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove,
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<string | null>(null);
   const [err, setErr] = useState("");
-  const margin = p.price != null && p.cost != null ? Number(p.price) - Number(p.cost) : null;
-  const mp = margin != null && p.price != null ? pctOf(margin, Number(p.price)) : null;
+  const s = sold ?? { units: 0, sales: 0, cost: 0, costKnown: true, orders: 0, named: 0 };
+  // No fixed price (prices vary per customer)? Use the average actually paid in the period.
+  const unitPrice = p.price != null ? Number(p.price) : s.units > 0 ? s.sales / s.units : null;
+  const margin = unitPrice != null && p.cost != null ? unitPrice - Number(p.cost) : null;
+  const mp = margin != null && unitPrice != null ? pctOf(margin, unitPrice) : null;
   const cover = p.photos[0] ? urls[p.photos[0]] : undefined;
   async function toggle() {
     setBusy(true);
@@ -240,7 +243,6 @@ function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove,
     const { error } = await supabase.from("products").delete().eq("id", p.id).eq("workspace_id", ws.id);
     setBusy(false); if (error) setErr(error.message); else onChange();
   }
-  const s = sold ?? { units: 0, sales: 0, cost: 0, costKnown: true, orders: 0, named: 0 };
   const share = best > 0 && s.sales > 0 ? Math.max(0.04, s.sales / best) : 0;
   return (
     <div className={"card prod-card" + (p.active ? "" : " off")}>
@@ -259,7 +261,9 @@ function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove,
         <h3>{p.name}</h3>
         {p.aliases.length > 0 && <div className="prod-alias">{p.aliases.slice(0, 6).map((a) => <span key={a} className="chip">{a}</span>)}{p.aliases.length > 6 && <span className="chip">+{p.aliases.length - 6}</span>}</div>}
         <div className="prod-nums">
-          <span><span className="small muted">{T("Sells for", "Inauzwa")}</span><b>{p.price != null ? money(Number(p.price), ws.currency) : "–"}</b></span>
+          {p.price == null && s.units > 0
+            ? <span><span className="small muted">{T("Average paid", "Wastani wa malipo")}</span><b>{money(s.sales / s.units, ws.currency)}</b></span>
+            : <span><span className="small muted">{T("Sells for", "Inauzwa")}</span><b>{p.price != null ? money(Number(p.price), ws.currency) : "–"}</b></span>}
           <span><span className="small muted">{T("Costs you", "Inakugharimu")}</span><b className={p.cost == null ? "warnt" : ""}>{p.cost != null ? money(Number(p.cost), ws.currency) : T("not set", "haijawekwa")}</b></span>
           <span><span className="small muted">{T("Profit each", "Faida kila moja")}</span><b className={margin != null && margin < 0 ? "err" : margin != null ? "goodt" : ""}>{margin != null ? money(margin, ws.currency) : "–"}{mp != null && <span className={"pct" + (mp < 0 ? " neg" : "")}>{mp}%</span>}</b></span>
         </div>
@@ -271,9 +275,8 @@ function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove,
           <span className="prod-bar" aria-hidden>{share > 0 && <i style={{ width: `${Math.round(share * 100)}%` }} />}</span>
           {s.named > 0 && <span className="small muted">{T(`Named in ${s.named} more paid ${s.named === 1 ? "order" : "orders"} where nothing was picked`, `Imetajwa kwenye oda ${s.named} zaidi zilizolipwa bila kuchagua bidhaa`)}</span>}
         </div>
-        {(p.cost == null || !p.photos.length || p.price == null) && (
+        {(p.cost == null || !p.photos.length) && (
           <div className="prod-needs">
-            {p.price == null && <span className="chip">{T("No price", "Hakuna bei")}</span>}
             {p.cost == null && <span className="chip warn">{T("No cost", "Hakuna gharama")}</span>}
             {!p.photos.length && <span className="chip">{T("No photos", "Hakuna picha")}</span>}
           </div>
@@ -387,13 +390,26 @@ function MissingCosts({ ws, products, editor, T }: { ws: Workspace; products: Pr
   );
 }
 
-type SaleRow = { id: string; paid_at: string | null; items: Item[] | null; product: string | null };
+type SaleRow = { id: string; paid_at: string | null; items: Item[] | null; product: string | null; amount: number; discount: number; refund_amount: number; currency: string };
+
+/** An amount in the business currency (TZS↔USD with the stored rate), or null if it can't be converted. */
+const toWs = (ws: Workspace, n: number, cur: string) => {
+  if (!cur || cur === ws.currency) return n;
+  const r = ws.fx_rate ? Number(ws.fx_rate) : 0;
+  if (!r) return null;
+  if (cur === "USD" && ws.currency === "TZS") return n * r;
+  if (cur === "TZS" && ws.currency === "USD") return n / r;
+  return null;
+};
 type Filter = "all" | "selling" | "hidden" | "needs";
 type Order_ = "mine" | "best" | "profit" | "name";
 
 /** Paid orders in the period, turned into what each product sold. Products picked on the order count
  *  exactly; orders with nothing picked but a product name (or other name) in their text are counted
- *  separately as "named", never mixed into the sold numbers. */
+ *  separately as "named", never mixed into the sold numbers.
+ *  Sales = what the customer actually paid for the order (amount − discount − refund). When an order has
+ *  several products the money is shared between them by their prices (or by quantity if a product has no
+ *  price), so a business that doesn't keep fixed prices still sees its real sales. */
 function useSold(ws: Workspace, products: Product[] | null, from: string, to: string) {
   const tz = ws.timezone || "Africa/Dar_es_Salaam";
   const [rows, setRows] = useKept<SaleRow[] | null>(`products-sold:${ws.id}:${from}:${to}`, null);
@@ -405,7 +421,7 @@ function useSold(ws: Workspace, products: Product[] | null, from: string, to: st
       const lo = addDays(from, -1) + "T00:00:00Z", hi = addDays(to, 2) + "T00:00:00Z";
       const out: SaleRow[] = [];
       for (let off = 0; off < 20000; off += 1000) {
-        const { data, error } = await supabase.from("orders").select("id,paid_at,items,product")
+        const { data, error } = await supabase.from("orders").select("id,paid_at,items,product,amount,discount,refund_amount,currency")
           .eq("workspace_id", ws.id).eq("status", "paid").gte("paid_at", lo).lt("paid_at", hi).order("paid_at").range(off, off + 999);
         if (!live) return;
         if (error) { setErr(error.message); break; }
@@ -428,12 +444,17 @@ function useSold(ws: Workspace, products: Product[] | null, from: string, to: st
       if (items.length) {
         picked++;
         const seen = new Set<string>();
-        for (const i of items) {
-          const p = byId.get(i.product_id!)!, s = get(p.id), q = Number(i.qty) || 1;
-          const price = i.unit_price ?? p.price, cost = i.unit_cost ?? p.cost;
-          s.units += q; s.sales += q * Number(price ?? 0);
-          if (cost == null) s.costKnown = false; else s.cost += q * Number(cost);
-          if (!seen.has(p.id)) { s.orders++; seen.add(p.id); }
+        const lines = items.map((i) => { const p = byId.get(i.product_id!)!; return { p, q: Number(i.qty) || 1, price: i.unit_price ?? p.price, cost: i.unit_cost ?? p.cost }; });
+        const paid = toWs(ws, orderNet(o), o.currency);
+        const priced = lines.every((l) => l.price != null && Number(l.price) > 0);
+        const weight = (l: (typeof lines)[number]) => (priced ? l.q * Number(l.price) : l.q);
+        const total = lines.reduce((a, l) => a + weight(l), 0) || 1;
+        for (const l of lines) {
+          const s = get(l.p.id);
+          s.units += l.q;
+          s.sales += paid != null ? (paid * weight(l)) / total : l.q * Number(l.price ?? 0);
+          if (l.cost == null) s.costKnown = false; else s.cost += l.q * Number(l.cost);
+          if (!seen.has(l.p.id)) { s.orders++; seen.add(l.p.id); }
         }
       } else if (o.product) {
         const t = o.product.toLowerCase();
@@ -478,7 +499,13 @@ export default function Products({ ws }: { ws: Workspace }) {
   const today = localDay(new Date(), tz);
   const [range, setRangeState] = useState<RangeSel>(() => loadRange("products", { key: "last_30" }));
   const setRange = (r: RangeSel) => { setRangeState(r); saveRange("products", r); };
-  const period = resolveRange(range, today);
+  // First paid sale of this business: turns on "All time" in the date picker.
+  const [start, setStart] = useKept<string | null>("products-start:" + ws.id, null);
+  useEffect(() => {
+    supabase.from("orders").select("paid_at").eq("workspace_id", ws.id).eq("status", "paid").not("paid_at", "is", null).order("paid_at").limit(1)
+      .then(({ data }) => { const d = (data as { paid_at: string }[] | null)?.[0]?.paid_at; setStart(d ? localDay(d, tz) : today); });
+  }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const period = resolveRange(range, today, start);
   const sold = useSold(ws, products, period.from, period.to);
   const periodShort = range.key === "custom" ? rangeText(period, lang) : presetLabel(range.key, lang);
 
@@ -490,7 +517,7 @@ export default function Products({ ws }: { ws: Workspace }) {
   const list = products ?? [];
   const counts = useMemo(() => ({
     all: list.length, selling: list.filter((p) => p.active).length, hidden: list.filter((p) => !p.active).length,
-    needs: list.filter((p) => p.cost == null || p.price == null || !p.photos.length).length,
+    needs: list.filter((p) => p.cost == null || !p.photos.length).length,
     noCost: list.filter((p) => p.active && p.cost == null).length, noPhoto: list.filter((p) => p.active && !p.photos.length).length,
   }), [list]);
   const ranks = useMemo(() => {
@@ -502,7 +529,7 @@ export default function Products({ ws }: { ws: Workspace }) {
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    let xs = list.filter((p) => filter === "all" ? true : filter === "selling" ? p.active : filter === "hidden" ? !p.active : (p.cost == null || p.price == null || !p.photos.length));
+    let xs = list.filter((p) => filter === "all" ? true : filter === "selling" ? p.active : filter === "hidden" ? !p.active : (p.cost == null || !p.photos.length));
     if (t) xs = xs.filter((p) => [p.name, ...p.aliases, p.notes ?? ""].some((x) => x.toLowerCase().includes(t)));
     const S = (p: Product) => sold.by.get(p.id);
     const profitOf = (p: Product) => { const s = S(p); return s && s.costKnown ? s.sales - s.cost : -Infinity; };
@@ -545,7 +572,7 @@ export default function Products({ ws }: { ws: Workspace }) {
         </div>
         <div className="row">
           {fresh == null && kept && <span className="small muted" aria-live="polite"><span className="kito-spin sm" aria-hidden /> {T("Updating…", "Inasasisha…")}</span>}
-          <DateRange value={range} onChange={setRange} today={today} tz={tz} lang={lang} />
+          <DateRange value={range} onChange={setRange} today={today} tz={tz} lang={lang} start={start} />
           {editor && editing !== "new" && list.length > 0 && <button className="primary" onClick={() => setEditing("new")}>+ {T("Add product", "Ongeza bidhaa")}</button>}
         </div>
       </div>
@@ -562,7 +589,7 @@ export default function Products({ ws }: { ws: Workspace }) {
           <div className="kpis prod-kpis">
             <Tile k={T("Selling now", "Zinauzwa sasa")} n={counts.selling} f={(x) => String(Math.round(x))} s={counts.hidden ? T(`${counts.hidden} hidden`, `${counts.hidden} zimefichwa`) : T(`of ${counts.all} products`, `kati ya bidhaa ${counts.all}`)} />
             <Tile k={T("Units sold", "Vipande vilivyouzwa")} n={sold.loading ? null : totals.units} v={sold.loading ? "…" : undefined} f={(x) => fmt(x)} s={sold.loading ? periodShort : T(`${periodShort} · on ${sold.picked} of ${sold.paid} paid orders`, `${periodShort} · kwenye oda ${sold.picked} kati ya ${sold.paid} zilizolipwa`)} />
-            <Tile k={T("Sales from products", "Mauzo ya bidhaa")} n={sold.loading ? null : totals.sales} v={sold.loading ? "…" : undefined} f={f} s={T("Price at the time of each sale", "Bei wakati wa kila mauzo")} cls="ok" />
+            <Tile k={T("Sales from products", "Mauzo ya bidhaa")} n={sold.loading ? null : totals.sales} v={sold.loading ? "…" : undefined} f={f} s={T("What customers paid for these products", "Walicholipa wateja kwa bidhaa hizi")} cls="ok" />
             <Tile k={T("Profit from products", "Faida ya bidhaa")} n={sold.loading ? null : totals.profit} v={sold.loading ? "…" : totals.profit == null ? T("Needs costs", "Inahitaji gharama") : undefined} f={f}
               s={totals.profit == null ? T("Some products sold have no cost yet", "Baadhi ya bidhaa zilizouzwa hazina gharama") : totals.sales > 0 ? T(`${pctOf(totals.profit, totals.sales)}% of sales, before ads`, `${pctOf(totals.profit, totals.sales)}% ya mauzo, kabla ya matangazo`) : T("Before ad spend", "Kabla ya matangazo")}
               cls={totals.profit == null ? "warn" : totals.profit < 0 ? "bad" : ""} />
