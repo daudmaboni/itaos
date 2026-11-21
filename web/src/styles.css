@@ -309,9 +309,30 @@ a.btn { display: inline-block; text-decoration: none; }
 .kito-how summary { cursor: pointer; }
 .kito-query { display: grid; gap: 4px; margin-top: 10px; }
 .kito-query pre { margin: 0; padding: 8px 10px; background: var(--paper); border-radius: var(--r-sm); font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-2); }
-.kito-ask { position: sticky; bottom: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; z-index: 5; }
-.kito-ask textarea { width: 100%; resize: vertical; min-height: 46px; }
-@media (max-width: 760px) { .kito-ask { bottom: 84px; } }
+/* Ask Kito: a floating navy pill in Kito's own colours (navy tile, white text, yellow dot as the send
+   button). Hides while scrolling down, comes back on scroll up (see Kito.tsx). */
+form.kito-ask { --kn: #131a2a; position: sticky; bottom: 16px; z-index: 30; display: flex; align-items: flex-end; gap: 8px;
+  width: min(720px, 100%); margin: 6px auto 0; padding: 6px; border-radius: 28px; background: var(--kn); color: #fff;
+  border: 1px solid #ffffff1f; box-shadow: 0 18px 40px -18px #131a2acc, 0 2px 6px #131a2a33, inset 0 1px 0 #ffffff14;
+  transition: transform .38s cubic-bezier(.2, .8, .2, 1), opacity .25s ease, box-shadow .25s ease; will-change: transform; }
+form.kito-ask:focus-within { box-shadow: 0 18px 40px -18px #131a2acc, 0 0 0 3px #f5c84c55, inset 0 1px 0 #ffffff14; }
+form.kito-ask.away { transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; }
+form.kito-ask .kito-ask-mark { flex: none; display: grid; place-items: center; width: 44px; height: 44px; }
+form.kito-ask .kito-ask-mark .kito-logo { border-radius: 10px; }
+form.kito-ask textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 132px; resize: none; overflow-y: auto; border: 0; background: transparent;
+  color: #fff; padding: 11px 4px; line-height: 1.4; box-shadow: none; outline: none; }
+form.kito-ask textarea::placeholder { color: #ffffff8f; }
+form.kito-ask textarea:disabled { opacity: 1; }
+form.kito-ask button.kito-ask-go { flex: none; width: 44px; height: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%;
+  border: 0; background: #f5c84c; background-image: none; color: var(--kn); box-shadow: 0 6px 16px -8px #f5c84ccc; -webkit-backdrop-filter: none; backdrop-filter: none; }
+form.kito-ask button.kito-ask-go:hover:not(:disabled) { background: #ffd666; filter: none; }
+form.kito-ask button.kito-ask-go:disabled { background: #ffffff1f; color: #ffffff80; box-shadow: none; opacity: 1; }
+form.kito-ask.busy button.kito-ask-go:disabled { background: #f5c84c; }
+@media (max-width: 760px) {
+  form.kito-ask { bottom: calc(var(--bn-bottom) + 54px + 10px); }
+  form.kito-ask.away { transform: translateY(calc(100% + 54px + 40px + env(safe-area-inset-bottom))); }
+}
+@media (prefers-reduced-motion: reduce) { form.kito-ask { transition: opacity .2s ease; } form.kito-ask.away { transform: none; } }
 
 /* Sign in / create account */
 .auth-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }

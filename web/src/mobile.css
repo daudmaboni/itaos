@@ -137,10 +137,6 @@ html[data-font="urbanist"] .shell.dash-ia, html[data-font="inter"] .shell.dash-i
   .kito-suggest button { border-radius: 14px; padding: 11px 14px; font-size: 14px; font-weight: 500; text-align: left; background: var(--card); line-height: 1.35; }
   .kito-recent-item { padding: 11px 14px; font-weight: 500; }
   .kito-q { max-width: 88%; }
-  .kito-ask { bottom: calc(84px + env(safe-area-inset-bottom)); padding: 8px; border-radius: 22px; background: color-mix(in srgb, var(--card) 88%, transparent);
-    -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6); border: 1px solid var(--line-2); box-shadow: 0 14px 30px -16px #0000007a; }
-  .kito-ask textarea { border: 0; background: transparent; min-height: 44px; resize: none; }
-  .kito-ask button { min-height: 44px; border-radius: 16px; }
 
   /* ---- Settings / Connections ---- */
   nav.subtabs { margin: 0 -14px; padding-left: 14px; padding-right: 14px; border-radius: 0; border-left: 0; border-right: 0; background: transparent; box-shadow: none; gap: 6px; }

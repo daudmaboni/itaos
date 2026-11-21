@@ -97,6 +97,37 @@ export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boo
 
   useEffect(() => { if (turns.length) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns]);
 
+  // Floating Ask bar: slides away while you scroll down (more room to read), comes back the moment you
+  // scroll up, at the top, or at the bottom of the page. Never hides while you're typing or Kito is thinking.
+  const [barHidden, setBarHidden] = useState(false);
+  const keepBar = useRef(false);
+  keepBar.current = busy || q.trim().length > 0;
+  useEffect(() => {
+    let last = window.scrollY, ticking = false;
+    const run = () => {
+      ticking = false;
+      const y = window.scrollY, dy = y - last;
+      const atBottom = y + window.innerHeight >= document.documentElement.scrollHeight - 48;
+      const typing = document.activeElement === inputRef.current;
+      if (keepBar.current || typing || y < 60 || atBottom) setBarHidden(false);
+      else if (dy > 6) setBarHidden(true);
+      else if (dy < -6) setBarHidden(false);
+      if (Math.abs(dy) > 6 || y < 60) last = y;
+    };
+    const on = () => { if (!ticking) { ticking = true; requestAnimationFrame(run); } };
+    addEventListener("scroll", on, { passive: true });
+    return () => removeEventListener("scroll", on);
+  }, []);
+  useEffect(() => { if (busy) setBarHidden(false); }, [busy]);
+
+  // One line that grows as you type (up to ~5 lines).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 132) + "px";
+  }, [q]);
+
   async function ask(question: string) {
     const text = question.trim();
     if (!text || busy) return;
@@ -155,12 +186,17 @@ export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boo
       ))}
       <div ref={endRef} />
 
-      <form className="kito-ask card" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
-        <textarea ref={inputRef} rows={2} value={q} maxLength={1500} disabled={busy}
-          placeholder={T("e.g. Which customers asked for the price yesterday and never replied?", "mf. Wateja gani waliuliza bei jana na hawakujibu tena?")}
+      <form className={"kito-ask" + (barHidden ? " away" : "") + (busy ? " busy" : "")} aria-hidden={barHidden || undefined}
+        onSubmit={(e) => { e.preventDefault(); ask(q); }}>
+        <span className="kito-ask-mark"><KitoLogo size={34} compact /></span>
+        <textarea ref={inputRef} rows={1} value={q} maxLength={1500} disabled={busy} tabIndex={barHidden ? -1 : undefined}
+          aria-label={T("Ask Kito", "Muulize Kito")}
+          placeholder={busy ? T("Kito is thinking…", "Kito anafikiri…") : T("Ask Kito anything…", "Muulize Kito chochote…")}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); } }} />
-        <button className="primary" disabled={busy || q.trim().length < 2}>{busy ? <><KitoLoader size="sm" />{T("Thinking…", "Anafikiri…")}</> : T("Ask", "Uliza")}</button>
+        <button type="submit" className="kito-ask-go" tabIndex={barHidden ? -1 : undefined} disabled={busy || q.trim().length < 2} aria-label={T("Ask", "Uliza")}>
+          {busy ? <KitoLoader size="sm" /> : <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>}
+        </button>
       </form>
       <p className="small muted" style={{ margin: 0 }}>{T("Kito reads your data and never sends messages. It can prepare a delete, but nothing is deleted until you press Delete. Confirmed sales come from recorded orders only.", "Kito anasoma data yako na hatumi ujumbe. Anaweza kuandaa kufuta, lakini hakuna kinachofutwa mpaka ubonyeze Futa. Mauzo yaliyothibitishwa ni oda zilizorekodiwa tu.")}</p>
     </div>
