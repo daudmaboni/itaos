@@ -1621,16 +1621,13 @@ nav.tabs.glass-tabs[data-tone] .more-menu a.more-item { color: var(--ink); }
   .bottomnav[data-tone] .lens::before { background: var(--tb-pill); box-shadow: 0 4px 12px -4px #0000004d; }
 }
 
-/* Reply box when Meta hasn't verified the business yet: calm information, not an error, but hard to miss */
-.wa-compose.wa-verify { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: start; justify-content: stretch;
-  margin: 8px 10px max(10px, env(safe-area-inset-bottom)); padding: 14px 16px; border-radius: 18px; border: 1px solid #0f7a4f40;
-  background: color-mix(in srgb, #0f7a4f 9%, var(--card)); color: var(--ink); box-shadow: 0 10px 24px -16px #0f7a4f80; font-size: 13.5px; }
-.wa-verify-ico { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #0f7a4f; color: #fff; }
-.wa-verify-text { display: grid; gap: 4px; min-width: 0; }
-.wa-verify-text b { font-size: 14.5px; line-height: 1.3; color: var(--ink); }
-.wa-verify-text span { color: var(--ink-2, var(--ink)); line-height: 1.45; }
-.wa-verify-text .wa-verify-how { color: var(--muted); font-size: 12.5px; }
-.wa-verify-acts { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 4px; }
-.wa-verify-acts .btn { background: #0f7a4f; color: #fff; border-color: transparent; }
-.wa-verify-acts .linkish { color: #0f7a4f; }
-:root:not([data-theme="light"]) .wa-verify-acts .linkish { color: #4ad48f; }
+/* Reply box when Meta hasn't verified the business yet: one small info line, details on tap */
+.wa-compose.wa-verify { display: block; margin: 6px 10px max(8px, env(safe-area-inset-bottom)); padding: 7px 10px; border-radius: 12px;
+  border: 1px solid #0f7a4f33; background: color-mix(in srgb, #0f7a4f 7%, var(--card)); color: var(--ink); font-size: 12.5px; }
+.wa-verify-row { display: flex; align-items: center; gap: 8px; }
+.wa-verify-ico { flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: #0f7a4f; color: #fff; }
+.wa-verify-text { flex: 1; min-width: 0; line-height: 1.35; color: var(--ink-2, var(--ink)); }
+.wa-verify .btn.small { flex: none; padding: 4px 10px; font-size: 12px; background: #0f7a4f; color: #fff; border-color: transparent; }
+.wa-verify .linkish { color: #0f7a4f; font-size: inherit; padding: 0; }
+.wa-verify-how { margin: 6px 0 0 26px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+:root:not([data-theme="light"]) .wa-verify .linkish { color: #4ad48f; }

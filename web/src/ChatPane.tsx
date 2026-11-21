@@ -320,6 +320,7 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
   const box = useRef<HTMLTextAreaElement>(null);
   const [bump, setBump] = useState(0);
   const meta = useMetaLock(ws.id, bump);
+  const [how, setHow] = useState(false);
   useEffect(() => { setText(""); setErr(""); }, [r.id]);
   useEffect(() => { const el = box.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; } }, [text]);
 
@@ -328,20 +329,21 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
   if (meta.locked && canManage(ws) && (r as any).phone_number_id !== "import") {
     return (
       <div className="wa-compose wa-verify" role="note">
-        <span className="wa-verify-ico" aria-hidden>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7.5v.5" /></svg>
-        </span>
-        <div className="wa-verify-text">
-          <b>{T("Replying from itaOS starts after Meta verifies this business", "Kujibu kutoka itaOS kutaanza Meta ikishathibitisha biashara hii")}</b>
-          <span>{T("Meta only lets verified businesses send from apps like itaOS. Until then, reply from the WhatsApp app on your phone; everything else in itaOS keeps working.",
-            "Meta inaruhusu biashara zilizothibitishwa tu kutuma kupitia app kama itaOS. Mpaka hapo, jibu kupitia WhatsApp kwenye simu yako; mengine yote ndani ya itaOS yanaendelea kufanya kazi.")}</span>
-          <span className="wa-verify-how">{T("To verify: business.facebook.com → Settings → Security Center → Business verification. It usually takes a few days.",
-            "Kuthibitisha: business.facebook.com → Settings → Security Center → Business verification. Kwa kawaida huchukua siku chache.")}</span>
-        </div>
-        <div className="wa-verify-acts">
+        <div className="wa-verify-row">
+          <span className="wa-verify-ico" aria-hidden>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 11v6M12 7.5v.5" /></svg>
+          </span>
+          <span className="wa-verify-text">{T("Reply from WhatsApp until Meta verifies this business.", "Jibu kupitia WhatsApp mpaka Meta ithibitishe biashara hii.")}{" "}
+            <button type="button" className="linkish" onClick={() => setHow((v) => !v)}>{how ? T("Hide", "Ficha") : T("How?", "Vipi?")}</button>
+          </span>
           {openWa}
-          <button type="button" className="linkish small" onClick={() => { meta.retry(); }}>{T("Meta approved? Try again", "Meta imeidhinisha? Jaribu tena")}</button>
         </div>
+        {how && (
+          <div className="wa-verify-how">
+            {T("business.facebook.com → Settings → Security Center → Business verification (a few days).", "business.facebook.com → Settings → Security Center → Business verification (siku chache).")}{" "}
+            <button type="button" className="linkish" onClick={() => { meta.retry(); }}>{T("Approved? Try again", "Imeidhinishwa? Jaribu tena")}</button>
+          </div>
+        )}
       </div>
     );
   }
