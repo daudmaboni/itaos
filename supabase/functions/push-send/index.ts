@@ -7,12 +7,15 @@
 //      replayed or backfilled events never ring phones about old chats.
 //  - The promises-due-15m cron job (migration 0046): { due_tasks: true } → "promise due" notifications.
 //  - The briefing-daily cron job (migration 0051): { briefing: true } → one morning summary per business.
+//  - The connection-health-2h cron job (migration 0060): { health: true } → alerts when Meta Ads, the Conversions API
+//    or WhatsApp stop working (health.ts), to the business's owners/admins and Pondi staff.
 //  - A signed-in member from Settings → Phone app: { test: true, workspace_id } → a test to
 //    that member's own devices.
 //
 // Needs the VAPID_PRIVATE_KEY secret (the public key is in web/src/pwa.ts).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
+import { runHealth } from "./health.ts";
 
 const VAPID_PUBLIC = "BKxMcuarzjl5x6fGfsPnmySAi2XKYUl7gj5oD21thQtHPyJXHOm-dIRtjOTbsuuL_yj1DN_QJ58btb7QKMjj2no";
 const FRESH_MS = 10 * 60_000;
@@ -84,6 +87,8 @@ Deno.serve(async (req) => {
   }
 
   if (!isCron) return json({ error: "forbidden" }, 403);
+
+  if (body.health) return json(await runHealth(db, (subs, note) => deliver(db, subs as Sub[], note)));
 
   // Due reminders (cron every 15 min, migration 0046): open tasks whose time came in the last day and
   // haven't rung yet. Each task rings once per due time; moving the time or snoozing re-arms it.
