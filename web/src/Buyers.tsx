@@ -4,6 +4,7 @@
 // from the chat and marked "suggested" until the owner saves them. Data: list_buyers / save_customer
 // (migration 0054). The saved details feed Find a payment and printed receipts.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase, callFn, Workspace, money, canEdit, localDay } from "./lib";
 
 export type Buyer = {
@@ -65,6 +66,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
   }), [rows]);
   const regionsInData = useMemo(() => Array.from(new Set([...(rows ?? []).map((b) => b.region).filter(Boolean) as string[]])).sort(), [rows]);
 
+  const openB = open ? (rows ?? []).find((b) => b.contact_id === open) ?? null : null;
   const csv = () => {
     const head = ["Name", "WhatsApp name", "Phone", "Second phone", "Delivery location", "Region", "District/town", "Area", "Landmark", "Delivery note", "Location confirmed", "Orders", "Total spent", "Currency", "First purchase", "Last purchase", "Last receipt", "Products"];
     const esc = (v: unknown) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -104,12 +106,37 @@ export default function Buyers({ ws }: { ws: Workspace }) {
         .by-prods .chip{margin:0;font-size:11.5px}
         .by-money{display:grid;justify-items:end;gap:2px;text-align:right;font-size:12.5px;color:var(--muted);white-space:nowrap}
         .by-money b{font-size:15.5px;color:var(--ink);font-variant-numeric:tabular-nums}
-        .by-item .by-edit{padding:2px 14px 16px 70px;border-bottom:0}
+        .by-layer .by-modal{position:relative;z-index:1;width:min(680px,100%);max-height:calc(100dvh - 48px);display:flex;flex-direction:column;padding:0;gap:0;overflow:hidden;
+          border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.12);animation:dr-pop-in .3s cubic-bezier(.2,.9,.3,1.15) both}
+        .by-layer.closing .by-modal{animation:by-out .18s ease-in both}
+        @keyframes by-out{to{opacity:0;transform:translateY(8px) scale(.97)}}
+        .by-m-head{flex:none;display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:start;padding:20px 20px 16px;border-bottom:1px solid var(--line)}
+        .by-av.big{width:56px;height:56px;font-size:19px}
+        .by-m-title{display:grid;gap:3px;min-width:0}
+        .by-m-title h2{margin:0;font-size:20px;letter-spacing:-.01em;overflow-wrap:anywhere}
+        .by-x{all:unset;box-sizing:border-box;cursor:pointer;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--raised);color:var(--ink)}
+        .by-x:hover{background:var(--line)}.by-x:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+        .by-m-body{flex:1 1 auto;overflow:auto;overscroll-behavior:contain;padding:16px 20px 22px;display:grid;gap:16px;align-content:start}
+        .by-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+        .by-stats>span{display:grid;gap:3px;padding:10px 12px;border-radius:14px;background:var(--raised);min-width:0}
+        .by-stats b{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .by-m-prods{display:grid;gap:6px}.by-m-prods>div{display:flex;flex-wrap:wrap;gap:5px}.by-m-prods .chip{margin:0}
+        .by-modal .by-edit{padding:0;border-bottom:0}
+        @media (max-width:640px){
+          .by-layer{place-items:end stretch;padding:0}
+          .by-layer .by-modal{width:100%;max-height:92dvh;border-radius:24px 24px 0 0;animation:dr-sheet-up .3s cubic-bezier(.2,.8,.2,1) both}
+          .by-layer.closing .by-modal{animation:dr-sheet-down .18s ease-in both}
+          .by-layer .by-modal::before{content:"";display:block;flex:none;width:38px;height:5px;border-radius:3px;background:var(--line-2);margin:8px auto 0}
+          .by-m-head{grid-template-columns:48px minmax(0,1fr) auto;gap:12px;padding:12px 16px 14px}
+          .by-av.big{width:48px;height:48px;font-size:17px}
+          .by-m-title h2{font-size:18px}
+          .by-m-body{padding:14px 16px calc(22px + env(safe-area-inset-bottom))}
+          .by-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+        }
         @media (max-width:640px){
           .by-list{padding:4px}
           .by-row{grid-template-columns:40px minmax(0,1fr) auto;gap:11px;padding:12px 8px}
           .by-av{width:40px;height:40px;font-size:14px}
-          .by-item .by-edit{padding:2px 10px 14px}
         }
         .by-filters{display:flex;gap:6px;flex-wrap:wrap}
         .by-filters button{all:unset;box-sizing:border-box;cursor:pointer;font:500 13px/1 var(--font);padding:9px 14px;min-height:38px;display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:var(--raised);border:1px solid transparent}
@@ -117,7 +144,8 @@ export default function Buyers({ ws }: { ws: Workspace }) {
         .by-filters button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         .by-edit{display:grid;gap:10px;padding:4px 0 18px;border-bottom:1px solid var(--line)}
         .by-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
-        .by-grid label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+        .by-grid label{display:grid;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+        .by-grid input,.by-grid select,.by-grid textarea{width:100%;min-width:0;box-sizing:border-box}
         .by-grid input,.by-grid select,.by-grid textarea{font:inherit;font-size:15px;color:var(--ink);padding:10px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--card)}
         .by-wide{grid-column:1/-1}`}</style>
       <section className="card flat" style={{ display: "grid", gap: 10 }}>
@@ -156,8 +184,8 @@ export default function Buyers({ ws }: { ws: Workspace }) {
             const prods = (b.products ?? "").split(",").map((x) => x.trim()).filter(Boolean);
             const toggle = () => setOpen(isOpen ? null : b.contact_id);
             return (
-              <div key={b.contact_id} className={"by-item" + (isOpen ? " open" : "")}>
-                <div role="button" tabIndex={0} className="by-row" aria-expanded={isOpen} onClick={toggle}
+              <div key={b.contact_id} className="by-item">
+                <div role="button" tabIndex={0} className="by-row" aria-haspopup="dialog" onClick={toggle}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}>
                   <span className="by-av" style={{ ["--h" as any]: hue(b.contact_id) }} aria-hidden>{b.full_name && initials(b.full_name) ||
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>}</span>
@@ -180,13 +208,78 @@ export default function Buyers({ ws }: { ws: Workspace }) {
                   </span>
                   {prods.length > 0 && <span className="by-prods">{prods.slice(0, 4).map((x) => <span key={x} className="chip">{x}</span>)}{prods.length > 4 && <span className="chip">+{prods.length - 4}</span>}</span>}
                 </div>
-                {isOpen && <BuyerEdit b={b} T={T} editor={editor} onSaved={(nb) => { setRows((rs) => rs?.map((x) => x.contact_id === nb.contact_id ? nb : x) ?? rs); }} />}
               </div>
             );
           })}
         </section>
       )}
+      {openB && <BuyerModal b={openB} T={T} editor={editor} onClose={() => setOpen(null)}
+        onSaved={(nb) => { setRows((rs) => rs?.map((x) => x.contact_id === nb.contact_id ? nb : x) ?? rs); }} />}
     </div>
+  );
+}
+
+/** Freeze the page behind the popup (iOS-safe: pins the body and puts the scroll back after). */
+function lockScroll() {
+  const y = window.scrollY, b = document.body.style;
+  const prev = { position: b.position, top: b.top, left: b.left, right: b.right, width: b.width, overflow: b.overflow };
+  Object.assign(b, { position: "fixed", top: `-${y}px`, left: "0", right: "0", width: "100%", overflow: "hidden" });
+  document.documentElement.classList.add("sheet-open");
+  return () => { Object.assign(b, prev); document.documentElement.classList.remove("sheet-open"); window.scrollTo(0, y); };
+}
+
+/** One buyer in a popup over the blurred page: centred card on computers, a sheet from the bottom on phones.
+ *  Closes with ×, Esc, a tap on the blurred background, or when you follow a link (Open chat, receipt). */
+function BuyerModal({ b, T, editor, onClose, onSaved }: { b: Buyer; T: (en: string, s: string) => string; editor: boolean; onClose: () => void; onSaved: (b: Buyer) => void }) {
+  const [closing, setClosing] = useState(false);
+  const close = () => { if (closing) return; setClosing(true); window.setTimeout(onClose, 180); };
+  const closeRef = useRef(close); closeRef.current = close;
+  const xBtn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const unlock = lockScroll();
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current(); };
+    const nav = () => onClose(); // a link inside (Open chat, receipt) moved to another page
+    window.addEventListener("keydown", esc); window.addEventListener("hashchange", nav);
+    xBtn.current?.focus({ preventScroll: true });
+    return () => { unlock(); window.removeEventListener("keydown", esc); window.removeEventListener("hashchange", nav); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const place = placeOf({ ...b, delivery_place: tidy(b.delivery_place ?? "") || null, district: tidy(b.district ?? "") || null, area: tidy(b.area ?? "") || null });
+  const prods = (b.products ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  const cur = b.currency || "TZS";
+  return createPortal(
+    <div className={"dr-layer by-layer" + (closing ? " closing" : "")} data-noswipe role="dialog" aria-modal="true" aria-labelledby="by-m-h">
+      <div className="dr-scrim" onClick={close} aria-hidden />
+      <div className="card by-modal">
+        <div className="by-m-head">
+          <span className="by-av big" style={{ ["--h" as any]: hue(b.contact_id) }} aria-hidden>{b.full_name && initials(b.full_name) ||
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>}</span>
+          <div className="by-m-title">
+            <h2 id="by-m-h">{b.full_name || T("Customer", "Mteja")}</h2>
+            <span className="by-phone">{local(b.phone)}{b.alt_phone ? ` · ${b.alt_phone}` : ""}</span>
+            <span className={"by-place" + (place ? "" : " none")}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>
+              {place || T("No location yet", "Bado hakuna mahali")}
+              {place && b.location_source === "owner" && <span className="by-ok">✓ {T("confirmed", "imethibitishwa")}</span>}
+            </span>
+          </div>
+          <button ref={xBtn} type="button" className="by-x" aria-label={T("Close", "Funga")} onClick={close}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <div className="by-m-body">
+          {toCheck(b) && <div className="finding warn small"><b>{T("Worth a check", "Inafaa kuhakiki")}</b> {T("itaOS suggested this name or place from the chat. Fix it if needed and tap Confirm and save.", "itaOS imependekeza jina au mahali hapa kutoka kwenye chat. Rekebisha ikihitajika kisha bonyeza Thibitisha na uhifadhi.")}</div>}
+          <div className="by-stats">
+            <span><span className="small muted">{T("Total spent", "Jumla aliyotumia")}</span><b>{money(b.spent, cur)}</b></span>
+            <span><span className="small muted">{T("Orders", "Oda")}</span><b>{b.orders}</b></span>
+            <span><span className="small muted">{T("First purchase", "Alinunua kwanza")}</span><b>{day(b.first_at)}</b></span>
+            <span><span className="small muted">{T("Last purchase", "Alinunua mwisho")}</span><b>{day(b.last_at)}</b></span>
+          </div>
+          {prods.length > 0 && <div className="by-m-prods"><span className="small muted">{T("Bought", "Amenunua")}</span><div>{prods.map((x) => <span key={x} className="chip">{x}</span>)}</div></div>}
+          <BuyerEdit b={b} T={T} editor={editor} onSaved={onSaved} />
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
