@@ -318,12 +318,18 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
   const hovering = useRef(false);
   const place = (a: HTMLElement | null) => {
     const g = glass.current; if (!g) return;
+    // the tab the pill sits under gets the "on pill" text colour
+    nav.current?.querySelectorAll("[data-tab].lensed").forEach((el) => el !== a && el.classList.remove("lensed"));
+    a?.classList.add("lensed");
     if (!a) { g.classList.remove("on"); return; }
     g.style.width = a.offsetWidth + "px";
     g.style.transform = `translateX(${a.offsetLeft - 4}px)`;
     g.classList.add("on");
   };
   const current = () => nav.current?.querySelector<HTMLElement>("[data-tab].on") ?? null;
+  // The top bar gets its own colour so it stands out from the page: picked at random on each visit.
+  // "green" is the homepage green; "alt" is black in light mode and white in dark mode (see styles.css).
+  const [tone] = useState(() => (Math.random() < 0.5 ? "green" : "alt"));
   useEffect(() => {
     if (!hovering.current) place(current());
     const onResize = () => place(current());
@@ -332,7 +338,7 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
     return () => window.removeEventListener("resize", onResize);
   }, [view]);
   return (
-    <nav className="tabs glass-tabs" aria-label="Sections" ref={nav}
+    <nav className="tabs glass-tabs" aria-label="Sections" ref={nav} data-tone={tone}
       onMouseOver={(e) => { const a = (e.target as HTMLElement).closest("[data-tab]"); if (a) { hovering.current = true; place(a as HTMLElement); } }}
       onMouseMove={(e) => { const a = (e.target as HTMLElement).closest("[data-tab]"); if (a && glass.current) { const r = a.getBoundingClientRect(); glass.current.style.setProperty("--gx", (((e.clientX - r.left) / r.width) * 100).toFixed(0) + "%"); } }}
       onMouseLeave={() => { hovering.current = false; glass.current?.style.setProperty("--gx", "50%"); place(current()); }}>
