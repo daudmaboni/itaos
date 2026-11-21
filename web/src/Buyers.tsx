@@ -28,6 +28,11 @@ export const placeOf = (b: Pick<Buyer, "delivery_place" | "area" | "district" | 
 };
 // A name or place itaOS guessed (not read from the chat, not typed by the owner) is worth a look.
 const toCheck = (b: Buyer) => b.location_source === "auto" || b.name_source === "auto" || b.name_source === "clean" || !b.full_name;
+/** Places typed all in small or all in capital letters get tidy capitals ("tanga" → "Tanga", "ROMBO - TARAKEA" → "Rombo - Tarakea"). Mixed case is kept as typed. */
+const tidy = (s: string) => (s && (s === s.toLowerCase() || s === s.toUpperCase()) ? s.toLowerCase().replace(/(^|[\s,./(-])(\p{L})/gu, (_m, a, c) => a + c.toUpperCase()) : s);
+const initials = (n: string | null) => { const w = (n ?? "").trim().split(/\s+/).filter((x) => /\p{L}/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase() : ""; };
+/** A steady colour per customer for the initials circle. */
+const hue = (id: string) => { let h = 2166136261; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) % 360; };
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Dar_es_Salaam" }) : "–";
 
 export default function Buyers({ ws }: { ws: Workspace }) {
@@ -74,10 +79,38 @@ export default function Buyers({ ws }: { ws: Workspace }) {
 
   return (
     <div className="stack" style={{ display: "grid", gap: 16 }}>
-      <style>{`.by-row{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;color:inherit;font:inherit}
-        .by-row:hover{background:var(--hover, rgba(0,0,0,.03))}.by-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}.by-row.open{border-bottom:0}
-        .by-tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:1px}
-        .by-tag.ok{background:var(--good-soft);color:var(--good)}
+      <style>{`.by-list{padding:6px;gap:0}
+        .by-item{border-radius:16px}
+        .by-item + .by-item{border-top:1px solid var(--line)}
+        .by-item.open{background:var(--raised);border-top-color:transparent}
+        .by-item.open + .by-item{border-top-color:transparent}
+        .by-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 12px;cursor:pointer;border-radius:16px;outline:none;-webkit-tap-highlight-color:transparent}
+        .by-row:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+        @media (hover:hover){.by-item:not(.open) .by-row:hover{background:var(--raised)}}
+        .by-row:active{background:var(--raised)}
+        .by-av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 var(--font);letter-spacing:.02em;
+          background:hsl(var(--h) 55% 92%);color:hsl(var(--h) 45% 30%)}
+        :root:not([data-theme="light"]) .by-av{background:hsl(var(--h) 35% 24%);color:hsl(var(--h) 60% 82%)}
+        .by-main{display:grid;gap:3px;min-width:0}
+        .by-name{display:flex;align-items:center;gap:8px;min-width:0;font-size:15.5px}
+        .by-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .by-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+        .by-phone{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+        .by-place{display:flex;align-items:flex-start;gap:5px;line-height:1.35;font-size:13.5px;min-width:0}
+        .by-place svg{flex:none;color:var(--muted);margin-top:2px}
+        .by-place.none{color:var(--muted)}
+        .by-ok{color:var(--good);font-weight:700;font-size:12px}
+        .by-prods{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:-6px}
+        .by-prods .chip{margin:0;font-size:11.5px}
+        .by-money{display:grid;justify-items:end;gap:2px;text-align:right;font-size:12.5px;color:var(--muted);white-space:nowrap}
+        .by-money b{font-size:15.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+        .by-item .by-edit{padding:2px 14px 16px 70px;border-bottom:0}
+        @media (max-width:640px){
+          .by-list{padding:4px}
+          .by-row{grid-template-columns:40px minmax(0,1fr) auto;gap:11px;padding:12px 8px}
+          .by-av{width:40px;height:40px;font-size:14px}
+          .by-item .by-edit{padding:2px 10px 14px}
+        }
         .by-filters{display:flex;gap:6px;flex-wrap:wrap}
         .by-filters button{all:unset;box-sizing:border-box;cursor:pointer;font:500 13px/1 var(--font);padding:9px 14px;min-height:38px;display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:var(--raised);border:1px solid transparent}
         .by-filters button:hover{border-color:var(--line-2)}.by-filters button[aria-pressed=true]{background:var(--ink);color:var(--card)}
@@ -115,23 +148,38 @@ export default function Buyers({ ws }: { ws: Workspace }) {
       {rows && shown.length === 0 && !err && <div className="empty">{q || region ? T("No buyers match that.", "Hakuna mteja anayelingana.") : only !== "all" ? T("Nothing here — all done.", "Hakuna hapa — yote yamekamilika.") : T("No paid customers yet.", "Bado hakuna mteja aliyelipa.")}</div>}
 
       {shown.length > 0 && (
-        <section className="card flat" style={{ display: "grid", gap: 0 }}>
+        <section className="card by-list" aria-label={T("Buyers", "Wateja walionunua")}>
           {shown.map((b) => {
             const isOpen = open === b.contact_id;
-            const name = b.full_name || local(b.phone);
-            const place = placeOf(b);
+            const place = placeOf({ ...b, delivery_place: tidy(b.delivery_place ?? "") || null, district: tidy(b.district ?? "") || null, area: tidy(b.area ?? "") || null });
+            const check = toCheck(b);
+            const prods = (b.products ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+            const toggle = () => setOpen(isOpen ? null : b.contact_id);
             return (
-              <div key={b.contact_id}>
-                <button type="button" className={"by-row" + (isOpen ? " open" : "")} aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : b.contact_id)}>
-                  <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                    <span><b>{name}</b>{(b.name_source === "auto" || b.name_source === "clean") && <span className="by-tag">{T("name suggested", "jina limependekezwa")}</span>}</span>
-                    <span className="small muted">{local(b.phone)}{b.alt_phone ? ` · ${b.alt_phone}` : ""}</span>
-                    <span className="small">{place || <span className="muted">{T("No location yet", "Bado hakuna mahali")}</span>}
-                      {place && (b.location_source === "owner" ? <span className="by-tag ok">{T("confirmed", "imethibitishwa")}</span> : <span className="by-tag">{T("suggested", "imependekezwa")}</span>)}</span>
-                    <span className="small muted" style={{ overflowWrap: "anywhere" }}>{b.orders === 1 ? T("1 order", "Oda 1") : T(`${b.orders} orders`, `Oda ${b.orders}`)} · {T("last", "mwisho")} {day(b.last_at)}{b.products ? ` · ${b.products}` : ""}</span>
+              <div key={b.contact_id} className={"by-item" + (isOpen ? " open" : "")}>
+                <div role="button" tabIndex={0} className="by-row" aria-expanded={isOpen} onClick={toggle}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}>
+                  <span className="by-av" style={{ ["--h" as any]: hue(b.contact_id) }} aria-hidden>{b.full_name && initials(b.full_name) ||
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>}</span>
+                  <span className="by-main">
+                    <span className="by-name">
+                      {b.full_name ? <b>{b.full_name}</b> : <b className="muted">{T("Customer", "Mteja")}</b>}
+                      {check && <span className="by-dot" title={T("Name or place suggested by itaOS. Open to check it.", "Jina au mahali vimependekezwa na itaOS. Fungua uhakiki.")} aria-label={T("to check", "ya kuhakiki")} />}
+                    </span>
+                    <span className="by-phone">{local(b.phone)}{b.alt_phone ? ` · ${b.alt_phone}` : ""}</span>
+                    <span className={"by-place" + (place ? "" : " none")}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>
+                      {place || T("No location yet", "Bado hakuna mahali")}
+                      {place && b.location_source === "owner" && <span className="by-ok" title={T("Confirmed by you", "Umethibitisha")}>✓</span>}
+                    </span>
                   </span>
-                  <b style={{ whiteSpace: "nowrap" }}>{money(b.spent, b.currency || "TZS")}</b>
-                </button>
+                  <span className="by-money">
+                    <b>{money(b.spent, b.currency || "TZS")}</b>
+                    <span>{b.orders === 1 ? T("1 order", "Oda 1") : T(`${b.orders} orders`, `Oda ${b.orders}`)}</span>
+                    <span>{day(b.last_at)}</span>
+                  </span>
+                  {prods.length > 0 && <span className="by-prods">{prods.slice(0, 4).map((x) => <span key={x} className="chip">{x}</span>)}{prods.length > 4 && <span className="chip">+{prods.length - 4}</span>}</span>}
+                </div>
                 {isOpen && <BuyerEdit b={b} T={T} editor={editor} onSaved={(nb) => { setRows((rs) => rs?.map((x) => x.contact_id === nb.contact_id ? nb : x) ?? rs); }} />}
               </div>
             );
