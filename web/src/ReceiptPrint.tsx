@@ -69,7 +69,8 @@ async function loadReceipt(ws: Workspace, orderId: string): Promise<R> {
   const opt = { timeZone: ws.timezone || "Africa/Dar_es_Salaam" } as const;
   return {
     biz: ws.name, bizPhone: phone ? localPhone(phone) : null, waLink: phone ? `https://wa.me/${String(phone).replace(/\D/g, "")}` : null,
-    no: ord.receipt_no ?? "—", customer: ct?.full_name || ct?.name || masked(ct?.wa_id) || "—", custPhone: masked(ct?.wa_id),
+    no: ord.receipt_no ?? "—", // the buyer's name (0056: owner-typed, read by Kito, or the saved label with its tags removed), never the raw tagged label
+    customer: ct?.full_name || masked(ct?.wa_id) || "—", custPhone: masked(ct?.wa_id),
     // the delivery location exactly as the customer wrote it; otherwise what the owner filled in
     place: ct?.delivery_place || [ct?.area, ct?.district, ct?.region].filter(Boolean).join(", ") || null, landmark: ct?.landmark ?? null,
     deliveryNote: ct?.delivery_note ?? null, altPhone: ct?.alt_phone ?? null,
