@@ -153,22 +153,51 @@
 .app-curtain.reveal .app-curtain-in > * { opacity: 0; transform: translateY(-24px); transition-delay: 0s; }
 @media (prefers-reduced-motion: reduce) { .lang-seg .lang-thumb, .app-curtain, .app-curtain-in > * { transition: none !important; } }
 
-/* Ask Kito start card: suggestions and recent questions are plain rows with hairline dividers,
-   not a stack of glass pills (21 Nov 2026). Higher specificity than the glass rule above. */
-.kito-start { display: grid; gap: 6px; }
-.kito-start > b { margin-top: 6px; }
-.kito-start .kito-suggest, .kito-start .kito-recent { display: grid; gap: 0; margin-bottom: 8px; }
-.kito-start .kito-suggest button, .kito-start .kito-recent-item {
-  all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 13px 4px; min-height: 48px; border-bottom: 1px solid var(--line); cursor: pointer; text-align: left;
-  font: 500 15px/1.4 var(--font); color: var(--ink); white-space: normal; background: none; box-shadow: none;
-  -webkit-backdrop-filter: none; backdrop-filter: none; transform: none;
+/* Ask Kito start (22 Nov 2026): suggestions as a grid of cards with a coloured icon each,
+   recent questions as one quiet list (deduped, 5 shown). Higher specificity than the glass rules. */
+.kito-start { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; min-width: 0; max-width: 1040px; margin: 0 auto; padding-bottom: 96px; }
+.kito-start .kito-sec { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+.kito-start .kito-suggest { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.kito-start .kito-sg {
+  all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px 16px 16px 14px; min-height: 84px; border-radius: 18px; background: var(--card); border: 1px solid var(--line);
+  box-shadow: 0 1px 2px #1418240d; font: 600 14.5px/1.4 var(--font); color: var(--ink); text-align: left;
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease);
 }
-.kito-start .kito-suggest button:last-child, .kito-start .kito-recent-item:last-child { border-bottom: 0; }
-.kito-start .kito-suggest button svg { flex-shrink: 0; color: var(--muted); }
-.kito-start .kito-suggest button:hover, .kito-start .kito-recent-item:hover { background: var(--raised); border-radius: 10px; }
-.kito-start .kito-suggest button:focus-visible, .kito-start .kito-recent-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
-.kito-start .kito-recent-item .small { white-space: nowrap; flex-shrink: 0; }
+.kito-start .kito-sg:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 40%, var(--line)); box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--tone) 55%, transparent); }
+.kito-start .kito-sg:active { transform: translateY(0) scale(.98); }
+.kito-start .kito-sg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kito-sg-ico { flex: none; width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent); }
+.kito-sg-text { flex: 1; min-width: 0; padding-top: 7px; }
+.kito-sg-go { flex: none; align-self: center; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); opacity: .5; transition: opacity .2s, transform .25s var(--ease), background .2s, color .2s; }
+.kito-start .kito-sg:hover .kito-sg-go { opacity: 1; transform: translateX(2px); background: var(--tone); color: #fff; }
+.kito-sg.tone-amber { --tone: #d98a0b; } .kito-sg.tone-blue { --tone: #2f6fdf; } .kito-sg.tone-green { --tone: #12734a; }
+.kito-sg.tone-red { --tone: #e0483e; } .kito-sg.tone-violet { --tone: #7a4fd6; } .kito-sg.tone-teal { --tone: #0e8f8a; }
+:root:not([data-theme="light"]) .kito-sg.tone-green { --tone: #4ad48f; } :root:not([data-theme="light"]) .kito-sg.tone-blue { --tone: #6a9cff; }
+:root:not([data-theme="light"]) .kito-sg.tone-violet { --tone: #a585ff; } :root:not([data-theme="light"]) .kito-sg.tone-amber { --tone: #f2b23a; }
+.kito-start .kito-recent { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 6px; }
+.kito-start .kito-recent-item, .kito-start .kito-rc-more {
+  all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px;
+  cursor: pointer; font: 500 14.5px/1.4 var(--font); color: var(--ink); text-align: left;
+}
+.kito-start .kito-recent-item { position: relative; }
+.kito-start .kito-recent-item + .kito-recent-item::before, .kito-start .kito-rc-more::before { content: ""; position: absolute; top: 0; left: 54px; right: 12px; height: 1px; background: var(--line); }
+.kito-start .kito-recent-item:hover, .kito-start .kito-rc-more:hover { background: var(--raised); }
+.kito-start .kito-recent-item:hover::before, .kito-start .kito-recent-item:hover + .kito-recent-item::before, .kito-start .kito-rc-more:hover::before, .kito-start .kito-recent-item:hover + .kito-rc-more::before { opacity: 0; }
+.kito-start .kito-recent-item:focus-visible, .kito-start .kito-rc-more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.kito-rc-ico { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); background: var(--raised); }
+.kito-rc-q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kito-rc-when { flex: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.kito-start .kito-rc-more { justify-content: center; color: var(--accent-text); font-weight: 600; font-size: 13.5px; position: relative; }
+.kito-start .kito-rc-more::before { left: 12px; }
+@media (max-width: 760px) {
+  .kito-start .kito-suggest { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .kito-start .kito-sg { min-height: 0; padding: 12px; align-items: center; font-size: 14px; }
+  .kito-sg-text { padding-top: 0; }
+  .kito-sg-go { opacity: .6; }
+  .kito-start .kito-recent-item { padding: 10px 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .kito-start .kito-sg, .kito-sg-go { transition: none; } }
 
 /* ---- Calmer surfaces (21 Nov 2026): no coloured bars down the left, no card-inside-card,
    lists separated by thin lines, quiet secondary actions. ---- */

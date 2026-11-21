@@ -74,6 +74,16 @@ const SUGGEST = {
   ],
 };
 
+// One icon and colour per suggestion, in the same order as SUGGEST (both languages).
+const SUGGEST_LOOK: { tone: string; d: string }[] = [
+  { tone: "amber", d: "M3 7h18v10H3zM3 11h18M7 15h3" },                       // Lipa namba sent, not paid
+  { tone: "blue", d: "M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1ZM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" }, // ads
+  { tone: "green", d: "M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM22 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8" }, // customers who paid
+  { tone: "red", d: "M12 3c1 3 4 4.5 4 9a4 4 0 0 1-8 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 0-8Z" }, // hot chats
+  { tone: "violet", d: "M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12ZM9 12h.01M12 12h.01M15 12h.01" }, // quiet after price
+  { tone: "teal", d: "M3 20h18M6 16v-5M11 16V8M16 16v-8M21 4l-5 4-4-2-6 4" },   // this week vs last
+];
+
 // staff = Pondi platform admin. Only staff see "How Kito found this" (the raw database queries): business
 // owners get the answer, the tables and the chats behind it, never SQL (21 Nov 2026).
 export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boolean }) {
@@ -84,6 +94,9 @@ export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boo
   const [turns, setTurns] = useKept<Turn[]>("kito:turns:" + ws.id, []);
   const [q, setQ] = useKept("kito:q:" + ws.id, "");
   const [recent, setRecent] = useKept<Answer[]>("kito:recent:" + ws.id, []);
+  const [showAll, setShowAll] = useState(false);
+  // The same question asked twice shows once (the newest answer).
+  const recentList = recent.filter((r, i) => recent.findIndex((x) => x.question.trim().toLowerCase() === r.question.trim().toLowerCase()) === i);
   const busy = turns.some((t) => t.pending);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -159,19 +172,32 @@ export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boo
       </div>
 
       {turns.length === 0 && (
-        <div className="card flat kito-start">
-          <b>{T("Try asking", "Jaribu kuuliza")}</b>
+        <div className="kito-start">
+          <div className="kito-sec">{T("Try asking", "Jaribu kuuliza")}</div>
           <div className="kito-suggest">
-            {SUGGEST[lang].map((s) => <button key={s} type="button" onClick={() => ask(s)}><span>{s}</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg></button>)}
+            {SUGGEST[lang].map((s, i) => (
+              <button key={s} type="button" className={"kito-sg tone-" + SUGGEST_LOOK[i].tone} onClick={() => ask(s)}>
+                <span className="kito-sg-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={SUGGEST_LOOK[i].d} /></svg></span>
+                <span className="kito-sg-text">{s}</span>
+                <span className="kito-sg-go" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span>
+              </button>
+            ))}
           </div>
-          {recent.length > 0 && (<>
-            <b>{T("Your recent questions", "Maswali yako ya karibuni")}</b>
+          {recentList.length > 0 && (<>
+            <div className="kito-sec">{T("Your recent questions", "Maswali yako ya karibuni")}</div>
             <div className="kito-recent">
-              {recent.map((r) => (
-                <button key={r.id ?? r.created_at} className="kito-recent-item" onClick={() => setTurns([{ question: r.question, answer: r }])}>
-                  <span>{r.question}</span><span className="small muted">{ago(r.created_at)}</span>
+              {(showAll ? recentList : recentList.slice(0, 5)).map((r) => (
+                <button key={r.id ?? r.created_at} type="button" className="kito-recent-item" onClick={() => setTurns([{ question: r.question, answer: r }])}>
+                  <span className="kito-rc-ico" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" /></svg></span>
+                  <span className="kito-rc-q">{r.question}</span>
+                  <span className="kito-rc-when">{ago(r.created_at)}</span>
                 </button>
               ))}
+              {recentList.length > 5 && (
+                <button type="button" className="kito-rc-more" onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? T("Show fewer", "Onyesha machache") : T(`Show all ${recentList.length}`, `Onyesha yote ${recentList.length}`)}
+                </button>
+              )}
             </div>
           </>)}
         </div>
