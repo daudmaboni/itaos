@@ -1438,3 +1438,9 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
   /* chat side: the soft tinted wall, so it reads apart from the white list */
   .chats .inbox.frame .wa-pane, .chats .inbox.frame .ib-empty { background: var(--ib-wall); }
 }
+/* Desktop list rows stay two lines: Kito's note is in the open chat; only "Kito is reading…" shows here */
+@media (min-width: 900px) {
+  .chats .inbox.frame .cc-sum:not(.cc-reading) { display: none; }
+  .chats .inbox.frame .cc-sum.cc-reading { flex: 1 0 100%; color: var(--ib); }
+  .chats .inbox.frame .cc-sum.cc-reading::before { content: none; }
+}
