@@ -4,7 +4,7 @@
       wait: the page changes at once, settles up into place, its headings rise through a mask (the
       Arch Studio touch), and a thin yellow line sweeps across under the top bar.
 
-   2. curtainCover / curtainReveal — the full Arch Studio panel wipe (yellow then navy sweep up, a word
+   2. curtainCover / curtainReveal — the full Arch Studio panel wipe (two panels sweep up, a word
       rises, then they lift off the top). Only for rare, big moments such as arriving in the app
       right after signing in, where a short pause feels deliberate.
 
@@ -29,7 +29,7 @@ function css() {
 .pt-wipe>i{position:absolute;inset:0;display:block;will-change:clip-path}
 .pt-wipe .pt-a{background:var(--pt-accent,#F7C948)}
 .pt-wipe .pt-b{background:var(--pt-panel,#16224A);display:grid;place-items:center;padding:24px}
-.pt-lab{color:#fff;font:600 clamp(30px,6vw,64px)/1.05 'Bricolage Grotesque','Instrument Sans',system-ui,sans-serif;letter-spacing:-.035em;overflow:hidden;padding-bottom:.08em}
+.pt-lab{color:var(--pt-ink,#fff);font:600 clamp(30px,6vw,64px)/1.05 'Bricolage Grotesque','Instrument Sans',system-ui,sans-serif;letter-spacing:-.035em;overflow:hidden;padding-bottom:.08em}
 .pt-lab span{display:inline-block;will-change:transform}
 `;
   document.head.append(s);
@@ -94,10 +94,25 @@ function wipeEl() {
   return wipe;
 }
 
+/** The curtain's two colours (22 Nov 2026): black, white and the homepage green, mixed at random each
+ *  time — the first panel is one of them, the main panel (with the word) another. The word is white on
+ *  black or green, black on white. */
+const CURTAIN = { black: "#121417", white: "#ffffff", green: "#0f7a4f" } as const;
+function curtainColours(el: HTMLElement) {
+  const names = Object.keys(CURTAIN) as (keyof typeof CURTAIN)[];
+  const main = names[Math.floor(Math.random() * names.length)];
+  const rest = names.filter((n) => n !== main);
+  const lead = rest[Math.floor(Math.random() * rest.length)];
+  el.style.setProperty("--pt-accent", CURTAIN[lead]);
+  el.style.setProperty("--pt-panel", CURTAIN[main]);
+  el.style.setProperty("--pt-ink", main === "white" ? CURTAIN.black : "#ffffff");
+}
+
 /** Panels sweep up over the whole screen and the word rises. Resolves once the screen is covered. */
 export function curtainCover(word: string): Promise<void> {
   if (prefersReduced()) return Promise.resolve();
   const el = wipeEl();
+  curtainColours(el);
   const [a, b] = Array.from(el.children) as HTMLElement[];
   const w = el.querySelector("span") as HTMLElement;
   w.textContent = word;
@@ -114,7 +129,7 @@ export function curtainCover(word: string): Promise<void> {
   });
 }
 
-/** Word slips away and the panels lift off the top (navy first, yellow trailing). */
+/** Word slips away and the panels lift off the top (main panel first, the other trailing). */
 export function curtainReveal() {
   if (!covered || !wipe) return;
   covered = false;
