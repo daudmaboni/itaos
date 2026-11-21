@@ -1399,12 +1399,14 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
   .chats .inbox.frame .cc-adtag { display: inline-block; flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 1px 6px; border-radius: 5px; background: var(--ib-soft); color: var(--ib-text); }
   .chats .inbox.frame .cc-from { display: none; }
   /* line 2: status · interest · last note, all on one line */
-  .chats .inbox.frame .cc-status { flex: 0 1 auto; max-width: 62%; min-width: 0; margin: 0; gap: 5px; font-size: 13px; white-space: nowrap; overflow: hidden; }
-  .chats .inbox.frame .cc-status .cc-st-text { overflow: hidden; text-overflow: ellipsis; }
+  /* the status never shrinks; the interest word and Kito's note give way first */
+  .chats .inbox.frame .cc-status { flex: 0 1 auto; max-width: 100%; min-width: 0; margin: 0; gap: 5px; font-size: 13px; white-space: nowrap; overflow: hidden; }
+  .chats .inbox.frame .cc-status .cc-st-text { flex: none; }
+  .chats .inbox.frame .cc-status .cc-heat { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .chats .inbox.frame .cc-dot { width: 8px; height: 8px; margin: 0 1px 0 0; }
   .chats .inbox.frame .cc-status .cc-heat { margin-left: 0; padding: 0; background: none; font-size: 12px; font-weight: 600; }
   .chats .inbox.frame .cc-status .cc-heat::before { content: "· "; color: var(--ib-muted); }
-  .chats .inbox.frame .cc-sum { flex: 1 1 0; min-width: 40px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; opacity: 1; color: var(--ib-muted); }
+  .chats .inbox.frame .cc-sum { flex: 1 1 0; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; opacity: 1; color: var(--ib-muted); }
   .chats .inbox.frame .cc-sum::before { content: "· "; }
   .chats .inbox.frame .cc-party { flex: 1 0 100%; margin: 4px 0 0; }
   .chats .inbox.frame .ib-empty .primary { margin-top: 10px; }
