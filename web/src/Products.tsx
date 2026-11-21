@@ -2,10 +2,16 @@
 // plus the paid orders that still have no cost, so the owner can say what was in them.
 // The cost of an order = Σ qty × unit cost of the products picked. It is filled in, never forced:
 // the owner can still type a different number. Nothing is assumed for a new business.
-import { useEffect, useMemo, useState } from "react";
+// Everything here belongs to one business (workspace): its products, its photos, its sales. Switching
+// business shows that business's list; nothing is shared between businesses.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ImageViewer } from "./ImageViewer";
-import { enterCards, usePageEnter, select } from "./motion";
-import { supabase, Workspace, amt, money, when, orderNet, canEdit, moneyInput, moneyText } from "./lib";
+import DateRange from "./DateRange";
+import { enterCards, enterRows, enterTiles, growBars, countTo, shake, usePageEnter, select } from "./motion";
+import { supabase, Workspace, amt, money, fmt, when, orderNet, canEdit, moneyInput, moneyText, localDay } from "./lib";
+import { RangeSel, resolveRange, presetLabel, rangeText, loadRange, saveRange, addDays } from "./ranges";
+import { useKept } from "./keep";
+import "./products.css";
 
 export type Product = {
   id: string; workspace_id: string; name: string; aliases: string[]; price: number | null; cost: number | null;
@@ -103,6 +109,8 @@ function usePhotoUrls(paths: string[]) {
   return urls;
 }
 
+const pctOf = (profit: number, price: number) => (price > 0 ? Math.round((profit / price) * 100) : null);
+
 function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product | null; onDone: () => void; onCancel: () => void; T: (en: string, sw: string) => string }) {
   const [name, setName] = useState(p?.name ?? "");
   const [aliases, setAliases] = useState((p?.aliases ?? []).join(", "));
@@ -115,6 +123,9 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
   const [err, setErr] = useState("");
   const urls = usePhotoUrls(photos);
   const id = useMemo(() => p?.id ?? crypto.randomUUID(), [p?.id]);
+  const box = useRef<HTMLFormElement>(null);
+  // Bring the form into view when it opens (on phones it can open below the fold).
+  useEffect(() => { box.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); box.current?.querySelector<HTMLInputElement>("input[name=pname]")?.focus({ preventScroll: true }); }, []);
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
@@ -135,6 +146,8 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
     setPhotos((x) => x.filter((y) => y !== path));
     await supabase.storage.from("product-photos").remove([path]);
   }
+  /** Make this photo the cover (the first one is what the product card shows). */
+  const makeCover = (path: string) => setPhotos((x) => [path, ...x.filter((y) => y !== path)]);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const n = name.trim();
@@ -150,49 +163,71 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
       ? await supabase.from("products").update(row).eq("id", p.id).eq("workspace_id", ws.id)
       : await supabase.from("products").insert({ id, ...row, sort: 999 });
     setBusy(false);
-    if (error) setErr(error.code === "23505" ? T("You already have a product with this name.", "Tayari una bidhaa yenye jina hili.") : error.message);
+    if (error) { setErr(error.code === "23505" ? T("You already have a product with this name.", "Tayari una bidhaa yenye jina hili.") : error.message); shake(box.current); }
     else onDone();
   }
-  const margin = num(price) != null && num(cost) != null ? Number(num(price)) - Number(num(cost)) : null;
+  const pr = num(price), c = num(cost);
+  const margin = pr != null && c != null ? pr - c : null;
+  const mp = margin != null && pr != null ? pctOf(margin, pr) : null;
   return (
-    <form className="card prod-form" onSubmit={save}>
-      <b>{p ? T(`Edit ${p.name}`, `Hariri ${p.name}`) : T("Add a product", "Ongeza bidhaa")}</b>
+    <form className="card prod-form" onSubmit={save} ref={box}>
+      <div className="row between"><b>{p ? T(`Edit ${p.name}`, `Hariri ${p.name}`) : T("Add a product", "Ongeza bidhaa")}</b>
+        <span className="small muted">{ws.name}</span></div>
       <div className="map">
-        <label>{T("Name", "Jina")}<input required value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder={T("e.g. Body lotion 200ml", "mf. Losheni 200ml")} /></label>
+        <label style={{ gridColumn: "1 / -1" }}>{T("Name", "Jina")}<input name="pname" required value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder={T("The name you use for it, e.g. with size or pack", "Jina unalotumia, mf. pamoja na ukubwa au pakiti")} /></label>
         <label>{T("Selling price", "Bei ya kuuza")} ({ws.currency})<input inputMode="decimal" value={price} onChange={moneyInput(setPrice)} placeholder={T("what customers pay", "anacholipa mteja")} /></label>
-        <label>{T("What one costs you", "Gharama ya moja kwako")} ({ws.currency})<input inputMode="decimal" value={cost} onChange={moneyInput(setCost)} placeholder={T("product + delivery", "bidhaa + usafiri")} />
-          {margin != null && <span className={"small " + (margin >= 0 ? "muted" : "err")}>{T("Profit per unit", "Faida kwa kimoja")}: {money(margin, ws.currency)}</span>}</label>
-        <label style={{ gridColumn: "1 / -1" }}>{T("Other names customers use (comma separated)", "Majina mengine wanayotumia wateja (tenganisha kwa koma)")}<input value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder={T("kaya power, dawa ya nguvu", "kaya power, dawa ya nguvu")} /></label>
+        <label>{T("What one costs you", "Gharama ya moja kwako")} ({ws.currency})<input inputMode="decimal" value={cost} onChange={moneyInput(setCost)} placeholder={T("product + delivery", "bidhaa + usafiri")} /></label>
+      </div>
+      {margin != null && (
+        <div className={"prod-live" + (margin < 0 ? " neg" : "")}>
+          <span>{T("Profit on each one", "Faida kwa kila moja")}</span>
+          <b>{money(margin, ws.currency)}{mp != null && <span className="small"> · {mp}%</span>}</b>
+        </div>
+      )}
+      <div className="map">
+        <label style={{ gridColumn: "1 / -1" }}>{T("Other names customers use (comma separated)", "Majina mengine wanayotumia wateja (tenganisha kwa koma)")}
+          <input value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder={T("short names, nicknames, spellings customers write", "majina mafupi, ya utani, au jinsi wateja wanavyoandika")} />
+          <span className="small muted">{T("itaOS uses these to spot the product in your chats.", "itaOS inayatumia kutambua bidhaa kwenye chats zako.")}</span></label>
         <label style={{ gridColumn: "1 / -1" }}>{T("Note (optional)", "Maelezo (si lazima)")}<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={T("size, pack, how it's used…", "ukubwa, pakiti, matumizi…")} /></label>
       </div>
       {view && <ImageViewer src={view} alt="" sw={ws.language === "sw"} onClose={() => setView(null)} />}
       <div className="prod-photos">
-        {photos.map((ph) => (
-          <span key={ph} className="prod-ph">
+        {photos.map((ph, i) => (
+          <span key={ph} className={"prod-ph" + (i === 0 ? " cover" : "")}>
             {urls[ph] ? <img src={urls[ph]} alt="" onClick={() => setView(urls[ph])} style={{ cursor: "zoom-in" }} /> : <span className="prod-ph-empty" />}
+            {i === 0 ? <span className="prod-ph-tag">{T("Cover", "Kuu")}</span>
+              : <button type="button" className="prod-ph-star" title={T("Make this the cover photo", "Fanya hii picha kuu")} aria-label={T("Make this the cover photo", "Fanya hii picha kuu")} onClick={() => makeCover(ph)}>★</button>}
             <button type="button" aria-label={T("Remove photo", "Ondoa picha")} onClick={() => removePhoto(ph)}>×</button>
           </span>
         ))}
         {photos.length < 6 && (
           <label className="prod-ph prod-add">
             <input type="file" accept="image/*" multiple hidden disabled={busy} onChange={(e) => { upload(e.target.files); e.currentTarget.value = ""; }} />
-            <span>+ {T("Photo", "Picha")}</span>
+            <span>{busy ? <span className="kito-spin sm" aria-hidden /> : "+"} {T("Photo", "Picha")}</span>
           </label>
         )}
       </div>
-      <span className="small muted">{T("Add 3–4 clear photos: the front with the label, the back, and one taken on a phone like customers do. Later itaOS will use them to recognise the product when a customer sends a photo.", "Weka picha 3–4 zinazoonekana vizuri: mbele na lebo, nyuma, na moja iliyopigwa kwa simu kama wateja wanavyopiga. Baadaye itaOS itazitumia kutambua bidhaa mteja akituma picha.")}</span>
+      <span className="small muted">{T("Add 3–4 clear photos: the front with the label, the back, and one taken on a phone like customers do. itaOS uses them to recognise the product when a customer sends a photo.", "Weka picha 3–4 zinazoonekana vizuri: mbele na lebo, nyuma, na moja iliyopigwa kwa simu kama wateja wanavyopiga. itaOS inazitumia kutambua bidhaa mteja akituma picha.")}</span>
       {err && <span className="err small">{err}</span>}
-      <div className="row"><button className="primary small" disabled={busy}>{busy ? "…" : T("Save product", "Hifadhi bidhaa")}</button><button type="button" className="small" onClick={onCancel}>{T("Cancel", "Ghairi")}</button></div>
+      <div className="row"><button className="primary small" disabled={busy}>{busy ? <span className="kito-spin sm" aria-hidden /> : null}{T("Save product", "Hifadhi bidhaa")}</button><button type="button" className="small" onClick={onCancel}>{T("Cancel", "Ghairi")}</button></div>
     </form>
   );
 }
 
-function ProductCard({ ws, p, editor, onEdit, onChange, T }: { ws: Workspace; p: Product; editor: boolean; onEdit: () => void; onChange: () => void; T: (en: string, sw: string) => string }) {
-  const urls = usePhotoUrls(p.photos);
+/** What one product did in the chosen period (from the products picked on paid orders). */
+type Sold = { units: number; sales: number; cost: number; costKnown: boolean; orders: number; named: number };
+
+function ProductCard({ ws, p, editor, sold, best, rank, period, canMove, onMove, onEdit, onChange, T }: {
+  ws: Workspace; p: Product; editor: boolean; sold: Sold | undefined; best: number; rank: number | null; period: string;
+  canMove: { up: boolean; down: boolean } | null; onMove: (dir: -1 | 1) => void; onEdit: () => void; onChange: () => void; T: (en: string, sw: string) => string;
+}) {
+  const urls = usePhotoUrls(p.photos.slice(0, 1));
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const margin = p.price != null && p.cost != null ? Number(p.price) - Number(p.cost) : null;
+  const mp = margin != null && p.price != null ? pctOf(margin, Number(p.price)) : null;
+  const cover = p.photos[0] ? urls[p.photos[0]] : undefined;
   async function toggle() {
     setBusy(true);
     const { error } = await supabase.from("products").update({ active: !p.active }).eq("id", p.id).eq("workspace_id", ws.id);
@@ -205,28 +240,57 @@ function ProductCard({ ws, p, editor, onEdit, onChange, T }: { ws: Workspace; p:
     const { error } = await supabase.from("products").delete().eq("id", p.id).eq("workspace_id", ws.id);
     setBusy(false); if (error) setErr(error.message); else onChange();
   }
+  const s = sold ?? { units: 0, sales: 0, cost: 0, costKnown: true, orders: 0, named: 0 };
+  const share = best > 0 && s.sales > 0 ? Math.max(0.04, s.sales / best) : 0;
   return (
     <div className={"card prod-card" + (p.active ? "" : " off")}>
       {view && <ImageViewer src={view} alt={p.name} sw={ws.language === "sw"} onClose={() => setView(null)} />}
-      <div className="prod-thumbs">
-        {p.photos.length ? p.photos.slice(0, 3).map((ph) => (urls[ph] ? <img key={ph} src={urls[ph]} alt={p.name} onClick={() => setView(urls[ph])} style={{ cursor: "zoom-in" }} /> : <span key={ph} className="prod-ph-empty" />))
-          : <span className="prod-nophoto small muted">{T("No photos yet", "Bado hakuna picha")}</span>}
+      <div className={"prod-cover" + (cover ? "" : " none")} onClick={() => cover && setView(cover)} role={cover ? "button" : undefined} aria-label={cover ? T(`Photo of ${p.name}`, `Picha ya ${p.name}`) : undefined}>
+        {cover ? <img src={cover} alt={p.name} loading="lazy" /> : p.photos.length ? <span className="prod-ph-empty" /> : (
+          <span className="prod-cover-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" /></svg>
+            <span className="small">{T("No photos yet", "Bado hakuna picha")}</span>
+          </span>)}
+        {rank != null && <span className="prod-rank">#{rank}</span>}
+        {p.photos.length > 1 && <span className="prod-count">{p.photos.length} {T("photos", "picha")}</span>}
+        {!p.active && <span className="prod-hidden">{T("Hidden", "Imefichwa")}</span>}
       </div>
-      <div style={{ display: "grid", gap: 4 }}>
-        <div className="row between"><h3>{p.name}</h3>{!p.active && <span className="chip">{T("Hidden", "Imefichwa")}</span>}</div>
-        {p.aliases.length > 0 && <div>{p.aliases.map((a) => <span key={a} className="chip">{a}</span>)}</div>}
+      <div className="prod-body">
+        <h3>{p.name}</h3>
+        {p.aliases.length > 0 && <div className="prod-alias">{p.aliases.slice(0, 6).map((a) => <span key={a} className="chip">{a}</span>)}{p.aliases.length > 6 && <span className="chip">+{p.aliases.length - 6}</span>}</div>}
         <div className="prod-nums">
           <span><span className="small muted">{T("Sells for", "Inauzwa")}</span><b>{p.price != null ? money(Number(p.price), ws.currency) : "–"}</b></span>
-          <span><span className="small muted">{T("Costs you", "Inakugharimu")}</span><b>{p.cost != null ? money(Number(p.cost), ws.currency) : "–"}</b></span>
-          <span><span className="small muted">{T("Profit each", "Faida kila moja")}</span><b className={margin != null && margin < 0 ? "err" : ""}>{margin != null ? money(margin, ws.currency) : "–"}</b></span>
+          <span><span className="small muted">{T("Costs you", "Inakugharimu")}</span><b className={p.cost == null ? "warnt" : ""}>{p.cost != null ? money(Number(p.cost), ws.currency) : T("not set", "haijawekwa")}</b></span>
+          <span><span className="small muted">{T("Profit each", "Faida kila moja")}</span><b className={margin != null && margin < 0 ? "err" : margin != null ? "goodt" : ""}>{margin != null ? money(margin, ws.currency) : "–"}{mp != null && <span className={"pct" + (mp < 0 ? " neg" : "")}>{mp}%</span>}</b></span>
         </div>
+        <div className="prod-sold">
+          <div className="row between small">
+            <span>{s.units > 0 ? <><b>{s.units}</b> {T("sold", "zimeuzwa")} · {money(s.sales, ws.currency)}</> : <span className="muted">{T("None picked on a sale", "Haijachaguliwa kwenye mauzo")}</span>}</span>
+            <span className="muted">{period}</span>
+          </div>
+          <span className="prod-bar" aria-hidden>{share > 0 && <i style={{ width: `${Math.round(share * 100)}%` }} />}</span>
+          {s.named > 0 && <span className="small muted">{T(`Named in ${s.named} more paid ${s.named === 1 ? "order" : "orders"} where nothing was picked`, `Imetajwa kwenye oda ${s.named} zaidi zilizolipwa bila kuchagua bidhaa`)}</span>}
+        </div>
+        {(p.cost == null || !p.photos.length || p.price == null) && (
+          <div className="prod-needs">
+            {p.price == null && <span className="chip">{T("No price", "Hakuna bei")}</span>}
+            {p.cost == null && <span className="chip warn">{T("No cost", "Hakuna gharama")}</span>}
+            {!p.photos.length && <span className="chip">{T("No photos", "Hakuna picha")}</span>}
+          </div>
+        )}
         {p.notes && <span className="small muted">{p.notes}</span>}
         {err && <span className="err small">{err}</span>}
         {editor && (
-          <div className="row" style={{ gap: 6 }}>
+          <div className="prod-acts">
             <button className="small" onClick={onEdit}>{T("Edit", "Hariri")}</button>
             <button className="small" disabled={busy} onClick={toggle}>{p.active ? T("Hide", "Ficha") : T("Show", "Onyesha")}</button>
-            <button className="small" disabled={busy} onClick={remove}>{T("Delete", "Futa")}</button>
+            <button className="small linkish" disabled={busy} onClick={remove}>{T("Delete", "Futa")}</button>
+            {canMove && (
+              <span className="prod-move">
+                <button className="small" disabled={!canMove.up} aria-label={T("Move up", "Panda juu")} title={T("Move up", "Panda juu")} onClick={() => onMove(-1)}>↑</button>
+                <button className="small" disabled={!canMove.down} aria-label={T("Move down", "Shuka chini")} title={T("Move down", "Shuka chini")} onClick={() => onMove(1)}>↓</button>
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -323,41 +387,248 @@ function MissingCosts({ ws, products, editor, T }: { ws: Workspace; products: Pr
   );
 }
 
-export default function Products({ ws }: { ws: Workspace }) {
-  const lang = ws.language; const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
-  const [tick, setTick] = useState(0);
-  const { products, err } = useProducts(ws.id, tick);
-  const [editing, setEditing] = useState<Product | "new" | null>(null);
-  const editor = canEdit(ws);
-  const pageRef = usePageEnter<HTMLDivElement>((root) => { if (products) enterCards(select(root, ":scope > .card, .hero"), { stagger: 0.05 }); }, [!!products]);
-  const done = () => { setEditing(null); setTick((t) => t + 1); };
+type SaleRow = { id: string; paid_at: string | null; items: Item[] | null; product: string | null };
+type Filter = "all" | "selling" | "hidden" | "needs";
+type Order_ = "mine" | "best" | "profit" | "name";
+
+/** Paid orders in the period, turned into what each product sold. Products picked on the order count
+ *  exactly; orders with nothing picked but a product name (or other name) in their text are counted
+ *  separately as "named", never mixed into the sold numbers. */
+function useSold(ws: Workspace, products: Product[] | null, from: string, to: string) {
+  const tz = ws.timezone || "Africa/Dar_es_Salaam";
+  const [rows, setRows] = useKept<SaleRow[] | null>(`products-sold:${ws.id}:${from}:${to}`, null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      // A day of slack on both ends, then keep only the local days in range (time zones).
+      const lo = addDays(from, -1) + "T00:00:00Z", hi = addDays(to, 2) + "T00:00:00Z";
+      const out: SaleRow[] = [];
+      for (let off = 0; off < 20000; off += 1000) {
+        const { data, error } = await supabase.from("orders").select("id,paid_at,items,product")
+          .eq("workspace_id", ws.id).eq("status", "paid").gte("paid_at", lo).lt("paid_at", hi).order("paid_at").range(off, off + 999);
+        if (!live) return;
+        if (error) { setErr(error.message); break; }
+        out.push(...((data as SaleRow[]) ?? []));
+        if ((data ?? []).length < 1000) break;
+      }
+      if (live) { setErr(""); setRows(out.filter((o) => o.paid_at && (() => { const d = localDay(o.paid_at!, tz); return d >= from && d <= to; })())); }
+    })();
+    return () => { live = false; };
+  }, [ws.id, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sold = useMemo(() => {
+    const m = new Map<string, Sold>();
+    if (!rows || !products) return { by: m, paid: 0, picked: 0 };
+    const get = (id: string) => { let s = m.get(id); if (!s) m.set(id, (s = { units: 0, sales: 0, cost: 0, costKnown: true, orders: 0, named: 0 })); return s; };
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const words = products.map((p) => ({ id: p.id, w: [p.name, ...p.aliases].map((x) => x.trim().toLowerCase()).filter((x) => x.length >= 3) }));
+    let picked = 0;
+    for (const o of rows) {
+      const items = Array.isArray(o.items) ? o.items.filter((i) => i && i.product_id && byId.has(i.product_id)) : [];
+      if (items.length) {
+        picked++;
+        const seen = new Set<string>();
+        for (const i of items) {
+          const p = byId.get(i.product_id!)!, s = get(p.id), q = Number(i.qty) || 1;
+          const price = i.unit_price ?? p.price, cost = i.unit_cost ?? p.cost;
+          s.units += q; s.sales += q * Number(price ?? 0);
+          if (cost == null) s.costKnown = false; else s.cost += q * Number(cost);
+          if (!seen.has(p.id)) { s.orders++; seen.add(p.id); }
+        }
+      } else if (o.product) {
+        const t = o.product.toLowerCase();
+        for (const x of words) if (x.w.some((w) => t.includes(w))) get(x.id).named++;
+      }
+    }
+    return { by: m, paid: rows.length, picked };
+  }, [rows, products]);
+  return { ...sold, loading: !rows, err };
+}
+
+/** A KPI tile that counts up to its number, like the dashboard's. */
+function Tile({ k, n, f, v, s, cls = "" }: { k: string; n: number | null; f: (x: number) => string; v?: string; s?: string; cls?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => { if (n != null && isFinite(n)) countTo(ref.current, n, f, { duration: 1.1, delay: 0.25 }); else if (ref.current) ref.current.textContent = v ?? "–"; }, [n, v]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="shell-grid products" ref={pageRef}>
-      <div className="hero">
-        <div style={{ display: "grid", gap: 4 }}>
-          <h2>{T("My products", "Bidhaa zangu")}</h2>
-          <div className="sub"><span>{T("What you sell, what it costs you and what it sells for. Used to work out your profit on every sale.", "Unachouza, kinakugharimu kiasi gani na unakiuza kwa bei gani. Inatumika kukokotoa faida ya kila mauzo.")}</span></div>
-        </div>
-        {editor && !editing && <button className="primary" onClick={() => setEditing("new")}>+ {T("Add product", "Ongeza bidhaa")}</button>}
-      </div>
-      {err && <div className="card"><span className="err">{err}</span></div>}
-      {editing === "new" && <ProductForm ws={ws} p={null} onDone={done} onCancel={() => setEditing(null)} T={T} />}
-      {products && products.length === 0 && editing !== "new" && (
-        <div className="card"><b>{T("No products yet", "Bado hakuna bidhaa")}</b>
-          <span className="small muted">{T("Add what you sell with what one costs you. When you record a sale you just tap what the customer bought, and the cost and profit fill in by themselves.", "Ongeza unachouza pamoja na gharama ya kimoja. Ukirekodi mauzo unagusa tu alichonunua mteja, na gharama na faida zinajaa zenyewe.")}</span></div>
-      )}
-      {products && products.length > 0 && (
-        <div className="prod-grid">
-          {products.map((p) => editing && editing !== "new" && editing.id === p.id
-            ? <ProductForm key={p.id} ws={ws} p={p} onDone={done} onCancel={() => setEditing(null)} T={T} />
-            : <ProductCard key={p.id} ws={ws} p={p} editor={editor} onEdit={() => setEditing(p)} onChange={() => setTick((t) => t + 1)} T={T} />)}
-        </div>
-      )}
-      {products && <MissingCosts ws={ws} products={products} editor={editor} T={T} />}
+    <div className={"kpi " + cls}>
+      <span className="k"><span className="kt">{k}</span></span>
+      <span className="kv"><span className="v" ref={ref}>{n != null ? f(n) : v ?? "–"}</span></span>
+      {s && <span className="s" title={s}>{s}</span>}
     </div>
   );
 }
 
+export default function Products({ ws }: { ws: Workspace }) {
+  const lang = ws.language; const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
+  const tz = ws.timezone || "Africa/Dar_es_Salaam";
+  const [tick, setTick] = useState(0);
+  const { products: fresh, err } = useProducts(ws.id, tick);
+  // Kept per business: coming back shows the list at once, and one business never sees another's.
+  const [kept, setKept] = useKept<Product[] | null>("products:" + ws.id, null);
+  useEffect(() => { if (fresh) setKept(fresh); }, [fresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  const products = fresh ?? kept;
+  const [editing, setEditing] = useState<Product | "new" | null>(null);
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [order, setOrder] = useState<Order_>("mine");
+  const [moving, setMoving] = useState(false);
+  useEffect(() => { setEditing(null); setQ(""); setFilter("all"); }, [ws.id]);
+  const editor = canEdit(ws);
+
+  const today = localDay(new Date(), tz);
+  const [range, setRangeState] = useState<RangeSel>(() => loadRange("products", { key: "last_30" }));
+  const setRange = (r: RangeSel) => { setRangeState(r); saveRange("products", r); };
+  const period = resolveRange(range, today);
+  const sold = useSold(ws, products, period.from, period.to);
+  const periodShort = range.key === "custom" ? rangeText(period, lang) : presetLabel(range.key, lang);
+
+  const totals = useMemo(() => {
+    let units = 0, sales = 0, cost = 0, costKnown = true;
+    sold.by.forEach((s) => { units += s.units; sales += s.sales; cost += s.cost; if (!s.costKnown && s.units) costKnown = false; });
+    return { units, sales, profit: costKnown ? sales - cost : null };
+  }, [sold.by]);
+  const list = products ?? [];
+  const counts = useMemo(() => ({
+    all: list.length, selling: list.filter((p) => p.active).length, hidden: list.filter((p) => !p.active).length,
+    needs: list.filter((p) => p.cost == null || p.price == null || !p.photos.length).length,
+    noCost: list.filter((p) => p.active && p.cost == null).length, noPhoto: list.filter((p) => p.active && !p.photos.length).length,
+  }), [list]);
+  const ranks = useMemo(() => {
+    const r = new Map<string, number>();
+    [...sold.by.entries()].filter(([, s]) => s.units > 0).sort((a, b) => b[1].sales - a[1].sales || b[1].units - a[1].units).slice(0, 3).forEach(([id], i) => r.set(id, i + 1));
+    return r;
+  }, [sold.by]);
+  const best = useMemo(() => Math.max(0, ...[...sold.by.values()].map((s) => s.sales)), [sold.by]);
+
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let xs = list.filter((p) => filter === "all" ? true : filter === "selling" ? p.active : filter === "hidden" ? !p.active : (p.cost == null || p.price == null || !p.photos.length));
+    if (t) xs = xs.filter((p) => [p.name, ...p.aliases, p.notes ?? ""].some((x) => x.toLowerCase().includes(t)));
+    const S = (p: Product) => sold.by.get(p.id);
+    const profitOf = (p: Product) => { const s = S(p); return s && s.costKnown ? s.sales - s.cost : -Infinity; };
+    if (order === "best") xs = [...xs].sort((a, b) => (S(b)?.sales ?? 0) - (S(a)?.sales ?? 0) || (S(b)?.units ?? 0) - (S(a)?.units ?? 0));
+    else if (order === "profit") xs = [...xs].sort((a, b) => profitOf(b) - profitOf(a));
+    else if (order === "name") xs = [...xs].sort((a, b) => a.name.localeCompare(b.name));
+    else xs = [...xs].sort((a, b) => Number(b.active) - Number(a.active));
+    return xs;
+  }, [list, q, filter, order, sold.by]);
+  const canReorder = editor && order === "mine" && !q.trim() && filter === "all";
+
+  /** Swap a product with its neighbour and save the whole order (lists are small). */
+  async function move(p: Product, dir: -1 | 1) {
+    const xs = [...shown]; const i = xs.findIndex((x) => x.id === p.id), j = i + dir;
+    if (i < 0 || j < 0 || j >= xs.length || xs[j].active !== p.active) return;
+    [xs[i], xs[j]] = [xs[j], xs[i]];
+    setMoving(true);
+    setKept(xs.map((x, k) => ({ ...x, sort: k })));
+    await Promise.all(xs.map((x, k) => (x.sort === k ? null : supabase.from("products").update({ sort: k }).eq("id", x.id).eq("workspace_id", ws.id))));
+    setMoving(false); setTick((t) => t + 1);
+  }
+
+  const ready = !!products;
+  const pageRef = usePageEnter<HTMLDivElement>((root) => {
+    if (!ready) return;
+    enterRows(select(root, ".hero > *"), { y: 10, stagger: 0.08 });
+    enterCards(select(root, ".kpis > .kpi, :scope > .card, :scope > .finding"), { stagger: 0.06, delay: 0.1 });
+    enterTiles(select(root, ".prod-grid > .card"), { delay: 0.2, stagger: 0.05 });
+    growBars(select(root, ".prod-bar > i"), { axis: "x", delay: 0.55, stagger: 0.04 });
+  }, [ready, period.from, period.to, filter, order]);
+  const done = () => { setEditing(null); setTick((t) => t + 1); };
+  const f = (x: number) => money(x, ws.currency);
+
+  return (
+    <div className="shell-grid products dash-ia" ref={pageRef}>
+      <div className="hero">
+        <div style={{ display: "grid", gap: 4 }}>
+          <h2>{T("My products", "Bidhaa zangu")}</h2>
+          <div className="sub"><span>{T(`What ${ws.name} sells, what each one costs you and what it sells for. Used to work out the profit on every sale.`, `Anachouza ${ws.name}, kila kimoja kinakugharimu kiasi gani na kinauzwa kwa bei gani. Inatumika kukokotoa faida ya kila mauzo.`)}</span></div>
+        </div>
+        <div className="row">
+          {fresh == null && kept && <span className="small muted" aria-live="polite"><span className="kito-spin sm" aria-hidden /> {T("Updating…", "Inasasisha…")}</span>}
+          <DateRange value={range} onChange={setRange} today={today} tz={tz} lang={lang} />
+          {editor && editing !== "new" && list.length > 0 && <button className="primary" onClick={() => setEditing("new")}>+ {T("Add product", "Ongeza bidhaa")}</button>}
+        </div>
+      </div>
+      {err && <div className="card"><span className="err">{err}</span></div>}
+      {sold.err && <div className="finding bad small">{sold.err}</div>}
+
+      {!products ? (
+        <div className="skeletons" aria-busy="true" aria-label="Loading">
+          <div className="kpis">{[0, 1, 2, 3].map((i) => <div className="skeleton" key={i} />)}</div>
+          <div className="prod-grid">{[0, 1, 2].map((i) => <div className="skeleton" key={i} style={{ minHeight: 320 }} />)}</div>
+        </div>
+      ) : (<>
+        {list.length > 0 && (
+          <div className="kpis prod-kpis">
+            <Tile k={T("Selling now", "Zinauzwa sasa")} n={counts.selling} f={(x) => String(Math.round(x))} s={counts.hidden ? T(`${counts.hidden} hidden`, `${counts.hidden} zimefichwa`) : T(`of ${counts.all} products`, `kati ya bidhaa ${counts.all}`)} />
+            <Tile k={T("Units sold", "Vipande vilivyouzwa")} n={sold.loading ? null : totals.units} v={sold.loading ? "…" : undefined} f={(x) => fmt(x)} s={sold.loading ? periodShort : T(`${periodShort} · on ${sold.picked} of ${sold.paid} paid orders`, `${periodShort} · kwenye oda ${sold.picked} kati ya ${sold.paid} zilizolipwa`)} />
+            <Tile k={T("Sales from products", "Mauzo ya bidhaa")} n={sold.loading ? null : totals.sales} v={sold.loading ? "…" : undefined} f={f} s={T("Price at the time of each sale", "Bei wakati wa kila mauzo")} cls="ok" />
+            <Tile k={T("Profit from products", "Faida ya bidhaa")} n={sold.loading ? null : totals.profit} v={sold.loading ? "…" : totals.profit == null ? T("Needs costs", "Inahitaji gharama") : undefined} f={f}
+              s={totals.profit == null ? T("Some products sold have no cost yet", "Baadhi ya bidhaa zilizouzwa hazina gharama") : totals.sales > 0 ? T(`${pctOf(totals.profit, totals.sales)}% of sales, before ads`, `${pctOf(totals.profit, totals.sales)}% ya mauzo, kabla ya matangazo`) : T("Before ad spend", "Kabla ya matangazo")}
+              cls={totals.profit == null ? "warn" : totals.profit < 0 ? "bad" : ""} />
+          </div>
+        )}
+        {editor && (counts.noCost > 0 || counts.noPhoto > 0) && (
+          <div className="finding warn prod-todo">
+            <b>{T("To finish setting up", "Kumalizia kuweka")}</b>
+            <span className="small">
+              {counts.noCost > 0 && <button type="button" className="linkish small" onClick={() => { setFilter("needs"); setOrder("mine"); }}>{T(`${counts.noCost} without a cost`, `${counts.noCost} bila gharama`)}</button>}
+              {counts.noCost > 0 && counts.noPhoto > 0 && " · "}
+              {counts.noPhoto > 0 && <button type="button" className="linkish small" onClick={() => { setFilter("needs"); setOrder("mine"); }}>{T(`${counts.noPhoto} without photos`, `${counts.noPhoto} bila picha`)}</button>}
+              <span className="muted"> — {T("costs make the profit exact; photos let itaOS recognise a product a customer sends.", "gharama zinafanya faida iwe kamili; picha zinaisaidia itaOS kutambua bidhaa mteja anayotuma.")}</span>
+            </span>
+          </div>
+        )}
+        {editing === "new" && <ProductForm ws={ws} p={null} onDone={done} onCancel={() => setEditing(null)} T={T} />}
+        {list.length === 0 && editing !== "new" && (
+          <div className="card prod-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" /></svg>
+            <b>{T(`No products for ${ws.name} yet`, `Bado hakuna bidhaa za ${ws.name}`)}</b>
+            <span className="small muted">{T("Add what you sell with what one costs you. When you record a sale you just tap what the customer bought, and the cost and profit fill in by themselves.", "Ongeza unachouza pamoja na gharama ya kimoja. Ukirekodi mauzo unagusa tu alichonunua mteja, na gharama na faida zinajaa zenyewe.")}</span>
+            <ol className="prod-steps small">
+              <li>{T("Name, selling price and what one costs you", "Jina, bei ya kuuza na gharama ya kimoja")}</li>
+              <li>{T("Other names customers use in chats", "Majina mengine wanayotumia wateja kwenye chats")}</li>
+              <li>{T("3–4 photos", "Picha 3–4")}</li>
+            </ol>
+            {editor && <button className="primary" onClick={() => setEditing("new")}>+ {T("Add your first product", "Ongeza bidhaa yako ya kwanza")}</button>}
+          </div>
+        )}
+        {list.length > 0 && (
+          <div className="prod-tools">
+            <label className="prod-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={T("Search name or other name", "Tafuta jina au jina jingine")} aria-label={T("Search products", "Tafuta bidhaa")} />
+            </label>
+            <div className="seg" role="radiogroup" aria-label={T("Show", "Onyesha")}>
+              {([["all", T("All", "Zote"), counts.all], ["selling", T("Selling", "Zinauzwa"), counts.selling], ["hidden", T("Hidden", "Zimefichwa"), counts.hidden], ["needs", T("Needs info", "Zinahitaji taarifa"), counts.needs]] as [Filter, string, number][])
+                .filter(([k, , n]) => k === "all" || n > 0 || filter === k)
+                .map(([k, label, n]) => <button key={k} type="button" role="radio" aria-checked={filter === k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>{label} <span className="muted">{n}</span></button>)}
+            </div>
+            <label className="prod-sort small">{T("Sort", "Panga")}
+              <select value={order} onChange={(e) => setOrder(e.target.value as Order_)}>
+                <option value="mine">{T("Your order", "Mpangilio wako")}</option>
+                <option value="best">{T("Best sellers", "Zinazouzwa zaidi")}</option>
+                <option value="profit">{T("Most profit", "Faida zaidi")}</option>
+                <option value="name">{T("Name A–Z", "Jina A–Z")}</option>
+              </select>
+            </label>
+          </div>
+        )}
+        {list.length > 0 && shown.length === 0 && <div className="empty">{q ? T(`Nothing matches “${q}”.`, `Hakuna kinacholingana na “${q}”.`) : T("Nothing here.", "Hakuna kitu hapa.")}</div>}
+        {shown.length > 0 && (
+          <div className="prod-grid">
+            {shown.map((p, i) => editing && editing !== "new" && editing.id === p.id
+              ? <ProductForm key={p.id} ws={ws} p={p} onDone={done} onCancel={() => setEditing(null)} T={T} />
+              : <ProductCard key={p.id} ws={ws} p={p} editor={editor} sold={sold.by.get(p.id)} best={best} rank={ranks.get(p.id) ?? null} period={periodShort}
+                  canMove={canReorder && !moving ? { up: i > 0 && shown[i - 1].active === p.active, down: i < shown.length - 1 && shown[i + 1].active === p.active } : null}
+                  onMove={(d) => move(p, d)} onEdit={() => setEditing(p)} onChange={() => setTick((t) => t + 1)} T={T} />)}
+          </div>
+        )}
+        <MissingCosts ws={ws} products={list} editor={editor} T={T} />
+      </>)}
+    </div>
+  );
+}
 /** What itaOS thinks is in a customer's photo (saved by the product-match function). A suggestion only. */
 export type ProductMatch = {
   product_id: string | null; name: string | null; confidence: "high" | "medium" | "low";
