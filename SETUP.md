@@ -11,7 +11,9 @@ The existing pilot has a live web app and Supabase project. Repository changes a
 
 ## Deploy repository updates
 
-Nothing in this repository deploys itself. To put the MVP live (after review):
+The web app deploys itself (Netlify, on every push to main). Edge Functions deploy themselves too once the `SUPABASE_ACCESS_TOKEN` repository secret is set (`.github/workflows/deploy-functions.yml`: a changed function, or all of them when `_shared` changes; Actions → "Deploy Supabase functions" → Run workflow deploys by hand). Database migrations are still applied by hand.
+
+Before that secret existed, nothing in this repository deployed itself. To put the MVP live (after review):
 
 1. **Database** — apply migrations in order, skipping versions already recorded by the project. `0011_kito_ask.sql` adds Ask Kito (the `kito` schema of read-only views, `public.kito_query`, the `kito_asks` log); it changes no existing data. `0010_growth_mvp.sql` is new: it copies existing `sales` rows into `orders` and renames the old table to `sales_legacy_v01` (kept for verification; drop it later by hand if you want). Back up first (Database → Backups) and apply on a branch/staging project before production.
    ```

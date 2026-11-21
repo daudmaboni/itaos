@@ -1,0 +1,106 @@
+# Deploys the Supabase Edge Functions whenever their code changes on main, so what runs live always
+# matches GitHub. Netlify already deploys the web app; this does the same for supabase/functions.
+#
+#  - A change in supabase/functions/<name>/ deploys that function.
+#  - A change in supabase/functions/_shared/ deploys every function (they all bundle the shared code).
+#  - Actions → "Deploy Supabase functions" → Run workflow deploys all of them by hand.
+#
+# Needs one repository secret: SUPABASE_ACCESS_TOKEN (Supabase → Account → Access Tokens).
+# Without it the job skips with a warning instead of failing.
+# Database migrations are NOT applied here; they stay a reviewed, manual step.
+
+name: Deploy Supabase functions
+
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/functions/**"]
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Function names to deploy, space separated (empty = all)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
+env:
+  PROJECT_REF: jrdxeagnmunmatxtgmpk
+  # Functions that are live. d360-connect stays in the repo but is not deployed.
+  LIVE: "ads-sync capi chat-import dualhook-connect fx-rate kito kito-ask meta-connect names product-match push-send reorder signals-rescan voice wa-send wa-webhook"
+  # These check their own secret (Meta signature, Dualhook token or x-cron-secret) and must stay public.
+  NO_JWT: "wa-webhook fx-rate signals-rescan"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the access token
+        id: token
+        env:
+          T: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$T" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN is not set, so functions were not deployed. Add it in Settings → Secrets and variables → Actions."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          fetch-depth: 0
+
+      - name: Work out which functions changed
+        if: steps.token.outputs.ok == 'true'
+        id: pick
+        env:
+          BEFORE: ${{ github.event.before }}
+          ONLY: ${{ github.event.inputs.only }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            list="${ONLY:-$LIVE}"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            list="$LIVE"
+          else
+            changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- supabase/functions | cut -d/ -f3 | sort -u)
+            if echo "$changed" | grep -qx "_shared"; then list="$LIVE"; else list="$changed"; fi
+          fi
+          keep=""
+          for f in $list; do
+            case " $LIVE " in *" $f "*) keep="$keep $f";; *) echo "skip $f (not a live function)";; esac
+          done
+          echo "list=$(echo $keep)" >> "$GITHUB_OUTPUT"
+          echo "Deploying:$keep"
+
+      - uses: supabase/setup-cli@v1
+        if: steps.token.outputs.ok == 'true' && steps.pick.outputs.list != ''
+        with:
+          version: latest
+
+      - name: Deploy
+        if: steps.token.outputs.ok == 'true' && steps.pick.outputs.list != ''
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          LIST: ${{ steps.pick.outputs.list }}
+        run: |
+          set -uo pipefail
+          failed=""
+          for f in $LIST; do
+            flag=""
+            case " $NO_JWT " in *" $f "*) flag="--no-verify-jwt";; esac
+            echo "::group::$f $flag"
+            if supabase functions deploy "$f" --project-ref "$PROJECT_REF" --use-api $flag; then
+              echo "deployed $f"
+            else
+              failed="$failed $f"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then echo "::error::Failed to deploy:$failed"; exit 1; fi
