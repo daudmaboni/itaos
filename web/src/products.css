@@ -2,12 +2,13 @@
    .seg toggles, .finding notes, .chip, the dashboard's KPI type (dashboard.css .dash-ia).
    Older product rules (.prod-grid, .prod-ph, .pp…) stay in styles.css; this file refines them. */
 
-.products .prod-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 900px) { .products .prod-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.products.dash-ia .kpis.prod-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .products.dash-ia .kpis.prod-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .products .prod-kpis > :first-child { grid-column: auto; } }
 .products .kpi.ok .v { color: var(--good); }
 .products .kpi.warn .v { color: var(--warn); font-size: 18px; }
 .products .kpi.bad .v { color: var(--bad); }
+.products .kpi .v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .products .warnt { color: var(--warn); }
 .products .goodt { color: var(--good); }
