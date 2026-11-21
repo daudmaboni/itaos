@@ -75,7 +75,8 @@ function keepStatusBarInStep() {
     const m = document.querySelector('meta[name="theme-color"]');
     const d = document.documentElement.dataset;
     // Sign-in pages open with the navy banner on phones, so the status bar is the same green there.
-    if (m) m.setAttribute("content", d.screen === "auth" ? "#0f7a4f" : d.theme === "dark" ? "#0d0e10" : "#ffffff");
+    // An open chat: same colour as the chat header (WhatsApp's near-black in dark), so the top of the phone and the header are one surface.
+    if (m) m.setAttribute("content", d.screen === "auth" ? "#0f7a4f" : d.screen === "chat" ? (d.theme === "dark" ? "#0b141a" : "#ffffff") : d.theme === "dark" ? "#0d0e10" : "#ffffff");
   };
   set();
   new MutationObserver(set).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-screen"] });

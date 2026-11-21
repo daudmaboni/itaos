@@ -120,3 +120,15 @@
   .chats .inbox.frame .wa-pane .wa-head button.wa-back { width: 30px; height: 36px; margin-right: -2px; }
   .chats .inbox.frame .wa-pane .wa-head-ago { display: none; }        /* phone: just the number under the name */
 }
+
+/* --- one surface from the top of the phone down, like WhatsApp (21 Nov) ---
+   Dark: header = WhatsApp's near-black, same as the wall, and the status bar takes the same colour (pwa.ts).
+   Bottom: the reply field sits straight on the wall, no separate bar, no white strip under it. */
+:root:not([data-theme="light"]) .chats .inbox.frame .wa-pane { --w-head: #0b141a; --w-bar: #0b141a; --w-line: #ffffff10; }
+.chats .inbox.frame .wa-pane .wa-compose.open { background: var(--w-wall); border: 0; border-radius: 0; box-shadow: none; }
+.chats .inbox.frame .wa-pane .wa-compose-row.wa-line { background: transparent; border: 0; box-shadow: none; padding: 0; }
+@media (max-width: 899px) {
+  html[data-screen="chat"], html[data-screen="chat"] body { background: #efeae2; }
+  :root[data-screen="chat"]:not([data-theme="light"]), :root[data-screen="chat"]:not([data-theme="light"]) body { background: #0b141a; }
+  :root:not([data-theme="light"]) .chats .inbox.frame .wa-pane .wa-head { border-bottom: 0; }
+}

@@ -32,6 +32,12 @@ export function PartyHint({ r, T, onChange }: { r: Outcome; T: Tr; onChange: () 
  *  so the bottom bar hands over to WhatsApp. */
 export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, startConfirm }: { r: Outcome; ws: Workspace; T: Tr; adName?: string; phone: string | null; task?: Task; onChange: () => void; onClose: () => void; startConfirm?: boolean }) {
   const lang = ws.language;
+  // While a chat is open the phone's status bar takes the chat header's colour (pwa.ts), like WhatsApp.
+  useEffect(() => {
+    const d = document.documentElement.dataset;
+    d.screen = "chat";
+    return () => { if (d.screen === "chat") delete d.screen; };
+  }, []);
   const tz = ws.timezone || "Africa/Dar_es_Salaam";
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
   const [recording, setRecording] = useState(false);
