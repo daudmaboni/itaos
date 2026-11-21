@@ -68,6 +68,24 @@ export function cleanName(v: unknown, biz: string): string {
   return s;
 }
 
+// "Emmanuel" ≈ "Emanuel", "Ngalubana" ≈ "Ngalumbana": lower case, doubled letters collapsed, first 4 letters.
+const stem = (w: string) => w.toLowerCase().replace(/[^\p{L}]/gu, "").replace(/(\p{L})\1+/gu, "$1").slice(0, 4);
+
+/** Checks after Kito answers: a template's example name is nobody; a "receiver" who is really the buyer
+ *  (same first name, or the name the business saved them under) becomes the buyer. */
+export function settle(buyer: string, receiver: string, saved: string | null, lines: string[]) {
+  const example = (n: string) => !!n && lines.some((l) => /\bmfano\b|\bexample\b|\bkwa mfano\b/i.test(l) && l.toLowerCase().includes(n.toLowerCase()));
+  if (example(buyer)) buyer = "";
+  if (example(receiver)) receiver = "";
+  const first = (n: string) => stem(n.split(" ")[0] ?? "");
+  if (buyer && receiver && first(buyer) === first(receiver)) receiver = "";
+  if (!buyer && receiver && saved) {
+    const savedStems = new Set(saved.split(/[^\p{L}]+/u).filter((w) => w.length >= 3).map(stem));
+    if (savedStems.has(first(receiver))) { buyer = receiver; receiver = ""; }
+  }
+  return { buyer, receiver };
+}
+
 /** The lines Kito needs: name-bearing messages (and the one after each), plus the customer's last few. */
 export function pickLines(msgs: Msg[]): string[] {
   const text = msgs.filter((m) => (m.body ?? "").trim());
@@ -90,6 +108,7 @@ function prompt(biz: string, saved: string | null, lines: string[]) {
 - In a payment message the name after "kwenda", "kwa", "to" or "LIPA" is whoever RECEIVED the money (the business or its owner): never the buyer. The business's name and its staff are never the buyer.
 - Businesses often ask "tuma majina ya mpokeaji, namba ya simu na mahali" (send the receiver's name, phone and place). Customers almost always answer with THEIR OWN details: that name is the buyer, even when the customer writes "mpokeaji: …".
 - receiver_name: only when the customer clearly says the parcel is for a different person ("ni kwa ajili ya mke wangu …", "mzigo andika jina la kaka yangu …", "sio mimi, ni …", "atapokea …") or gives one name as theirs and another for the parcel. A payment recipient (the name after "kwenda"/"kwa" in an M-Pesa or bank message) is never the receiver. Otherwise receiver_name is "".
+- A name shown as an example in a template ("Mfano: JOHN JOSEPH MAKUNDI …") belongs to nobody: ignore it.
 - If the customer gives their name more than once, use the fullest version they wrote. Keep their spelling.
 - Only a person's name: no place, product, title words ("ndugu", "kaka"), phone or amount. 1 to 4 words. Use "Mama Joshua" style names only if that is all the customer gives.
 - The business saved this customer as "${redact(saved ?? "").slice(0, 80)}". That is the business's own label with campaign tags (months, "Leads", codes): ignore it unless the chat confirms a name in it.
@@ -122,6 +141,7 @@ async function readOne(db: ReturnType<typeof admin>, c: Cand, biz: string) {
     buyer = cleanName(out.buyer_name, biz);
     receiver = cleanName(out.receiver_name, biz);
     evidence = redact(String(out.evidence ?? "")).slice(0, 120);
+    ({ buyer, receiver } = settle(buyer, receiver, c.saved_name, lines));
   }
   const { data: shown, error } = await db.rpc("svc_save_buyer_name", { p_contact: c.contact_id, p_buyer: buyer, p_receiver: receiver, p_evidence: evidence });
   if (error) return { contact_id: c.contact_id, error: error.message.slice(0, 160) };
