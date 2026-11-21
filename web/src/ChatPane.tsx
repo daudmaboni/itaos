@@ -283,6 +283,33 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   );
 }
 
+/** Is replying from itaOS blocked by Meta for this business? (22 Nov 2026)
+ *  Meta refuses API messages (error 131031, "Business Account locked") until the business that owns the
+ *  WhatsApp number is verified on Meta, and each business has its own portfolio, so this is per business.
+ *  Known from the delivery reports: blocked when the newest itaOS message WhatsApp answered about failed with
+ *  131031. Cleared by itself once a later send goes through. "Meta approved? Try again" lets the owner test
+ *  once after verifying (kept in this browser per business; a new 131031 after that blocks again). */
+const metaLockCache = new Map<string, { at: number; failedAt: string | null }>();
+const retryKey = (ws: string) => "itaos:meta-retry:" + ws;
+function useMetaLock(wsId: string, bump: number) {
+  const [failedAt, setFailedAt] = useState<string | null>(metaLockCache.get(wsId)?.failedAt ?? null);
+  const [retryAt, setRetryAt] = useState<string | null>(() => { try { return localStorage.getItem(retryKey(wsId)); } catch { return null; } });
+  useEffect(() => {
+    const c = metaLockCache.get(wsId);
+    if (c && Date.now() - c.at < 60e3 && !bump) { setFailedAt(c.failedAt); return; }
+    supabase.from("messages").select("sent_at,status:raw->>status,code:raw->status_error->>code")
+      .eq("workspace_id", wsId).eq("origin", "itaos").not("raw->>status", "is", null).order("sent_at", { ascending: false }).limit(1)
+      .then(({ data }) => {
+        const m = (data ?? [])[0] as any;
+        const f = m && m.status === "failed" && String(m.code) === "131031" ? m.sent_at as string : null;
+        metaLockCache.set(wsId, { at: Date.now(), failedAt: f }); setFailedAt(f);
+      });
+  }, [wsId, bump]);
+  const locked = !!failedAt && !(retryAt && Date.parse(retryAt) > Date.parse(failedAt));
+  const retry = () => { const t = new Date().toISOString(); try { localStorage.setItem(retryKey(wsId), t); } catch { /* private mode */ } setRetryAt(t); };
+  return { locked, retry };
+}
+
 /** Reply box at the bottom of the chat, like WhatsApp's. Sends from the business's own number through
  *  the wa-send function. WhatsApp allows free replies only within 24 h of the customer's last message. */
 export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Workspace; T: Tr; phone: string | null; msgs: Msg[] | null; onSent: () => Promise<void> | void }) {
@@ -291,6 +318,8 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
   const [drafting, setDrafting] = useState(false);
   const [err, setErr] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
+  const [bump, setBump] = useState(0);
+  const meta = useMetaLock(ws.id, bump);
   useEffect(() => { setText(""); setErr(""); }, [r.id]);
   useEffect(() => { const el = box.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; } }, [text]);
 
@@ -302,6 +331,26 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
           : !canManage(ws) ? T("Only the owner or an admin can reply from itaOS.", "Mmiliki au admin pekee anaweza kujibu kutoka itaOS.")
           : T("Replying from itaOS is turned off in Settings.", "Kujibu kutoka itaOS kumezimwa kwenye Mipangilio.")}</span>
         {openWa}
+      </div>
+    );
+  }
+  if (meta.locked) {
+    return (
+      <div className="wa-compose wa-verify" role="note">
+        <span className="wa-verify-ico" aria-hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7.5v.5" /></svg>
+        </span>
+        <div className="wa-verify-text">
+          <b>{T("Replying from itaOS starts after Meta verifies this business", "Kujibu kutoka itaOS kutaanza Meta ikishathibitisha biashara hii")}</b>
+          <span>{T("Meta only lets verified businesses send from apps like itaOS. Until then, reply from the WhatsApp app on your phone; everything else in itaOS keeps working.",
+            "Meta inaruhusu biashara zilizothibitishwa tu kutuma kupitia app kama itaOS. Mpaka hapo, jibu kupitia WhatsApp kwenye simu yako; mengine yote ndani ya itaOS yanaendelea kufanya kazi.")}</span>
+          <span className="wa-verify-how">{T("To verify: business.facebook.com → Settings → Security Center → Business verification. It usually takes a few days.",
+            "Kuthibitisha: business.facebook.com → Settings → Security Center → Business verification. Kwa kawaida huchukua siku chache.")}</span>
+        </div>
+        <div className="wa-verify-acts">
+          {openWa}
+          <button type="button" className="linkish small" onClick={() => { meta.retry(); }}>{T("Meta approved? Try again", "Meta imeidhinisha? Jaribu tena")}</button>
+        </div>
       </div>
     );
   }
@@ -323,7 +372,8 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
       await callFn("wa-send", { workspace_id: ws.id, conversation_id: r.id, text: t });
       setText(""); await onSent();
       // WhatsApp's delivery report comes a few seconds later: look again so a failed send shows up.
-      window.setTimeout(() => { void onSent(); }, 5000); window.setTimeout(() => { void onSent(); }, 15000);
+      // (and re-check whether Meta blocked it, which turns the box into the "verify your business" note)
+      window.setTimeout(() => { void onSent(); setBump((b) => b + 1); }, 5000); window.setTimeout(() => { void onSent(); setBump((b) => b + 1); }, 15000);
     } catch (e) { setErr((e as Error).message); }
     setSending(false); box.current?.focus();
   }
