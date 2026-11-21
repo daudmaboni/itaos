@@ -6,6 +6,7 @@ import { AssignChat } from "./team";
 import { useProducts, ProductPicker, itemsCost, itemsLabel, productPhotosReady, itemsFromMatches, type Item, type ProductMatch } from "./Products";
 import { OrderForm, OrderList, inferredFrom, usePaymentMoment, toLocalInput, fromLocalInput, momentWhy } from "./Orders";
 import { KitoLogo } from "./Logo";
+import { ImageViewer } from "./ImageViewer";
 import { KitoLoader } from "./KitoLoader";
 import { Msg, Tr, waLink, agoT, statusOf, kitoStale, PARTY, markNotCustomer, nameOf, fromOf, prettyPhone, hiddenNote, special, whySource, lostWhy, lastPriceSent, interest } from "./chatParts";
 
@@ -535,7 +536,8 @@ export function MediaView({ m, ws, T }: { m: Msg; ws: Workspace; T: Tr }) {
             <a className="small" href={url} target="_blank" rel="noopener noreferrer">{T("Open / download", "Fungua / pakua")}</a></span>
         : isPdf
         ? <a href={url} target="_blank" rel="noopener noreferrer">📄 {T("Open PDF", "Fungua PDF")}</a>
-        : <img src={url} alt={m.direction === "in" ? T("Image from customer", "Picha kutoka kwa mteja") : T("Image you sent", "Picha uliyotuma")} className={big ? "big" : ""} onClick={() => setBig(!big)} />)}
+        : <img src={url} alt={m.direction === "in" ? T("Image from customer", "Picha kutoka kwa mteja") : T("Image you sent", "Picha uliyotuma")} onClick={() => setBig(true)} style={{ cursor: "zoom-in" }} />)}
+      {big && url && <ImageViewer src={url} alt={m.direction === "in" ? T("Image from customer", "Picha kutoka kwa mteja") : T("Image you sent", "Picha uliyotuma")} sw={ws.language === "sw"} onClose={() => setBig(false)} />}
       {caption && <span>{caption}</span>}
       {heard && <span className="mv-heard"><b>{T("Voice note says:", "Sauti inasema:")}</b> {heard}</span>}
       {r?.is_receipt ? <span className="mv-tag">🧾 {T("Payment screenshot", "Picha ya malipo")}{r.amount ? ` · ${Math.round(r.amount).toLocaleString("en-US")}` : ""}{r.txn_code ? ` · ${r.txn_code}` : ""}</span>

@@ -3,6 +3,7 @@
 // The cost of an order = Σ qty × unit cost of the products picked. It is filled in, never forced:
 // the owner can still type a different number. Nothing is assumed for a new business.
 import { useEffect, useMemo, useState } from "react";
+import { ImageViewer } from "./ImageViewer";
 import { enterCards, usePageEnter, select } from "./motion";
 import { supabase, Workspace, amt, money, when, orderNet, canEdit, moneyInput, moneyText } from "./lib";
 
@@ -110,6 +111,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
   const [notes, setNotes] = useState(p?.notes ?? "");
   const [photos, setPhotos] = useState<string[]>(p?.photos ?? []);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const urls = usePhotoUrls(photos);
   const id = useMemo(() => p?.id ?? crypto.randomUUID(), [p?.id]);
@@ -163,10 +165,11 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
         <label style={{ gridColumn: "1 / -1" }}>{T("Other names customers use (comma separated)", "Majina mengine wanayotumia wateja (tenganisha kwa koma)")}<input value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder={T("kaya power, dawa ya nguvu", "kaya power, dawa ya nguvu")} /></label>
         <label style={{ gridColumn: "1 / -1" }}>{T("Note (optional)", "Maelezo (si lazima)")}<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={T("size, pack, how it's used…", "ukubwa, pakiti, matumizi…")} /></label>
       </div>
+      {view && <ImageViewer src={view} alt="" sw={ws.language === "sw"} onClose={() => setView(null)} />}
       <div className="prod-photos">
         {photos.map((ph) => (
           <span key={ph} className="prod-ph">
-            {urls[ph] ? <img src={urls[ph]} alt="" /> : <span className="prod-ph-empty" />}
+            {urls[ph] ? <img src={urls[ph]} alt="" onClick={() => setView(urls[ph])} style={{ cursor: "zoom-in" }} /> : <span className="prod-ph-empty" />}
             <button type="button" aria-label={T("Remove photo", "Ondoa picha")} onClick={() => removePhoto(ph)}>×</button>
           </span>
         ))}
@@ -187,6 +190,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
 function ProductCard({ ws, p, editor, onEdit, onChange, T }: { ws: Workspace; p: Product; editor: boolean; onEdit: () => void; onChange: () => void; T: (en: string, sw: string) => string }) {
   const urls = usePhotoUrls(p.photos);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const margin = p.price != null && p.cost != null ? Number(p.price) - Number(p.cost) : null;
   async function toggle() {
@@ -203,8 +207,9 @@ function ProductCard({ ws, p, editor, onEdit, onChange, T }: { ws: Workspace; p:
   }
   return (
     <div className={"card prod-card" + (p.active ? "" : " off")}>
+      {view && <ImageViewer src={view} alt={p.name} sw={ws.language === "sw"} onClose={() => setView(null)} />}
       <div className="prod-thumbs">
-        {p.photos.length ? p.photos.slice(0, 3).map((ph) => (urls[ph] ? <img key={ph} src={urls[ph]} alt={p.name} /> : <span key={ph} className="prod-ph-empty" />))
+        {p.photos.length ? p.photos.slice(0, 3).map((ph) => (urls[ph] ? <img key={ph} src={urls[ph]} alt={p.name} onClick={() => setView(urls[ph])} style={{ cursor: "zoom-in" }} /> : <span key={ph} className="prod-ph-empty" />))
           : <span className="prod-nophoto small muted">{T("No photos yet", "Bado hakuna picha")}</span>}
       </div>
       <div style={{ display: "grid", gap: 4 }}>
