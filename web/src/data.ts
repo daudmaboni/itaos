@@ -99,7 +99,7 @@ const OUTCOME_COLS = [
   "id", "contact_id", "contact_name", "started_at", "last_message_at", "source", "source_label", "ad_id", "ad_signal",
   "first_response_sec", "price_asked", "price_shared", "replied_after_price", "payment_signal", "payment_amount", "objections",
   "followed_up", "warm", "stage", "auto_outcome", "outcome_override", "label", "kito_outcome", "kito_label", "kito_amount",
-  "kito_objections", "kito_tags", "kito_temp", "kito_blocker", "last_dir", "kito_confidence", "kito_checked_at", "outcome",
+  "kito_objections", "kito_tags", "kito_temp", "kito_blocker", "last_dir", "last_in_closing", "kito_confidence", "kito_checked_at", "outcome",
   "sale_amount", "sale_provenance", "override_by", "override_at", "paid_orders", "first_paid_at", "last_paid_at", "last_out_at",
   "pay_instructions",
 ].join(",");

@@ -78,7 +78,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
     const items = rows.filter((r) => !r.not_customer && r.outcome !== "sold" && Number(r.paid_orders) === 0 && r.outcome_override !== "lost" && !handled.has(r.id))
       .map((r) => {
         const temp = tempOf(r);
-        const waiting = r.last_dir === "in" && r.last_message_at && now - Date.parse(r.last_message_at) > 30 * 60e3;
+        const waiting = r.last_dir === "in" && !r.last_in_closing && r.last_message_at && now - Date.parse(r.last_message_at) > 30 * 60e3;
         const stale = r.last_dir === "out" && r.last_out_at && now - Date.parse(r.last_out_at) > H && (temp === "hot" || temp === "warm");
         const reason = waiting ? "reply" : stale ? "follow_up" : null;
         return reason ? { r, reason, temp, age: now - Date.parse((waiting ? r.last_message_at : r.last_out_at) ?? r.last_message_at ?? "") } : null;

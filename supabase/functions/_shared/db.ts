@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
 import { analyze, Msg, type Rules } from "./signals.ts";
 import { confirmTicks, TickMsg } from "./ticks.ts";
+import { lastInClosing } from "./closing.ts";
 
 export const GRAPH = `https://graph.facebook.com/${Deno.env.get("META_GRAPH_VERSION") ?? "v25.0"}`;
 
@@ -60,6 +61,7 @@ export async function reanalyze(db: SupabaseClient, conversationIds: string[]) {
       started_at: msgs[0].sent_at,
       last_message_at: msgs[msgs.length - 1].sent_at,
       last_dir: msgs[msgs.length - 1].direction,
+      last_in_closing: lastInClosing(msgs as Msg[]),
       last_out_at: [...msgs].reverse().find((m) => m.direction === "out")?.sent_at ?? null,
       analyzed_at: new Date().toISOString(),
     }).eq("id", id);

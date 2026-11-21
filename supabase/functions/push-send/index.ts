@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
         db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "snoozed").lte("snoozed_until", endOfToday),
         db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "proposed").eq("source", "kito_promise"),
         db.from("conversation_outcomes").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("not_customer", false)
-          .eq("kito_temp", "hot").eq("last_dir", "in").eq("paid_orders", 0).gte("last_message_at", threeDays),
+          .eq("kito_temp", "hot").eq("last_dir", "in").eq("last_in_closing", false).eq("paid_orders", 0).gte("last_message_at", threeDays),
         db.from("conversation_outcomes").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("not_customer", false).eq("paid_orders", 0)
           .or("and(kito_outcome.eq.sold,or(kito_confidence.is.null,kito_confidence.neq.low)),outcome_override.eq.sold").or("override_by.is.null,outcome_override.eq.sold"),
       ]);

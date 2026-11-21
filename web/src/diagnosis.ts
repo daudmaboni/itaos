@@ -100,7 +100,7 @@ export function diagnose(mx: FunnelMetrics, convs: Outcome[], orders: Order[], t
   }
 
   // 5. Warm leads with no follow-up
-  const warmNoFollow = inP.filter((c) => c.outcome !== "sold" && (c.kito_temp ? c.kito_temp !== "cold" : c.warm) && !c.followed_up && c.last_dir === "in");
+  const warmNoFollow = inP.filter((c) => c.outcome !== "sold" && (c.kito_temp ? c.kito_temp !== "cold" : c.warm) && !c.followed_up && c.last_dir === "in" && !c.last_in_closing);
   if (warmNoFollow.length >= 3) {
     const warmN = mx.warmNoFollowUp.n ?? warmNoFollow.length;
     const share = warmN ? warmNoFollow.length / warmN : 0;

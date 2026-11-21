@@ -195,7 +195,7 @@ async function hydrate(db: SupabaseClient, wsId: string, blocks: any[], runs: Qu
       const ids = [...new Set<string>(run && !run.error ? run.rows.map((r) => r.chat_id as string) : (b.chat_ids ?? []))].filter(isUuid).slice(0, 100);
       if (!ids.length) continue;
       const { data } = await db.from("conversation_outcomes")
-        .select("id,contact_id,contact_name,last_message_at,last_dir,outcome,kito_label,kito_temp,kito_blocker,kito_summary,kito_next,pay_instructions,payment_signal,paid_orders,sale_amount,ad_id")
+        .select("id,contact_id,contact_name,last_message_at,last_dir,last_in_closing,outcome,kito_label,kito_temp,kito_blocker,kito_summary,kito_next,pay_instructions,payment_signal,paid_orders,sale_amount,ad_id")
         .eq("workspace_id", wsId).in("id", ids);
       const contactIds = [...new Set((data ?? []).map((c: any) => c.contact_id))];
       const { data: contacts } = contactIds.length
@@ -204,7 +204,7 @@ async function hydrate(db: SupabaseClient, wsId: string, blocks: any[], runs: Qu
       const phone = new Map((contacts ?? []).map((c: any) => [c.id, c.wa_id]));
       const byId = new Map((data ?? []).map((c: any) => [c.id, c]));
       const items = ids.map((id) => byId.get(id)).filter(Boolean).map((c: any) => ({
-        chat_id: c.id, name: c.contact_name, wa_id: phone.get(c.contact_id) ?? null, last_message_at: c.last_message_at, last_dir: c.last_dir,
+        chat_id: c.id, name: c.contact_name, wa_id: phone.get(c.contact_id) ?? null, last_message_at: c.last_message_at, last_dir: c.last_dir, waiting_for_reply: c.last_dir === "in" && !c.last_in_closing,
         outcome: c.outcome, label: c.kito_label, temp: c.kito_temp, blocker: c.kito_blocker, summary: c.kito_summary, next: c.kito_next,
         payment_details_sent: c.pay_instructions, payment_signal: c.payment_signal, paid_orders: c.paid_orders, paid_amount: c.sale_amount,
         why: (why[c.id] ?? (run ? clip(run.rows.find((r) => r.chat_id === c.id)?.why ?? "", 200) : "")) || null,

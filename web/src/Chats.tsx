@@ -223,7 +223,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
         list = [...list].sort((x, y) => Date.parse(m[y.id] ?? "") - Date.parse(m[x.id] ?? ""));
       }
       if (filter === "follow") {
-        const rank = (r: Outcome) => (interest(r) === "hot" ? 0 : 1) * 10 + (r.last_dir === "in" ? 0 : 1);
+        const rank = (r: Outcome) => (interest(r) === "hot" ? 0 : 1) * 10 + (r.last_dir === "in" && !r.last_in_closing ? 0 : 1);
         list = [...list].sort((x, y) => rank(x) - rank(y) || Date.parse(y.last_message_at ?? "") - Date.parse(x.last_message_at ?? ""));
       }
       const contactIds = [...new Set(list.map((r) => r.contact_id))];

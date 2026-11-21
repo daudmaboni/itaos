@@ -50,7 +50,7 @@ export function statusOf(r: Outcome, T: Tr, currency: string): Status {
   if (inferredFrom(r)) return { key: "check", icon: "!", tone: "warn", text: T("Says they paid — check your money came in", "Anasema amelipa — hakikisha pesa imeingia") };
   if (kitoChecking(r)) return { key: "kito_check", icon: "…", tone: "info", text: T("Kito is reading this chat for a payment", "Kito anasoma chat hii kuona malipo") };
   if (r.outcome === "lost") return { key: "lost", icon: "×", tone: "muted", text: T("Didn't buy", "Hakununua") };
-  if (r.last_dir === "in") return { key: "waiting", icon: "●", tone: "bad", text: T("Waiting for your reply", "Anasubiri umjibu") };
+  if (r.last_dir === "in" && !r.last_in_closing) return { key: "waiting", icon: "●", tone: "bad", text: T("Waiting for your reply", "Anasubiri umjibu") };
   if (r.pay_instructions) return { key: "paynum", icon: "●", tone: "info", text: T("Has your payment number, hasn't paid yet", "Ana namba ya malipo, bado hajalipa") };
   if (r.price_shared) return { key: "priced", icon: "●", tone: "info", text: T("Got the price, still deciding", "Amepata bei, bado anaamua") };
   return { key: "new", icon: "●", tone: "info", text: T("Just started talking", "Ndio ameanza kuongea") };
