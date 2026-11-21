@@ -126,6 +126,7 @@ export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boo
     if (!el) return;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 132) + "px";
+    el.style.overflowY = el.scrollHeight > 132 ? "auto" : "hidden"; // no stray scrollbar on a short question
   }, [q]);
 
   async function ask(question: string) {
