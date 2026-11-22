@@ -12,6 +12,9 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
   const [status, setStatus] = useState<WsStatus>('active');
   const [plan, setPlan] = useState('pilot');
   const [note, setNote] = useState('');
+  // What this business pays per month (business currency); drives the "× its cost" badge on its Home.
+  const [price, setPrice] = useState('');
+  const [priceWas, setPriceWas] = useState<{ v: number | null; cur: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmSuspend, setConfirmSuspend] = useState(false);
@@ -20,12 +23,24 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
 
   useEffect(() => { if (d?.workspace) { setStatus(d.workspace.status); setPlan(d.workspace.plan); setNote(d.workspace.note ?? ''); } }, [d]);
   useEffect(() => {
+    let gone = false;
+    supabase.rpc('admin_prices').then(({ data }) => {
+      const r = ((data ?? []) as { workspace_id: string; currency: string; price_month: number | null }[]).find((x) => x.workspace_id === id);
+      if (!gone && r) { setPriceWas({ v: r.price_month, cur: r.currency }); setPrice(r.price_month == null ? '' : String(r.price_month)); }
+    });
+    return () => { gone = true; };
+  }, [supabase, id, tick]);
+  const priceNum = price.replace(/[,\s]/g, '') === '' ? null : Number(price.replace(/[,\s]/g, ''));
+  const priceBad = priceNum != null && (!isFinite(priceNum) || priceNum < 0);
+  const priceDirty = !!priceWas && !priceBad && priceNum !== priceWas.v;
+  useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
   }, [onClose]);
 
   const w = d?.workspace;
-  const dirty = !!w && (status !== w.status || plan !== w.plan || (note.trim() || null) !== (w.note || null));
+  const stateDirty = !!w && (status !== w.status || plan !== w.plan || (note.trim() || null) !== (w.note || null));
+  const dirty = stateDirty || priceDirty;
   const retryable = (d?.events ?? []).filter((e) => e.status === 'failed' || e.status === 'stuck').reduce((s, e) => s + e.n, 0);
   const h = row ? healthOf(row) : null;
   const maxDay = Math.max(1, ...(d?.daily ?? []).map((x) => x.in + x.out));
@@ -46,7 +61,10 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
   function save() {
     if (status === 'suspended' && w?.status !== 'suspended' && !confirmSuspend) { setConfirmSuspend(true); return; }
     setConfirmSuspend(false);
-    void run('save', () => supabase.rpc('admin_set_workspace_state', { p_ws: id, p_status: status, p_plan: plan, p_note: note }), () => 'Changes saved', 'Not saved');
+    void run('save', async () => {
+      if (priceDirty) { const r = await supabase.rpc('admin_set_price', { p_ws: id, p_price: priceNum }); if (r.error || !stateDirty) return r; }
+      return supabase.rpc('admin_set_workspace_state', { p_ws: id, p_status: status, p_plan: plan, p_note: note });
+    }, () => 'Changes saved', 'Not saved');
   }
   const requeue = () => run('requeue', () => supabase.rpc('admin_requeue_events', { p_ws: id }),
     (n) => `${plural(Number(n ?? 0), 'event')} sent back to the queue`, 'Retry failed');
@@ -111,6 +129,7 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
                     ))}
                   </div></div>
                 <label className="ia-field"><span>Plan</span><input value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="pilot" /></label>
+                <label className="ia-field"><span>Price per month{priceWas ? ` (${priceWas.cur})` : ''}</span><input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Not set" aria-invalid={priceBad} /></label>
                 <label className="ia-field wide"><span>Private note</span>
                   <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Only Pondi staff can see this, e.g. how they found itaOS or what they're paying" /></label>
               </div>

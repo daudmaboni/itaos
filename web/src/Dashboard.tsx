@@ -12,6 +12,7 @@ import { Metric, delta, DEFINITIONS } from "./metrics";
 import { SourceBadge, ProvenanceLegend } from "./Provenance";
 import PaidOrders from "./PaidOrders";
 import MoneyHero, { useHeroStyle, heroCovers } from "./MoneyHero";
+import Recovered from "./Recovered";
 
 export default function Dashboard({ ws, onWs }: { ws: Workspace; onWs?: (w: Workspace) => void }) {
   const [range, setRangeState] = useState<RangeSel>(() => loadRange("dashboard", { key: "last_7" }));
@@ -165,6 +166,7 @@ export default function Dashboard({ ws, onWs }: { ws: Workspace; onWs?: (w: Work
           <Kpi k={T("Warm, waiting for follow-up", "Wenye nia, wanasubiri ufuatiliaji")} v={fmt(mx.warmNoFollowUp.value)} n={mx.warmNoFollowUp.value} f={(x) => fmt(Math.round(x))} s={`${T("of", "kati ya")} ${mx.warmNoFollowUp.n} ${T("warm", "wenye nia")} · ${T("rule", "kanuni")}: ${ws.follow_up_hours} h`} cls={mx.warmNoFollowUp.value ? "flag" : "ok"} src="inferred" />
         </div>
         {showPaid && <PaidOrders ws={ws} orders={g.orders} period={mx.period} adNames={adNames} onClose={() => setShowPaid(false)} />}
+        <Recovered ws={ws} period={mx.period} conv={W} cur={wsCur} />
 
         <div className="two">
           <section className="card">
