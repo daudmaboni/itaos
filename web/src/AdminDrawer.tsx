@@ -49,7 +49,8 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
   const wa = d?.connections.find((c) => c.provider === 'whatsapp');
   const connected = (d?.connections.length ?? 0) > 0 || (d?.wa_numbers.length ?? 0) > 0;
   const hasPhotos = (d?.media?.saved ?? 0) > 0;
-  const sendOn = w?.send_enabled !== false;
+  const sendOn = !w?.send_blocked;            // staff's own switch (0067): the business can't change it
+  const ownerSendOn = w?.send_enabled !== false; // the owner's switch in Settings
 
   async function run(key: string, fn: () => PromiseLike<{ error: { message: string } | null; data?: unknown }>, ok: (data: unknown) => string, fail: string) {
     setBusy(key); setMsg(null);
@@ -190,7 +191,9 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
               {wa && (
                 <div className="ia-row">
                   <div><strong>Reply from itaOS</strong>
-                    <small className="ia-faint">{sendOn ? 'On: owners and admins can answer chats inside itaOS (24-hour window).' : 'Off: the Chats inbox is read-only.'} The owner can also change this in Settings.</small></div>
+                    <small className="ia-faint">{!sendOn ? 'Off by Pondi: the Chats inbox is read-only, and the business cannot turn it back on.'
+                      : ownerSendOn ? 'On: owners and admins can answer chats inside itaOS (24-hour window).'
+                      : 'Allowed by Pondi, but the owner has switched it off in Settings.'}</small></div>
                   <button className="ia-btn" disabled={busy !== null || row?.send_enabled === undefined} onClick={toggleSend}>{busy === 'send' ? 'Saving…' : sendOn ? 'Switch off' : 'Switch on'}</button>
                 </div>
               )}

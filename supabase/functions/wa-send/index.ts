@@ -35,7 +35,10 @@ Deno.serve(async (req) => {
   const db = admin();
   const { data: w } = await db.from("workspaces").select("send_enabled").eq("id", ws).maybeSingle();
   if (w && w.send_enabled === false) return json({ error: "Sending from itaOS is turned off for this business (Settings)." }, 403);
-  const { data: st } = await db.from("workspace_admin_state").select("status").eq("workspace_id", ws).maybeSingle();
+  // send_blocked comes with migration 0067; until it is applied, fall back so the "suspended" check still works.
+  let { data: st, error: stErr } = await db.from("workspace_admin_state").select("status,send_blocked").eq("workspace_id", ws).maybeSingle();
+  if (stErr) ({ data: st } = await db.from("workspace_admin_state").select("status").eq("workspace_id", ws).maybeSingle());
+  if (st?.send_blocked) return json({ error: "Pondi Technologies has turned off sending from itaOS for this business. Contact hello@ponditech.com." }, 403);
   if (st?.status === "suspended") return json({ error: "This itaOS account is paused. Contact Pondi Technologies (hello@ponditech.com)." }, 403);
   const { data: conv } = await db.from("conversations").select("id,phone_number_id,contacts(wa_id,name,full_name,not_customer)").eq("id", convId).eq("workspace_id", ws).maybeSingle();
   if (!conv) return json({ error: "Chat not found." }, 404);

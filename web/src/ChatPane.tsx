@@ -1,7 +1,7 @@
 // The open chat on the Chats page: messages, reply box, payment confirmation and photos (moved out of Chats.tsx, unchanged).
 import { select } from "./motion";
 import { useEffect, useRef, useState } from "react";
-import { supabase, callFn, Workspace, Outcome, Task, dur, L, when, canEdit, canManage, money, amt, moneyInput, moneyText } from "./lib";
+import { supabase, callFn, Workspace, Outcome, Task, dur, L, when, canEdit, canManage, canSend, money, amt, moneyInput, moneyText } from "./lib";
 import { AssignChat } from "./team";
 import { useProducts, ProductPicker, itemsCost, itemsLabel, productPhotosReady, itemsFromMatches, type Item, type ProductMatch } from "./Products";
 import { OrderForm, OrderList, inferredFrom, usePaymentMoment, toLocalInput, fromLocalInput, momentWhy } from "./Orders";
@@ -347,11 +347,12 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
       </div>
     );
   }
-  if (!canManage(ws) || ws.send_enabled === false || (r as any).phone_number_id === "import") {
+  if (!canManage(ws) || !canSend(ws) || (r as any).phone_number_id === "import") {
     return (
       <div className="wa-compose">
         <span>{(r as any).phone_number_id === "import" ? T("This chat came from an uploaded file. Reply from WhatsApp.", "Chat hii imetoka kwenye faili. Jibu kupitia WhatsApp.")
           : !canManage(ws) ? T("Only the owner or an admin can reply from itaOS.", "Mmiliki au admin pekee anaweza kujibu kutoka itaOS.")
+          : ws.send_blocked ? T("Pondi Technologies has turned off replying from itaOS for this business.", "Pondi Technologies imezima kujibu kutoka itaOS kwa biashara hii.")
           : T("Replying from itaOS is turned off in Settings.", "Kujibu kutoka itaOS kumezimwa kwenye Mipangilio.")}</span>
         {openWa}
       </div>

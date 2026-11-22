@@ -180,9 +180,10 @@ function Replying({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => void
       <div><h2>{T("Reply to customers from itaOS", "Jibu wateja kutoka itaOS")}</h2>
         <span className="small muted">{T("The owner and admins can type replies in the chat. They go out from your own WhatsApp number and also appear in the WhatsApp Business app. WhatsApp allows this only within 24 hours of the customer's last message.", "Mmiliki na admin wanaweza kuandika majibu kwenye chat. Yanatoka kwa namba yako ya WhatsApp na pia yanaonekana kwenye app ya WhatsApp Business. WhatsApp inaruhusu hili ndani ya saa 24 tangu ujumbe wa mwisho wa mteja.")}</span></div>
       <label className="row" style={{ gap: 10, cursor: canManage(ws) ? "pointer" : "default" }}>
-        <input type="checkbox" checked={on} disabled={busy || !canManage(ws)} onChange={toggle} />
+        <input type="checkbox" checked={on} disabled={busy || !canManage(ws) || !!ws.send_blocked} onChange={toggle} />
         <span>{on ? T("On: replies can be sent from itaOS", "Imewashwa: majibu yanaweza kutumwa kutoka itaOS") : T("Off: itaOS only reads chats", "Imezimwa: itaOS inasoma chat tu")}</span>
       </label>
+      {ws.send_blocked && <span className="err small">{T("Pondi Technologies has turned this off for your business. Contact hello@ponditech.com to turn it back on.", "Pondi Technologies imezima hili kwa biashara yako. Wasiliana na hello@ponditech.com ili kuliwasha tena.")}</span>}
       {err && <span className="err small">{err}</span>}
     </section>
   );
