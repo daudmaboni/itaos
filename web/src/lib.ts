@@ -25,9 +25,9 @@ export type Workspace = { id: string; name: string; currency: string; language: 
   timezone: string; follow_up_hours: number; conversion_window_days: number; send_enabled?: boolean; send_blocked?: boolean; display_currency?: "TZS" | "USD" | null; role?: Role;
   rule_ad_texts?: string[]; rule_loc_question?: string[]; rule_loc_reply?: string[]; rule_paid_texts?: string[];
   // 0059: everything per business
-  rule_delivered_texts?: string[]; rule_owner_tick?: boolean; rules_reviewed_at?: string | null;
+  rule_delivered_texts?: string[]; rule_received_texts?: string[]; rule_owner_tick?: boolean; rules_reviewed_at?: string | null;
   brand_color?: string | null; brand_accent?: string | null; brand_town?: string | null; pay_method?: string | null };
-export const WS_COLUMNS = "id,name,currency,language,unit_cost,fx_rate,fx_auto,fx_updated_at,fx_source,fx_base,timezone,follow_up_hours,conversion_window_days,send_enabled,display_currency,rule_ad_texts,rule_loc_question,rule_loc_reply,rule_paid_texts,rule_delivered_texts,rule_owner_tick,rules_reviewed_at,brand_color,brand_accent,brand_town,pay_method";
+export const WS_COLUMNS = "id,name,currency,language,unit_cost,fx_rate,fx_auto,fx_updated_at,fx_source,fx_base,timezone,follow_up_hours,conversion_window_days,send_enabled,display_currency,rule_ad_texts,rule_loc_question,rule_loc_reply,rule_paid_texts,rule_delivered_texts,rule_received_texts,rule_owner_tick,rules_reviewed_at,brand_color,brand_accent,brand_town,pay_method";
 // brand_logo is not loaded with the workspace (it can be ~100 KB): receipts and Settings fetch it when needed.
 export const canEdit = (ws: Workspace) => ws.role == null || ws.role !== "viewer";
 export const canManage = (ws: Workspace) => ws.role === "owner" || ws.role === "admin";

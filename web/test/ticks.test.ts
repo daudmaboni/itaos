@@ -106,3 +106,23 @@ describe("per-business delivered texts in analyze", () => {
     expect(a.label).toBe("using");
   });
 });
+
+import { saysReceived as said } from "../../supabase/functions/_shared/ticks";
+describe("business's own money-received words", () => {
+  const msg = (id: string, body: string) => ({ id, direction: "out" as const, sent_at: "2026-11-22T14:00:00Z", body, type: "text" });
+  it("matches loosely and only the business's words", () => {
+    expect(said("Tumepokea malipo yako 205,000, asante", ["Tumepokea malipo"])).toBe(true);
+    expect(said("tumepokea-MALIPO", ["Tumepokea malipo"])).toBe(true);
+    expect(said("Tutapokea malipo kesho", ["Tumepokea malipo"])).toBe(false);
+    expect(said("Tumepokea malipo", [])).toBe(false);
+    expect(said("ok", ["ok"])).toBe(false);   // too short to trust
+  });
+  it("findTicks turns them into received ticks with the goods price", () => {
+    const t = findTicks([msg("a", "Tumepokea malipo 205,000, usafiri 10,000")], { tick: false, received: ["Tumepokea malipo"] });
+    expect(t).toHaveLength(1);
+    expect(t[0].kind).toBe("received");
+    expect(t[0].amount).toBe(205000);
+    expect(findTicks([msg("b", "TZS 205,000✅")], { tick: false, received: [] })).toHaveLength(0);
+    expect(findTicks([msg("b", "TZS 205,000✅")])[0].kind).toBe("price");
+  });
+});

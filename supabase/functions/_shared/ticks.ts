@@ -19,6 +19,9 @@
 //     confirmed again by hand or by another tick, and a code already used for a sale is skipped;
 //   - a paid order of the same amount for the same customer within 3 days is not repeated
 //     (e.g. the same order forwarded to two dispatchers).
+// 3. The business's own "money received" words (workspaces.rule_received_texts, Settings → Rules), e.g.
+//    "Tumepokea malipo". Sent by the owner, so they count without a screenshot, like a bare price ✅.
+//    The amount is the price in that message, else the customer's receipt, else the last price sent.
 // The evidence (receipt matched, amount differs, no proof from the customer) goes into the notes.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -51,17 +54,32 @@ export function priceIn(body: string | null | undefined): number | null {
 }
 
 export type TickMsg = { id: string; direction: "in" | "out"; sent_at: string; body: string | null; type: string; media?: any };
-export type Tick = { messageId: string; sentAt: string; body: string; amount: number | null; phones: string[]; kind: "price" | "paid" };
+export type Tick = { messageId: string; sentAt: string; body: string; amount: number | null; phones: string[]; kind: "price" | "paid" | "received" };
 
-/** ✅ messages from the business that confirm a payment. */
-export function findTicks(msgs: TickMsg[]): Tick[] {
+/** Compare loosely: lower case, no spaces or hyphens ("Tumepokea malipo" = "tumepokea-malipo"). */
+const squash = (s: string) => s.toLowerCase().replace(/[\s\-]+/gu, "");
+/** Does the message contain one of the business's own "money received" phrases (Settings → Rules)? Pure, for tests. */
+export function saysReceived(body: string | null | undefined, phrases: string[] | null | undefined): boolean {
+  const b = squash(body ?? "");
+  return !!b && (phrases ?? []).some((p) => { const q = squash(p ?? ""); return q.length >= 3 && b.includes(q); });
+}
+
+/** Messages from the business that confirm a payment: the ✅ forms (when `tick` is on) and the
+ *  business's own "money received" phrases. */
+export function findTicks(msgs: TickMsg[], opts: { tick?: boolean; received?: string[] } = { tick: true }): Tick[] {
   const out: Tick[] = [];
   for (const m of msgs) {
-    if (m.direction !== "out" || !m.body || !TICK.test(m.body)) continue;
-    const priced = tickAmount(m.body.replace(PHONE, " "));
-    const paid = isPaidTick(m.body);
-    if (priced == null && !paid) continue;
-    out.push({ messageId: m.id, sentAt: m.sent_at, body: m.body, amount: priced ?? priceIn(m.body), phones: phonesIn(m.body), kind: priced != null ? "price" : "paid" });
+    if (m.direction !== "out" || !m.body) continue;
+    if (opts.tick !== false && TICK.test(m.body)) {
+      const priced = tickAmount(m.body.replace(PHONE, " "));
+      const paid = isPaidTick(m.body);
+      if (priced != null || paid) {
+        out.push({ messageId: m.id, sentAt: m.sent_at, body: m.body, amount: priced ?? priceIn(m.body), phones: phonesIn(m.body), kind: priced != null ? "price" : "paid" });
+        continue;
+      }
+    }
+    if (saysReceived(m.body, opts.received))
+      out.push({ messageId: m.id, sentAt: m.sent_at, body: m.body, amount: goodsPriceIn(m.body), phones: phonesIn(m.body), kind: "received" });
   }
   return out;
 }
@@ -128,12 +146,15 @@ export function lastPriceBefore(msgs: TickMsg[], at: string): number | null {
 
 /** Write orders for the ✅ messages in one conversation. Safe to run again. Returns orders created. */
 export async function confirmTicks(db: SupabaseClient, conversationId: string, msgs: TickMsg[]) {
-  const ticks = findTicks(msgs);
-  if (!ticks.length) return 0;
-  const { data: conv } = await db.from("conversations").select("workspace_id, contact_id, contacts(wa_id, not_customer), workspaces(currency, rule_owner_tick)").eq("id", conversationId).maybeSingle();
+  if (!msgs.some((m) => m.direction === "out" && m.body)) return 0;
+  const { data: conv } = await db.from("conversations").select("workspace_id, contact_id, contacts(wa_id, not_customer), workspaces(currency, rule_owner_tick, rule_received_texts)").eq("id", conversationId).maybeSingle();
   if (!conv) return 0;
-  // Per business (Settings → How itaOS reads your chats): only businesses that mark payments with a ✅ use this.
-  if (!(conv as any).workspaces?.rule_owner_tick) return 0;
+  // Per business (Settings → How itaOS reads your chats): the ✅ switch, and the business's own "money received" words.
+  const wsRules = (conv as any).workspaces ?? {};
+  const received: string[] = Array.isArray(wsRules.rule_received_texts) ? wsRules.rule_received_texts : [];
+  if (!wsRules.rule_owner_tick && !received.length) return 0;
+  const ticks = findTicks(msgs, { tick: !!wsRules.rule_owner_tick, received });
+  if (!ticks.length) return 0;
   const ws = conv.workspace_id as string;
   const currency = (conv as any).workspaces?.currency ?? "TZS";
   const ownWa = (conv as any).contacts?.wa_id as string | undefined;
@@ -174,8 +195,10 @@ export async function confirmTicks(db: SupabaseClient, conversationId: string, m
       // A bare "price ✅" (nothing else in the message) is the owner saying "I have the money" — they paid
       // at the office, in cash, or the owner checked the wallet — so it counts even with no screenshot.
       // Anything with more words around the price ("175,000✅ ndio bei yetu") still needs proof first.
-      if (t.kind !== "price" || !bareTick(t.body)) continue;
-      ev.note = sawCustomer(targetMsgs, t.sentAt)
+      // The business's own "money received" words are the same kind of promise, so they count too.
+      if (t.kind === "received") ev.note = "Counted on your \"money received\" message (no screenshot from the customer needed).";
+      else if (t.kind !== "price" || !bareTick(t.body)) continue;
+      else ev.note = sawCustomer(targetMsgs, t.sentAt)
         ? "No screenshot from the customer (paid at the office, cash or checked in your wallet?), so it was counted on your ✅ alone."
         : "⚠ itaOS saw no messages from the customer before your ✅ (paid by phone, cash or an older chat?), so it was counted on your ✅ alone.";
     }
@@ -197,7 +220,7 @@ export async function confirmTicks(db: SupabaseClient, conversationId: string, m
       workspace_id: ws, conversation_id: target, amount, discount: 0, currency,
       status: "paid", fulfillment_status: "not_shipped", occurred_at: t.sentAt, paid_at: t.sentAt,
       provenance: "manual", inferred_from: "tick", external_ref: ref,
-      notes: `Auto-confirmed from your ✅ message${who}: "${quote.length > 70 ? quote.slice(0, 67) + "…" : quote}". ${t.amount == null ? (ev.receiptAmount ? "Amount from the customer's receipt. " : "Amount is the last price you sent them. ") : ""}${ev.note} [wamsg:${t.messageId}]${other ? ` [phone:${other}]` : ""}`,
+      notes: `Auto-confirmed from your ${t.kind === "received" ? "\"money received\"" : "✅"} message${who}: "${quote.length > 70 ? quote.slice(0, 67) + "…" : quote}". ${t.amount == null ? (ev.receiptAmount ? "Amount from the customer's receipt. " : "Amount is the last price you sent them. ") : ""}${ev.note} [wamsg:${t.messageId}]${other ? ` [phone:${other}]` : ""}`,
     });
     if (error && error.code !== "23505") throw new Error("could not record ✅ payment: " + error.message);
     if (!error) created++;

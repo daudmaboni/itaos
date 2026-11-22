@@ -199,13 +199,14 @@ function ChatRules({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => voi
   const [paid, setPaid] = useState(lines(ws.rule_paid_texts));
   const [deliv, setDeliv] = useState(lines(ws.rule_delivered_texts));
   const [tick, setTick] = useState(!!ws.rule_owner_tick);
+  const [recv, setRecv] = useState(lines(ws.rule_received_texts));
   const { msg, busy, save } = useSave(ws, onWs);
   const manager = canManage(ws);
   const list = (v: string, max: number) => [...new Set(v.split("\n").map((x) => x.trim().slice(0, 200)).filter(Boolean))].slice(0, max);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await save({ rule_ad_texts: list(ad, 20), rule_loc_question: list(locQ, 10), rule_loc_reply: list(locR, 10), rule_paid_texts: list(paid, 10),
-                 rule_delivered_texts: list(deliv, 15), rule_owner_tick: tick, rules_reviewed_at: new Date().toISOString() },
+                 rule_delivered_texts: list(deliv, 15), rule_received_texts: list(recv, 10), rule_owner_tick: tick, rules_reviewed_at: new Date().toISOString() },
       e.currentTarget, T("Saved. New messages are read with these rules.", "Imehifadhiwa. Jumbe mpya zinasomwa kwa kanuni hizi."));
   }
   const area = { rows: 3, style: { width: "100%", maxWidth: 520, fontFamily: "inherit" }, disabled: !manager };
@@ -227,11 +228,14 @@ function ChatRules({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => voi
       <Field id="r-dl" label={T("Messages you send once the customer has the goods", "Jumbe unazotuma mteja akishapata bidhaa")} hint={T("e.g. how to use the product, care instructions. These count as a sale only together with a payment sign (a payment screenshot, the customer saying they paid, or the payment details you sent). Leave empty if you don't send such messages.", "mf. jinsi ya kutumia bidhaa, maelekezo ya utunzaji. Zinahesabika kama mauzo tu pamoja na dalili ya malipo (picha ya malipo, mteja kusema amelipa, au maelezo ya malipo uliyotuma). Acha wazi kama hutumi jumbe kama hizi.")}>
         <textarea id="r-dl" {...area} rows={3} value={deliv} placeholder={T("e.g. Jinsi ya kutumia", "mf. Jinsi ya kutumia")} onChange={(e) => setDeliv(e.target.value)} />
       </Field>
+      <Field id="r-rc" label={T("Your words for \"I've received the money\"", "Maneno yako ya \"nimepokea pesa\"")} hint={T("For customers who pay at your office, in cash, or when you check your wallet yourself, with no screenshot. Any message you send with these words records a paid sale straight away. Put the price in the same message (e.g. \"Tumepokea malipo 205,000\"), or itaOS uses the last price you sent them. Leave empty if you don't use this.", "Kwa wateja wanaolipa ofisini, kwa pesa taslimu, au ukiangalia mwenyewe kwenye wallet, bila screenshot. Ujumbe wowote utakaotuma wenye maneno haya unarekodi mauzo yaliyolipwa papo hapo. Weka bei kwenye ujumbe huo huo (mf. \"Tumepokea malipo 205,000\"), la sivyo itaOS inatumia bei ya mwisho uliyowatumia. Acha wazi kama hutumii hili.")}>
+        <textarea id="r-rc" {...area} rows={2} value={recv} placeholder={T("e.g. Tumepokea malipo", "mf. Tumepokea malipo")} onChange={(e) => setRecv(e.target.value)} />
+      </Field>
       <div className="field">
         <label className="row" style={{ gap: 10, cursor: manager ? "pointer" : "default", alignItems: "flex-start" }}>
           <input type="checkbox" checked={tick} disabled={!manager} onChange={(e) => setTick(e.target.checked)} style={{ marginTop: 3 }} />
           <span><b>{T("I mark payments with a ✅", "Ninaweka ✅ kuonyesha malipo")}</b><br />
-            <span className="small muted">{T("When you send a price with a tick (\"TZS 205,000✅\") or \"Umelipiwa✅\", itaOS records a paid sale. Turn this off if you use ✅ for anything else.", "Ukituma bei yenye tiki (\"TZS 205,000✅\") au \"Umelipiwa✅\", itaOS inarekodi mauzo yaliyolipwa. Zima kama unatumia ✅ kwa mambo mengine.")}</span></span>
+            <span className="small muted">{T("When you send just a price with a tick (\"TZS 205,000✅\"), itaOS records a paid sale, even with no screenshot from the customer. \"Umelipiwa✅\" or a price with other words around it counts once the customer has shown payment. Turn this off if you use ✅ for anything else.", "Ukituma bei peke yake yenye tiki (\"TZS 205,000✅\"), itaOS inarekodi mauzo yaliyolipwa, hata bila screenshot ya mteja. \"Umelipiwa✅\" au bei yenye maneno mengine inahesabika mteja akishaonyesha malipo. Zima kama unatumia ✅ kwa mambo mengine.")}</span></span>
         </label>
       </div>
       {manager && <SaveRow busy={busy} msg={msg} T={T} />}
