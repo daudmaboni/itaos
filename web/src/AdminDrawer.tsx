@@ -434,8 +434,41 @@ function ProofTest({ supabase, id, onChanged }: { supabase: SupabaseClient; id: 
           )}
         </div>
         {msg && <span className={msg.ok ? 'ia-ok' : 'ia-bad'} role="status">{msg.text}</span>}
+        <Pooled supabase={supabase} id={id} />
         <p className="ia-faint small">Each customer is assigned once (shown or kept aside), evenly within each flag type × temperature, and compared when their window closes. "Clearly above zero" needs the whole 95% range of the difference above zero. A change only affects customers assigned from now on. Higher % gets an answer sooner but hides more customers from the owner: 10% is the default, 20% while learning on a busy shop. Off stops the comparison; the Home card then shows "sales after your follow-ups", labelled as not proof.</p>
       </>)}
     </section>
+  );
+}
+
+// All businesses together (migration 0078): random-effects pooling of each shop's shown − kept-aside buying rate.
+type PoolShop = { workspace_id: string; name: string; eligible: boolean; shown: number; shown_bought: number; kept: number; kept_bought: number;
+  diff: number | null; diff_lo: number | null; diff_hi: number | null; shrunk: number | null; shrunk_lo: number | null; shrunk_hi: number | null };
+type Pool = { status: 'pooled' | 'needs_more_shops'; shops_eligible: number; need: number;
+  pooled: null | { diff: number; lo: number; hi: number; tau2: number; clear: boolean }; shops: PoolShop[] };
+function Pooled({ supabase, id }: { supabase: SupabaseClient; id: string }) {
+  const [p, setP] = useState<Pool | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let gone = false;
+    supabase.rpc('admin_pooled_trial').then(({ data, error }) => { if (!gone) { if (error) setErr(error.message); else setP(data as Pool); } });
+    return () => { gone = true; };
+  }, [supabase]);
+  const pp = (x: number | null | undefined) => (x == null ? '–' : `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)} pts`);
+  if (err) return <p className="ia-bad small">{err}</p>;
+  if (!p) return null;
+  const me = p.shops.find((x) => x.workspace_id === id);
+  return (
+    <div>
+      <div className="ia-row"><div><strong>All businesses together</strong>
+        <small className="ia-faint">Buying-rate difference, shown − kept aside, closed windows. A business counts with ≥20 shown and ≥5 kept aside.</small></div>
+        <b>{p.status === 'pooled' && p.pooled ? `${pp(p.pooled.diff)} (${pp(p.pooled.lo)} to ${pp(p.pooled.hi)})${p.pooled.clear ? ' · clear' : ''}` : `${p.shops_eligible}/${p.need} businesses ready`}</b></div>
+      {me && (
+        <div className="ia-row"><div><strong>This business</strong>
+          <small className="ia-faint">{me.shown_bought}/{me.shown} shown bought · {me.kept_bought}/{me.kept} kept aside bought{me.eligible ? '' : ' · not enough closed customers to take part yet'}</small></div>
+          <b>{me.shrunk != null ? `${pp(me.shrunk)} pooled (${pp(me.shrunk_lo)} to ${pp(me.shrunk_hi)}) · own ${pp(me.diff)}` : `own ${pp(me.diff)} (${pp(me.diff_lo)} to ${pp(me.diff_hi)})`}</b></div>
+      )}
+      {p.status === 'pooled' && p.pooled && <p className="ia-faint small">Spread between businesses (tau²): {p.pooled.tau2.toFixed(5)}. Near 0 means businesses respond alike, so each small business is pulled strongly toward the pooled figure. Staff view only: owners' Home cards use their own trial.</p>}
+    </div>
   );
 }
