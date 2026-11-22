@@ -14,15 +14,16 @@ type Item = { order_id: string; conversation_id: string; amount: number; tier: T
 type Amt = { amount: number; orders: number };
 type Arm = { n: number; bought: number; rate: number | null; rate_lo: number | null; rate_hi: number | null; revenue: number; per_customer: number | null };
 type Res = {
-  version: string; experiment_start: string | null; currency: string; days: number; price_month: number | null;
+  version: string; methodology?: string; experiment_start: string | null; currency: string; days: number; price_month: number | null;
   status: "learning" | "estimate" | "clear" | "off";
   trial: {
     pct: number; need_hold: number; need_show: number; pending_show: number; pending_hold: number;
     show: Arm & { messaged: number }; hold: Arm & { contaminated: number };
     diff_rate: number | null; diff_lo: number | null; diff_hi: number | null; shown_in_period: number;
     extra: number | null; extra_lo: number | null; extra_hi: number | null; extra_customers: number | null;
+    extra_strict?: number | null; extra_strict_lo?: number | null; extra_strict_hi?: number | null;
   };
-  recorded: Amt; tiers: Record<Tier, Amt>; items: Item[]; waiting: number; no_message: number;
+  recorded: Amt & { tick_orders?: number; tick_amount?: number }; tiers: Record<Tier, Amt>; items: Item[]; waiting: number; no_message: number;
   past: { n: number; paid: number; rate: number | null };
   capture: { entered: number; detected: number };
   found_orders: number; found_amount: number;
@@ -75,7 +76,6 @@ export default function Recovered({ ws, period, conv, cur }: {
   // What itaOS cost for the same days — compared only with a clear trial result.
   const cost = r.price_month != null && r.price_month > 0 ? (r.price_month * r.days) / 30 : null;
   const times = clear && cost && extra > 0 ? extra / cost : null;
-  const ratio = t.hold.rate && t.show.rate ? t.show.rate / t.hold.rate : null;
 
   const title = trialOn
     ? (clear ? T("Extra sales from itaOS", "Mauzo ya ziada kutoka itaOS") : T("Extra sales from itaOS (estimate)", "Makadirio ya mauzo ya ziada kutoka itaOS"))
@@ -115,6 +115,15 @@ export default function Recovered({ ws, period, conv, cur }: {
       {trialOn && t.extra_lo != null && t.extra_hi != null && extra > 0 && (
         <p className="small muted" style={{ margin: 0 }}>{T(`Likely range: ${M(Math.max(0, t.extra_lo))} – ${M(t.extra_hi)}. ${fmt(compared)} customers compared so far.`, `Kiwango kinachowezekana: ${M(Math.max(0, t.extra_lo))} – ${M(t.extra_hi)}. Wateja ${fmt(compared)} wamelinganishwa hadi sasa.`)}</p>
       )}
+      {/* Sales itaOS recorded on its own from the owner's ✅ / "money received" messages, shown apart (no person pressed a button). */}
+      {trialOn && t.extra_strict != null && (
+        <p className="small" style={{ margin: 0 }}>{T(`Without the sales itaOS spotted from your messages: ${t.extra_strict > 0 ? M(t.extra_strict) : "no extra yet"}${t.extra_strict_lo != null && t.extra_strict_hi != null && t.extra_strict > 0 ? ` (range ${M(Math.max(0, t.extra_strict_lo))} – ${M(t.extra_strict_hi)})` : ""}.`,
+          `Bila mauzo itaOS iliyoyaona kwenye jumbe zako: ${t.extra_strict > 0 ? M(t.extra_strict) : "bado hakuna ziada"}${t.extra_strict_lo != null && t.extra_strict_hi != null && t.extra_strict > 0 ? ` (kati ya ${M(Math.max(0, t.extra_strict_lo))} – ${M(t.extra_strict_hi)})` : ""}.`)}</p>
+      )}
+      {!trialOn && r.recorded.orders > 0 && (r.recorded.tick_orders ?? 0) > 0 && (
+        <p className="small" style={{ margin: 0 }}>{T(`${fmt(r.recorded.tick_orders!)} of these ${fmt(r.recorded.orders)} were recorded by itaOS from your ✅ or "money received" messages. Without them: ${M(r.recorded.amount - (r.recorded.tick_amount ?? 0))}.`,
+          `${fmt(r.recorded.tick_orders!)} kati ya haya ${fmt(r.recorded.orders)} yalirekodiwa na itaOS kutoka jumbe zako za ✅ au "tumepokea malipo". Bila hayo: ${M(r.recorded.amount - (r.recorded.tick_amount ?? 0))}.`)}</p>
+      )}
       {!trialOn && (
         <p className="small muted" style={{ margin: 0 }}>{r.status === "off"
           ? T("Not proof that itaOS caused these sales: the comparison is switched off for this business.", "Si uthibitisho kwamba itaOS ilisababisha mauzo haya: ulinganisho umezimwa kwa biashara hii.")
@@ -122,12 +131,18 @@ export default function Recovered({ ws, period, conv, cur }: {
               `Bado si uthibitisho kwamba itaOS ilisababisha mauzo haya. Tunalinganisha na wateja waliowekwa pembeni: ${fmt(Math.min(t.hold.n, t.need_hold))} kati ya ${t.need_hold} waliowekwa pembeni na ${fmt(Math.min(t.show.n, t.need_show))} kati ya ${t.need_show} walioonyeshwa wamemaliza muda wao.`)}</p>
       )}
 
+      {!trialOn && (t.show.n > 0 || t.pending_show > 0) && (
+        <p className="small muted" style={{ margin: 0 }}>{t.show.n > 0
+          ? T(`You messaged ${fmt(t.show.messaged)} of the ${fmt(t.show.n)} shown customers whose window has ended.`, `Ulituma ujumbe kwa ${fmt(t.show.messaged)} kati ya wateja ${fmt(t.show.n)} walioonyeshwa ambao muda wao umeisha.`)
+          : T(`${fmt(t.pending_show)} shown customers are still inside their window.`, `Wateja ${fmt(t.pending_show)} walioonyeshwa bado wako ndani ya muda wao.`)}</p>
+      )}
+
       {/* The comparison itself */}
       {t.show.n > 0 && t.hold.n > 0 && (
         <div className="rec-rows">
           <div className="rec-row"><span>{T("Customers itaOS showed you", "Wateja itaOS ilikuonyesha")}</span><span className="muted small">{fmt(t.show.bought)}/{fmt(t.show.n)}</span><b>{pct(t.show.rate)} {T("bought", "walinunua")}</b></div>
           <div className="rec-row"><span>{T("Customers it kept aside", "Wateja iliowaweka pembeni")}</span><span className="muted small">{fmt(t.hold.bought)}/{fmt(t.hold.n)}</span><b>{pct(t.hold.rate)} {T("bought", "walinunua")}</b></div>
-          {clear && ratio != null && ratio > 1 && <p className="small" style={{ margin: 0 }}>{T(`Customers itaOS showed you bought ${ratio.toFixed(1)}× as often.`, `Wateja itaOS ilikuonyesha walinunua mara ${ratio.toFixed(1)} zaidi.`)}{t.extra_customers && t.extra_customers > 0 ? T(` About ${fmt(t.extra_customers)} extra customers this period.`, ` Takriban wateja ${fmt(t.extra_customers)} wa ziada kipindi hiki.`) : ""}</p>}
+          {clear && t.extra_customers != null && t.extra_customers > 0 && <p className="small" style={{ margin: 0 }}>{T(`About ${fmt(t.extra_customers)} extra customers bought this period.`, `Takriban wateja ${fmt(t.extra_customers)} wa ziada walinunua kipindi hiki.`)}</p>}
           <p className="small muted" style={{ margin: 0 }}>{T(`You messaged ${fmt(t.show.messaged)} of the ${fmt(t.show.n)} shown customers.`, `Ulituma ujumbe kwa ${fmt(t.show.messaged)} kati ya ${fmt(t.show.n)} walioonyeshwa.`)}{t.hold.contaminated > 0 ? T(` ${fmt(t.hold.contaminated)} kept-aside customers got a message anyway (they stay in their group, which makes the difference smaller, not bigger).`, ` Wateja ${fmt(t.hold.contaminated)} waliowekwa pembeni walipata ujumbe hata hivyo (wanabaki kwenye kundi lao, jambo linalopunguza tofauti, si kuiongeza).`) : ""}</p>
         </div>
       )}
@@ -182,7 +197,8 @@ export default function Recovered({ ws, period, conv, cur }: {
           <span>{T(`2. Each customer is put in one group, once: shown to you, or kept aside (about ${t.pct}%, evenly spread across hot, warm and cold customers). Kept-aside customers don't appear in Actions for their window; their chats stay in Chats, and anyone waiting for your reply is always shown.`, `2. Kila mteja anawekwa kwenye kundi moja, mara moja: anaonyeshwa kwako, au anawekwa pembeni (takriban ${t.pct}%, kwa usawa kati ya wateja wa moto, wenye nia na baridi). Waliowekwa pembeni hawaonekani kwenye Actions kwa muda wao; chats zao zinabaki kwenye Chats, na anayesubiri jibu lako anaonyeshwa daima.`)}</span>
           <span>{T("3. When their window closes, it compares how much each group bought, counting everyone in their group whether you messaged them or not. Only the difference is credited to itaOS.", "3. Muda wao ukiisha, inalinganisha kiasi kila kundi lilinunua, ikimhesabu kila mtu kwenye kundi lake ukimtumia ujumbe au la. Tofauti pekee ndiyo inahesabiwa kwa itaOS.")}</span>
           <span>{T("4. It says \"clearly above zero\" only when the whole likely range is above zero. Payments not recorded in itaOS are not counted.", "4. Inasema \"wazi juu ya sifuri\" pale tu kiwango chote kinachowezekana kiko juu ya sifuri. Malipo yasiyorekodiwa kwenye itaOS hayahesabiwi.")}</span>
-          <span>{T(`Method ${r.version}`, `Mbinu ${r.version}`)}{r.experiment_start ? T(`, comparison running since ${when(r.experiment_start, tz)}.`, `, ulinganisho tangu ${when(r.experiment_start, tz)}.`) : "."}</span>
+          <span>{T("5. Sales itaOS records on its own from your ✅ or \"money received\" messages count as sales, but the card also shows the figure without them, so you can see how much rests on them.", "5. Mauzo itaOS inayorekodi yenyewe kutoka jumbe zako za ✅ au \"tumepokea malipo\" yanahesabiwa, lakini kadi inaonyesha pia kiasi bila hayo, ili uone kiasi gani kinategemea hayo.")}</span>
+          <span>{T(`Method ${r.methodology ?? r.version}`, `Mbinu ${r.methodology ?? r.version}`)}{r.experiment_start ? T(`, comparison running since ${when(r.experiment_start, tz)}.`, `, ulinganisho tangu ${when(r.experiment_start, tz)}.`) : "."}</span>
         </div>
       )}
       {r.found_orders > 0 && (
