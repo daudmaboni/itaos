@@ -11,7 +11,7 @@
 </head>
 <body>
 <h1>itaOS Privacy Policy</h1>
-<p>Last updated: 20 November 2026</p>
+<p>Last updated: 22 November 2026</p>
 <p>itaOS helps businesses in Tanzania understand which of their Facebook and Instagram ads lead to paying customers on WhatsApp. This policy explains what data itaOS handles and why.</p>
 
 <h2>Who is responsible</h2>
@@ -31,6 +31,16 @@
 <p>itaOS uses the data to show the business its own results: cost per confirmed sale per ad, where customer conversations stop, reply times, follow-ups and objections. AI-assisted analysis is used to summarize and classify chats; it does not send messages to customers, publish content, change ad budgets or confirm sales. Drafts are shown to the business to edit and send themselves; only orders a person records or imports count as sales. itaOS does not sell data or use one business's data for another business.</p>
 
 <p>We do not sell your data or your customers' data, and we do not use one business's data for another business.</p>
+
+<h2>Google (Contacts and Tasks)</h2>
+<p>A business owner or admin can choose to connect a Google account on the Connections page. itaOS then asks Google for these permissions only:</p>
+<ul>
+  <li><b>Your email address</b> (<code>openid</code>, <code>email</code>): to show which Google account is connected.</li>
+  <li><b>Google Tasks</b> (<code>https://www.googleapis.com/auth/tasks</code>): to create a task list called "itaOS · &lt;business name&gt;", add a task for each customer promise the owner confirms (customer name, what they promised, the day, and a link back to the chat in itaOS), move the task when the day changes, and tick it off when the promise is closed. itaOS only touches tasks in the list it created.</li>
+  <li><b>Google Contacts</b> (<code>https://www.googleapis.com/auth/contacts</code>), only if the owner turns on "Save contacts to Google": to save the business's customers (name, business, region and WhatsApp number) under a label called "itaOS". Before saving, itaOS reads the phone numbers already in the account so it never creates a duplicate and never changes or deletes contacts the owner already has.</li>
+</ul>
+<p>itaOS does not read Gmail, Calendar, Drive or any other Google data. Data received from Google is used only to provide these two features to the business that connected it, is never sold, never used for advertising, and never used to train AI models. Contact phone numbers read from Google are used in memory to avoid duplicates and are not stored. itaOS's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+<p>The owner can disconnect Google at any time on the Connections page (which revokes itaOS's access), or at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. Tasks and contacts already created stay in the owner's Google account and can be removed there.</p>
 
 <h2>Storage and security</h2>
 <p>Data is stored in an encrypted database (Supabase, hosted in the EU). Access tokens are kept in an encrypted vault. Each business's data is separated by access rules so only its members can see it.</p>

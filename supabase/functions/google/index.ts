@@ -17,8 +17,8 @@ import { admin, userClient, storeToken, readToken, json, cors } from "../_shared
 const CID = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
 const CSECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
 const CRON = Deno.env.get("CRON_SECRET") ?? "";
-const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const REDIRECT = Deno.env.get("GOOGLE_REDIRECT_URI") ?? `${SB_URL}/functions/v1/google`;
+// Google sends the owner back to itaos.app/google/callback, which Netlify passes to this function (web/netlify.toml).
+const REDIRECT = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://itaos.app/google/callback";
 const APP = Deno.env.get("APP_URL") ?? "https://itaos.app";
 const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/tasks", "https://www.googleapis.com/auth/contacts"];
 const TASKS = "https://tasks.googleapis.com/tasks/v1";
@@ -69,7 +69,7 @@ type Link = {
   contacts_skipped: number; contacts_full: boolean; contacts_checked_at: string | null;
 };
 
-const back = (q: string) => Response.redirect(`${APP}/?google=${q}#connect`, 303);
+const back = (q: string) => Response.redirect(`${APP}/app?google=${q}#connect`, 303);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });

@@ -14,6 +14,14 @@
   to = "/index.html"
   status = 200
 
+# Google sign-in comes back here (the address registered in Google Cloud), and Netlify passes it to the
+# Supabase 'google' function, so Google only ever sees our own domain (needed for Google's app review).
+[[redirects]]
+  from = "/google/callback"
+  to = "https://jrdxeagnmunmatxtgmpk.supabase.co/functions/v1/google"
+  status = 200
+  force = true
+
 # A printed receipt's QR opens /r/<secret code> (ReceiptCheck.tsx). Never indexed by search engines.
 [[redirects]]
   from = "/r/*"
