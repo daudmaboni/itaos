@@ -22,11 +22,17 @@ export function askDayText(kind: Task["kind"], name: string | null | undefined, 
   const n = firstName(name);
   const hi = sw ? (n ? `Habari ${n}` : "Habari") : (n ? `Hi ${n}` : "Hi");
   switch (kind) {
-    case "pay": return sw ? `${hi}, asante sana 🙏 Utaweza kulipia lini ili nikuandalie mzigo wako? Niambie siku na saa.` : `${hi}, thank you 🙏 When will you be able to pay, so I can get your order ready? Just tell me the day and time.`;
-    case "call": return sw ? `${hi}, nikupigie lini? Niambie siku na saa inayokufaa.` : `${hi}, when should I call you? Tell me a day and time that suits you.`;
-    case "collect": return sw ? `${hi}, utapita siku gani ili tukuandalie mzigo? Niambie siku na saa.` : `${hi}, which day will you come by, so we can have it ready? Tell me the day and time.`;
-    default: return sw ? `${hi}, tukutafute lini tena? Niambie siku na saa inayokufaa.` : `${hi}, when should we get back to you? Tell me a day and time that suits you.`;
+    case "call": return sw ? `${hi}, sawa kabisa 🙏 Nikupigie muda gani ukipata nafasi? Hakuna haraka.` : `${hi}, no problem 🙏 What time suits you for a call? No rush at all.`;
+    case "collect": return sw ? `${hi}, karibu sana 🙏 Ukipanga siku ya kupita niambie tu, tutakuwa tumekuandalia. Hakuna haraka.` : `${hi}, you're welcome 🙏 Whenever you plan to come by, just tell me the day and we'll have it ready. No rush.`;
+    default: return sw ? `${hi}, sawa kabisa 🙏 Nikutafute lini ukiwa tayari? Hakuna haraka.` : `${hi}, no problem at all 🙏 When would be a good time to check back with you? No rush.`;
   }
+}
+/** The soft check-in for a customer waiting for money: asks how they are, leaves the door open, never asks about paying. */
+export function gentleText(name: string | null | undefined, sw: boolean) {
+  const n = firstName(name);
+  return sw
+    ? `Habari${n ? " " + n : ""}, natumaini uko poa 🙏 Mzigo wako bado upo tayari. Ukiwa tayari niambie tu, nikuandalie. Hakuna haraka.`
+    : `Hi${n ? " " + n : ""}, hope you're doing well 🙏 Your order is still here for you. Whenever you're ready, just let me know and I'll get it ready. No rush.`;
 }
 const KINDS: Kind[] = ["pay", "call", "collect", "come_back", "other"];
 const DAY = 864e5;
@@ -89,7 +95,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
     if (!focus || focused.current) return;
     focused.current = true;
     el.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (!proposed && editor && !t.draft) void askKito();
+    if (!proposed && editor && !t.draft) { if (t.gentle) setDraft(gentleText(r?.contact_name, sw)); else void askKito(); }
   }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = r?.contact_name ?? T("Customer", "Mteja");
@@ -144,6 +150,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
           {t.result === "no_answer" && <span className="chip">{T("no answer last time", "hakupokea mara iliyopita")}</span>}
           {t.result === "postponed" && <span className="chip">{T("postponed", "ameahirisha")}</span>}
           {rec && rec.kept + rec.broken > 0 && <span className={"chip " + (rec.broken >= 2 && rec.broken > rec.kept ? "bad" : rec.kept > 0 && rec.broken === 0 ? "ok" : "")} title={T("This customer's promises in the last 90 days", "Ahadi za mteja huyu siku 90 zilizopita")}>{T(`kept ${rec.kept} · broke ${rec.broken}`, `ametimiza ${rec.kept} · amevunja ${rec.broken}`)}</span>}
+          {t.gentle && !proposed && <span className="chip ok" title={T("Waiting for money: a soft check-in, never a push to pay", "Anasubiri hela: kumjulia hali tu, si kumbana alipe")}>{T("soft check-in", "kumjulia hali")}</span>}
           {proposed && t.asked_at && <span className="chip">{T("asked for a day ", "umemuuliza siku ")}{ago(t.asked_at)}</span>}
         </div>
       </div>
@@ -174,7 +181,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
             </div>
             {t.needs_date && (ask ? (
               <div className="pc-ask">
-                <div className="draft-label">{T("Ask them for a day — their answer sets the reminder by itself", "Muulize siku — jibu lake litaweka kikumbusho chenyewe")}</div>
+                <div className="draft-label">{T("A gentle question — if they answer with a day, the reminder sets itself", "Swali la upole — akijibu na siku, kikumbusho kitajiweka chenyewe")}</div>
                 <textarea value={askText} onChange={(e) => setAskText(e.target.value)} />
                 <div className="pc-picks">
                   <button className="pc-pick" disabled={!askText} onClick={async () => { try { await navigator.clipboard.writeText(askText); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); await supabase.from("follow_up_tasks").update({ asked_at: new Date().toISOString() }).eq("id", t.id).eq("workspace_id", ws.id); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } }}>{T("Copy", "Nakili")}</button>
@@ -183,7 +190,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
                 </div>
               </div>
             ) : (
-              <button className="pc-pick" type="button" onClick={() => { setAskText(askDayText(t.kind, r?.contact_name, sw)); setAsk(true); }}>{T("Ask them for a day", "Muulize siku")}</button>
+              <button className="pc-pick" type="button" onClick={() => { setAskText(askDayText(t.kind, r?.contact_name, sw)); setAsk(true); }}>{T("Ask gently when to check back", "Muulize kwa upole lini umtafute")}</button>
             ))}
             <div className="pc-acts">
               <button className="linkish small" disabled={busy} onClick={() => patch("dismiss", { status: "dismissed" })}>{spin("dismiss")}{T("Not a promise", "Si ahadi")}</button>
@@ -194,8 +201,10 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
       ) : (
         <div className="pc-foot">
           <div className="draft-label">{T("Draft — not sent", "Rasimu — haijatumwa")}</div>
-          <textarea value={draft} disabled={!editor} onChange={(e) => setDraft(e.target.value)} placeholder={T("Ask Kito for a message that mentions their promise, or write your own.", "Muombe Kito ujumbe unaotaja ahadi yake, au andika wako.")} />
+          {t.gentle && <div className="small muted">{T("They're waiting for money. Check in on them, don't ask about paying — they'll come back when ready.", "Anasubiri hela. Mjulie hali tu, usimuulize kuhusu kulipa — atarudi akiwa tayari.")}</div>}
+          <textarea value={draft} disabled={!editor} onChange={(e) => setDraft(e.target.value)} placeholder={t.gentle ? T("A warm check-in, no talk of paying.", "Kumjulia hali kwa upole, bila kuongelea malipo.") : T("Ask Kito for a message that mentions their promise, or write your own.", "Muombe Kito ujumbe unaotaja ahadi yake, au andika wako.")} />
           {editor && <div className="pc-picks">
+            {t.gentle && <button className="pc-pick" onClick={() => setDraft(gentleText(r?.contact_name, sw))}>{T("Soft check-in message", "Ujumbe wa kumjulia hali")}</button>}
             <button className="pc-pick" disabled={writing} onClick={askKito}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
             <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
             <SendNow ws={ws} conversationId={t.conversation_id} purpose="promise" draft={draft} name={r?.contact_name} T={T}
@@ -280,7 +289,7 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
       {tab === "clear" ? (
         <section className="card flat">
           <div><h2>{T("Promises with a clear time", "Ahadi zenye muda wazi")} ({live.length})</h2>
-            <span className="small muted">{T("itaOS set these reminders by itself and sent them to your Google Tasks. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": that time. A day without an hour (\"kesho\", \"Jumanne wiki ijayo\"): between 9 and 12 in the morning.", "itaOS imeweka vikumbusho hivi yenyewe na kuvituma kwenye Google Tasks yako. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": muda huo. Siku bila saa (\"kesho\", \"Jumanne wiki ijayo\"): kati ya saa 3 asubuhi na saa 6 mchana.")}</span></div>
+            <span className="small muted">{T("itaOS set these reminders by itself and sent them to your Google Tasks. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": that time. A day without an hour (\"kesho\", \"Jumanne wiki ijayo\"): between 9 and 12 in the morning. \"Nasubiri hela\": a soft check-in 3 days later.", "itaOS imeweka vikumbusho hivi yenyewe na kuvituma kwenye Google Tasks yako. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": muda huo. Siku bila saa (\"kesho\", \"Jumanne wiki ijayo\"): kati ya saa 3 asubuhi na saa 6 mchana. \"Nasubiri hela\": kumjulia hali baada ya siku 3.")}</span></div>
           {rec && rec.kept + rec.broken > 0 && (
             <div className="prec">
               <span><b>{rec.kept}</b> {T("kept", "zimetimizwa")} · <b>{rec.broken}</b> {T("broken", "zimevunjwa")} <span className="muted small">({Math.round((rec.kept / (rec.kept + rec.broken)) * 100)}% {T("kept, last 90 days", "zimetimizwa, siku 90")})</span></span>

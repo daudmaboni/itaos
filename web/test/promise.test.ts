@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { zonedToUtc, localStamp, findSource, planPromise, ruleDate, clearDue, ruleDue, ruleClock, ruleOffset, morningSlot } from "../../supabase/functions/_shared/promise";
+import { zonedToUtc, localStamp, findSource, planPromise, ruleDate, clearDue, ruleDue, ruleClock, ruleOffset, morningSlot, waitingForMoney, gentleDue, clearPlan, sentPayDetails } from "../../supabase/functions/_shared/promise";
 
 const inn = (id: string, body: string, at: string) => ({ id, direction: "in", sent_at: at, body, type: "text" });
 const out = (id: string, body: string, at: string) => ({ id, direction: "out", sent_at: at, body, type: "text" });
@@ -55,10 +55,11 @@ describe("planning a promise", () => {
     const p = planPromise({ kind: "call", quote: "Nitalipa kesho saa nne", due_date: "2026-11-21", due_time: null }, msgs, { now: NOW });
     expect(["09:00", "10:00", "11:00", "12:00"]).toContain(localStamp(p!.due_at!).slice(15, 20));
   });
-  it("leaves salary-day promises undated for the owner", () => {
+  it("gives salary-day promises a soft check-in on the 1st of next month", () => {
     const m = [inn("s", "Nikipata mshahara nitachukua", "2026-11-19T08:00:00Z")];
     const p = planPromise({ kind: "pay", quote: "Nikipata mshahara nitachukua", when_text: "mshahara", due_date: null, due_time: null }, m, { now: NOW });
-    expect(p?.due_at).toBeNull();
+    expect(p).toMatchObject({ clear: true, gentle: true });
+    expect(localStamp(p!.due_at!).slice(4, 14)).toBe("2026-12-01");
   });
   it("drops dates before the promise or months away", () => {
     expect(planPromise({ kind: "pay", quote: "Nitalipa kesho saa nne", due_date: "2026-10-01", due_time: null }, msgs, { now: NOW })?.due_at).toBeNull();
@@ -201,5 +202,31 @@ describe("clear times: itaOS sets the reminder itself", () => {
     const p = planPromise({ kind: "pay", quote: "baad ya lisaa limoj", when_text: "baad ya lisaa limoj", due_date: "2026-11-22", due_time: "15:40" }, m, { now: Date.parse(SAID) + 6 * 60e3 });
     expect(p?.clear).toBe(true);
     expect(local(p!.due_at)).toBe("2026-11-22 15:34");
+  });
+});
+
+describe("waiting for money: a soft check-in, never a push", () => {
+  it("recognises the ways people say it", () => {
+    for (const t of ["Nasubil ela alafu nitaweka kilak2 sawa", "nasubiri hela", "Nikipata hela nitalipia", "hela ikiingia nakutumia", "nikilipwa tu", "waiting for my salary", "when I get paid"]) expect(waitingForMoney(t)).toBe(true);
+    for (const t of ["nitalipa kesho", "sawa", "nitakupigia", "bei gani"]) expect(waitingForMoney(t)).toBe(false);
+  });
+  it("checks in 3 days later between 9 and 12", () => {
+    const d = gentleDue("nasubiri hela", "2026-11-22T13:56:00Z", "k")!;
+    expect(local(d)!.slice(0, 10)).toBe("2026-11-25");
+    expect(["09:00", "10:00", "11:00", "12:00"]).toContain(local(d)!.slice(11));
+  });
+  it("turns Novath's promise (22 Nov) into a soft check-in", () => {
+    const m = [inn("nv", "Nasubil ela alafu nitaweka kilak2 sawa", "2026-11-22T13:56:00Z")];
+    const p = planPromise({ kind: "pay", quote: "Nasubil ela alafu nitaweka kilak2 sawa", when_text: "", due_date: null, due_time: null }, m, { now: Date.parse("2026-11-22T14:00:00Z") });
+    expect(p).toMatchObject({ clear: true, gentle: true });
+    expect(local(p!.due_at)!.slice(0, 10)).toBe("2026-11-25");
+    expect(clearPlan(null, "Nasubil ela alafu nitaweka kilak2 sawa", "2026-11-22T13:56:00Z", "k")?.gentle).toBe(true);
+  });
+  it("a clear time still wins over waiting", () => {
+    expect(clearPlan("Ijumaa", "nikipata hela nitalipa Ijumaa", "2026-11-22T13:56:00Z", "k")?.gentle).toBe(false);
+  });
+  it("spots payment details the business sent", () => {
+    expect(sentPayDetails([out("o", "Fanya Malipo Kwa... Vodacom Lipa Namba: 36789660 Jina: Daudi Maboni", "2026-11-22T12:23:00Z")])).toBe(true);
+    expect(sentPayDetails([out("o", "Karibu", "2026-11-22T12:23:00Z"), inn("i", "lipa namba?", "2026-11-22T12:20:00Z")])).toBe(false);
   });
 });

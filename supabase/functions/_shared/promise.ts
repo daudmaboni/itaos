@@ -18,6 +18,8 @@ export type Planned = {
   due_at: string | null;   // null = the owner must pick a date ("nikipata mshahara", "baadae")
   /** The customer named the day plainly ("tar 3", "kesho", "Ijumaa"): itaOS sets the reminder itself. */
   clear: boolean;
+  /** "Nasubiri hela", "nikipata mshahara": a soft check-in a few days later, never a push to pay (0073). */
+  gentle: boolean;
 };
 
 /** Promises older than this (when the customer said them) are not turned into reminders. */
@@ -249,6 +251,33 @@ export function ruleDue(whenText: string | null | undefined, promiseAt: string |
   return at(nextDay(saidDay), slot);
 }
 
+// ---------------- Waiting for money: a soft check-in, never a push ----------------
+/** Days after the message for the soft check-in when a customer is waiting for money. */
+export const GENTLE_DAYS = 3;
+const WAIT_MONEY = /\b(na?subi\w*|nangoja\w*|nasubr\w*|natafuta)\b[^.!?]{0,30}\b(hela|ela|pesa|mshahara|salary|malipo|mkwanja|fedha)\b|\b(nikipata|nkipata|nikipta|nikishapata|nitakapopata|ntakapopata|ikipatikana)\s+(hela|ela|pesa|mshahara|salary|fedha|mkwanja)\b|\b(hela|ela|pesa|mshahara|fedha)\s+(ikiingia|ikitoka|ikija|ikifika|ikikaa\s+sawa|ikitoka)\b|\bnikilipwa\b|\bwaiting\s+(for|on)\s+(money|my\s+salary|payment|my\s+pay)\b|\bwhen\s+i\s+get\s+(paid|money|my\s+salary)\b/;
+const SALARY = /\b(mshahara|salary|nikilipwa|my pay|get paid)\b/;
+/** "Nasubiri hela", "nikipata mshahara", "hela ikiingia": the customer means to pay but the money isn't there yet. */
+export function waitingForMoney(text: string | null | undefined) {
+  return WAIT_MONEY.test(String(text ?? "").toLowerCase().normalize("NFKC"));
+}
+/** The soft check-in time: 3 days on (09:00–12:00); for salary, the 1st of next month if that's later. */
+export function gentleDue(text: string, promiseAt: string | number, key: string, tz = "Africa/Dar_es_Salaam"): string | null {
+  const said = typeof promiseAt === "number" ? promiseAt : Date.parse(promiseAt);
+  if (!Number.isFinite(said)) return null;
+  const slot = morningSlot(key);
+  let day = localStamp(said + GENTLE_DAYS * 864e5, tz).slice(4, 14);
+  if (SALARY.test(text.toLowerCase())) {
+    const [y, m] = localStamp(said, tz).slice(4, 14).split("-").map(Number);
+    const first = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);   // 1st of next month
+    if (first > day) day = first;
+  }
+  return zonedToUtc(day, slot, tz);
+}
+/** The business already sent how to pay (Lipa Namba, account, M-Pesa…): a customer who then promises to pay is about to buy. */
+export function sentPayDetails(msgs: Msg[]) {
+  return msgs.some((m) => m.direction === "out" && /\blipa\s*(namba|no\.?|number)\b|\bnamba\s+ya\s+malipo\b|\bfanya\s+malipo\b|\bakaunti\b|\baccount\s*(no|number|name)\b|\b(m-?pesa|mpesa|tigo\s*pesa|mixx|airtel\s*money|halo\s*pesa|nmb|crdb|nbc)\b|\bpaybill\b|\btill\s*(no|number)\b/i.test(m.body ?? ""));
+}
+
 /** The customer message the quote came from: the latest one that contains it. */
 export function findSource(msgs: Msg[], quote: string): Msg | null {
   const q = norm(quote);
@@ -292,7 +321,10 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
   // Fixed rules first (a clear time: itaOS sets the reminder itself); Kito's own date only as a suggestion.
   const ruled = ruleDue(whenText, promiseAt, key, tz);
   const date = typeof raw.due_date === "string" ? raw.due_date.trim() : "";
+  const gentle = !ruled && waitingForMoney(`${whenText} ${quote}`);
+  const soft = gentle ? gentleDue(`${whenText} ${quote}`, promiseAt, key, tz) : null;
   if (ruled) due = ruled;
+  else if (soft) due = soft;
   else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     const tm = typeof raw.due_time === "string" && /^\d{1,2}:\d{2}$/.test(raw.due_time.trim()) ? raw.due_time.trim() : morningSlot(key);
     due = zonedToUtc(date, tm, tz);
@@ -311,7 +343,8 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
     promise_key: key,
     promise_at: new Date(promiseAt).toISOString(),
     due_at: due,
-    clear: !!ruled && due === ruled, // only fixed rules count: Kito's own date guesses still need a yes
+    clear: (!!ruled && due === ruled) || (!!soft && due === soft), // only fixed rules count: Kito's own date guesses still need a yes
+    gentle: !!soft && due === soft,
   };
 }
 
@@ -321,6 +354,15 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
  */
 export function clearDue(whenText: string | null, promiseAt: string, key: string, tz = "Africa/Dar_es_Salaam"): string | null {
   return ruleDue(whenText, promiseAt, key, tz);
+}
+/** Same, also for a customer waiting for money (reads what they said, not only the time words). */
+export function clearPlan(whenText: string | null, quote: string | null, promiseAt: string, key: string, tz = "Africa/Dar_es_Salaam"): { due: string; gentle: boolean } | null {
+  const due = ruleDue(whenText, promiseAt, key, tz);
+  if (due) return { due, gentle: false };
+  const text = `${whenText ?? ""} ${quote ?? ""}`;
+  if (!waitingForMoney(text)) return null;
+  const g = gentleDue(text, promiseAt, key, tz);
+  return g ? { due: g, gentle: true } : null;
 }
 
 export function promiseTitle(kind: PromiseKind, lang: string) {

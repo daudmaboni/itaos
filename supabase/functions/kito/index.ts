@@ -6,7 +6,7 @@
 // business confirming payment) are read at once via wa-webhook; the owner's button reads at once too.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { claude, type UsageMeta } from "../_shared/claude.ts";
-import { planPromise, promiseTitle, localStamp, clearDue, PROMISE_KINDS } from "../_shared/promise.ts";
+import { planPromise, promiseTitle, localStamp, clearPlan, sentPayDetails, PROMISE_KINDS } from "../_shared/promise.ts";
 import { isMoneyMoment } from "../_shared/money.ts";
 
 const cors = {
@@ -334,7 +334,7 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
     workspace_id: c.workspace_id, conversation_id: c.id, status: auto ? "open" : "proposed", source: "kito_promise",
     title: promiseTitle(plan.kind, info.language), kind: plan.kind, promise_text: redact(plan.promise_text),
     when_text: plan.when_text || null, promise_key: plan.promise_key, promise_at: plan.promise_at,
-    due_at: plan.due_at, needs_date: !plan.due_at,
+    due_at: plan.due_at, needs_date: !plan.due_at, gentle: plan.gentle,
   }, { onConflict: "conversation_id,promise_key", ignoreDuplicates: true });
   if (error) console.error("promise save failed", error.message);
 }
@@ -346,19 +346,20 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
  */
 async function openClearPromises(db: ReturnType<typeof admin>, cache: Map<string, WsInfo>) {
   const { data: rows } = await db.from("follow_up_tasks")
-    .select("id,workspace_id,conversation_id,kind,when_text,promise_at,due_at,promise_key")
-    .eq("source", "kito_promise").eq("status", "proposed").not("when_text", "is", null).not("promise_at", "is", null)
+    .select("id,workspace_id,conversation_id,kind,when_text,promise_text,promise_at,due_at,promise_key")
+    .eq("source", "kito_promise").eq("status", "proposed").not("promise_at", "is", null)
     .order("promise_at", { ascending: false }).limit(300);
   let opened = 0;
   for (const t of rows ?? []) {
     const info = await wsInfoFor(db, cache, t.workspace_id);
-    const due = clearDue(t.when_text, t.promise_at, t.promise_key ?? t.id, info.tz);
-    if (!due || Date.now() - Date.parse(due) > 7 * 864e5) continue;
+    const plan = clearPlan(t.when_text, t.promise_text, t.promise_at, t.promise_key ?? t.id, info.tz);
+    if (!plan || Date.now() - Date.parse(plan.due) > 7 * 864e5) continue;
+    const due = plan.due;
     const { data: other } = await db.from("follow_up_tasks").select("id,source")
       .eq("conversation_id", t.conversation_id).in("status", ["open", "snoozed"]).neq("id", t.id);
     if (other?.some((o: any) => o.source !== "kito_promise")) continue;
     if (other?.length) await db.from("follow_up_tasks").update({ status: "dismissed" }).in("id", other.map((o: any) => o.id));
-    const { error } = await db.from("follow_up_tasks").update({ status: "open", due_at: due, needs_date: false })
+    const { error } = await db.from("follow_up_tasks").update({ status: "open", due_at: due, needs_date: false, gentle: plan.gentle })
       .eq("id", t.id).eq("status", "proposed");
     if (error) console.error("open clear promise failed", error.message); else opened++;
   }
@@ -594,6 +595,10 @@ Deno.serve(async (req) => {
       if (!msgs?.length) continue;
       const r = await ask(buildPrompt(transcript(msgs, info.tz), c.last_message_at, info.language, info.currency, info.paid, info.tz), c.workspace_id);
       const amount = typeof r.amount === "number" && r.amount >= 500 && r.amount < 1e8 ? r.amount : null;
+      // You sent how to pay (Lipa Namba…) and the customer promised to pay — even "nasubiri hela": about to buy.
+      if (r.outcome !== "sold" && r.promise?.kind === "pay" && ["new", "talking", "priced"].includes(r.label) && sentPayDetails(msgs as any[])) {
+        r.label = "awaiting_payment"; r.temperature = "hot"; if (r.outcome === "lost") r.outcome = "open";
+      }
       // Guard: a chat with a message in the last 2 days isn't "lost" unless the customer turned it down (cold).
       if (r.outcome === "lost" && Date.now() - Date.parse(c.last_message_at) < 48 * 3600e3 && r.temperature !== "cold") r.outcome = "open";
       const { error: e2 } = await db.from("conversations").update({
