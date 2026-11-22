@@ -169,4 +169,24 @@ select pg_temp.check_((select (j->'recorded'->>'amount')::numeric = 80000 from r
 select pg_temp.check_((select (j->>'no_message')::int = 1 from r where k = 'journeys'), 'flagged customers nobody messaged are counted, not priced');
 select pg_temp.check_((select j->>'status' = 'learning' and (j->'trial'->'show'->>'n')::int = 0 from r where k = 'journeys'), 'journeys never feed the trial number');
 
+-- ================= Promises Kito opens by itself (0071) =================
+-- A promise Kito opened straight away (clear day) can start a trial too; a held customer's open promise card
+-- doesn't count in the Actions badge, and the badge still works for the owner.
+update public.workspace_admin_state set holdout_pct = 10 where workspace_id = '10000000-0000-0000-0000-0000000000e1';
+insert into public.contacts(id, workspace_id, wa_id, name) values (pg_temp.u('pc', 1), '10000000-0000-0000-0000-0000000000e1', '255790001', 'Promise open');
+insert into public.conversations(id, workspace_id, contact_id, phone_number_id, started_at, last_message_at)
+values (pg_temp.u('pv', 1), '10000000-0000-0000-0000-0000000000e1', pg_temp.u('pc', 1), 'pn-e', now() - interval '1 day', now());
+insert into public.follow_up_tasks(id, workspace_id, conversation_id, title, source, status, kind, due_at)
+values (pg_temp.u('pt', 1), '10000000-0000-0000-0000-0000000000e1', pg_temp.u('pv', 1), 'Promise', 'kito_promise', 'open', 'pay', now() - interval '1 minute');
+select private.atrisk_scan('10000000-0000-0000-0000-0000000000e1');
+select pg_temp.check_((select count(*) = 1 from public.atrisk_assign s join public.atrisk_flags f on f.id = s.flag_id where f.task_id = pg_temp.u('pt', 1)), 'a promise Kito opened itself enters the trial');
+update public.atrisk_flags set holdout = true where task_id = pg_temp.u('pt', 1);
+create temp table nb (j json); grant all on nb to authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
+insert into nb select public.nav_badges('10000000-0000-0000-0000-0000000000e1');
+reset role;
+select pg_temp.check_((select (j->>'actions_due')::int = (select count(*) from public.follow_up_tasks t where t.workspace_id = '10000000-0000-0000-0000-0000000000e1'
+                          and (t.status = 'proposed' or (t.status in ('open', 'snoozed') and coalesce(t.snoozed_until, t.due_at) <= now()))
+                          and t.id <> pg_temp.u('pt', 1)) from nb), 'badge works for the owner and skips the kept-aside promise');
+
 rollback;

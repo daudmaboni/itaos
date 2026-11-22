@@ -79,8 +79,8 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const hideAny = useMemo(() => new Set([...hidden.after_price, ...hidden.promise, ...hidden.reorder]), [hidden]);
   const hideReorder = useMemo(() => new Set(hidden.reorder), [hidden]);
   const rowsAP = useMemo(() => rows.filter((r) => !hideAP.has(r.id)), [rows, hideAP]);
-  // A promise kept aside is never proposed to the owner; once he has confirmed one it is his.
-  const tasksShown = useMemo(() => { const hp = new Set(hidden.promise); return tasks.filter((t) => !(t.source === "kito_promise" && t.status === "proposed" && hp.has(t.conversation_id))); }, [tasks, hidden]);
+  // A customer kept aside gets no promise card (proposed or opened by Kito) during their window; finished ones stay in history.
+  const tasksShown = useMemo(() => tasks.filter((t) => !(t.source === "kito_promise" && (t.status === "proposed" || t.status === "open" || t.status === "snoozed") && hideAny.has(t.conversation_id))), [tasks, hideAny]);
   // Customer promises (Ahadi) live in their own tab; the Tasks tab keeps the other follow-ups.
   const promises = useMemo(() => tasksShown.filter((t) => t.source === "kito_promise"), [tasksShown]);
   const promiseCount = useMemo(() => promises.filter((t) => t.status === "proposed" || ((t.status === "open" || t.status === "snoozed") && dueBucket(t) !== "upcoming")).length, [promises]);

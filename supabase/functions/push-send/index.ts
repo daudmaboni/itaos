@@ -104,7 +104,17 @@ Deno.serve(async (req) => {
     let rung = 0;
     const subsBy = new Map<string, Sub[]>();
     const langBy = new Map<string, string>();
+    // Customers kept aside to measure what itaOS adds (migration 0070) get no itaOS reminders during their window.
+    const asideBy = new Map<string, Set<string>>();
     for (const t of tasks) {
+      if (!asideBy.has(t.workspace_id)) {
+        const { data: kept } = await db.rpc("svc_atrisk_hidden", { p_ws: t.workspace_id });
+        asideBy.set(t.workspace_id, new Set(((kept ?? []) as { conversation_id: string }[]).map((x) => x.conversation_id)));
+      }
+      if (t.kind && asideBy.get(t.workspace_id)!.has(t.conversation_id)) {
+        await db.from("follow_up_tasks").update({ notified_at: now.toISOString() }).eq("id", t.id).is("notified_at", null);
+        continue;
+      }
       if (!subsBy.has(t.workspace_id)) {
         const [{ data: subs }, { data: w }] = await Promise.all([
           db.from("push_subscriptions").select("endpoint,p256dh,auth,fail_count").eq("workspace_id", t.workspace_id),
@@ -144,9 +154,9 @@ Deno.serve(async (req) => {
       const endOfToday = new Date(Date.now() + 864e5).toISOString();   // generous: anything due by about this time tomorrow morning
       const threeDays = new Date(Date.now() - 3 * 864e5).toISOString();
       const [due, snz, proposed, hot, signals] = await Promise.all([
-        db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "open").lte("due_at", endOfToday),
-        db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "snoozed").lte("snoozed_until", endOfToday),
-        db.from("follow_up_tasks").select("conversation_id").eq("workspace_id", ws).eq("status", "proposed").eq("source", "kito_promise").limit(500),
+        db.from("follow_up_tasks").select("conversation_id,kind").eq("workspace_id", ws).eq("status", "open").lte("due_at", endOfToday).limit(500),
+        db.from("follow_up_tasks").select("conversation_id,kind").eq("workspace_id", ws).eq("status", "snoozed").lte("snoozed_until", endOfToday).limit(500),
+        db.from("follow_up_tasks").select("conversation_id,kind").eq("workspace_id", ws).eq("status", "proposed").eq("source", "kito_promise").limit(500),
         db.from("conversation_outcomes").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("not_customer", false)
           .eq("kito_temp", "hot").eq("last_dir", "in").eq("last_in_closing", false).eq("paid_orders", 0).gte("last_message_at", threeDays),
         db.from("conversation_outcomes").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("not_customer", false).eq("paid_orders", 0)
@@ -154,9 +164,10 @@ Deno.serve(async (req) => {
       ]);
       // Promises kept aside to measure what itaOS adds (migration 0068) are never mentioned to the owner.
       const { data: kept } = await db.rpc("svc_atrisk_hidden", { p_ws: ws });
-      const aside = new Set(((kept ?? []) as { conversation_id: string; kind: string }[]).filter((x) => x.kind === "promise").map((x) => x.conversation_id));
-      const proposedN = ((proposed.data ?? []) as { conversation_id: string }[]).filter((t) => !aside.has(t.conversation_id)).length;
-      const n = { due: (due.count ?? 0) + (snz.count ?? 0), proposed: proposedN, hot: hot.count ?? 0, signals: signals.count ?? 0 };
+      const aside = new Set(((kept ?? []) as { conversation_id: string }[]).map((x) => x.conversation_id));
+      const shown = (rows: unknown) => ((rows ?? []) as { conversation_id: string; kind: string | null }[]).filter((t) => !(t.kind && aside.has(t.conversation_id))).length;
+      const proposedN = shown(proposed.data);
+      const n = { due: shown(due.data) + shown(snz.data), proposed: proposedN, hot: hot.count ?? 0, signals: signals.count ?? 0 };
       out[ws] = n;
       const parts = [
         n.due ? (sw ? `${n.due} ahadi/kazi za leo` : `${n.due} promise${n.due === 1 ? "" : "s"}/task${n.due === 1 ? "" : "s"} due`) : "",
