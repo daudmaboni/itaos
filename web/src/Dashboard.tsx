@@ -7,7 +7,7 @@ import { TrendChart, SpendSplit, CostBars } from "./Charts";
 import { useGrowthData, type AdObjections } from "./data";
 import { FilterBar, useFilters } from "./Filters";
 import DateRange from "./DateRange";
-import { RangeSel, loadRange, saveRange } from "./ranges";
+import { RangeSel, loadRange, saveRange, presetLabel } from "./ranges";
 import { Metric, delta, DEFINITIONS } from "./metrics";
 import { SourceBadge, ProvenanceLegend } from "./Provenance";
 import PaidOrders from "./PaidOrders";
@@ -49,14 +49,22 @@ export default function Dashboard({ ws, onWs }: { ws: Workspace; onWs?: (w: Work
   }, [ads, lang, adCur, ws.fx_rate]);
 
   const trend = useMemo(() => {
-    if (!mx || !prev) return { labels: [], cur: [], prev: [], total: 0, change: null as number | null };
+    if (!mx || !prev) return { labels: [] as string[], cur: [] as number[], prev: [] as number[], weekly: false, partialLast: false, total: 0, change: null as number | null };
     const byDay: Record<string, number> = {};
     for (const r of daily) byDay[r.day] = (byDay[r.day] ?? 0) + (A(r.spend) ?? 0);
     const dayList = (from: string, n: number) => Array.from({ length: n }, (_, i) => new Date(new Date(from + "T00:00:00Z").getTime() + i * 864e5).toISOString().slice(0, 10));
     const labels = dayList(mx.period.from, mx.period.days), prevDays = dayList(prev.period.from, prev.period.days);
-    const cur = labels.map((d) => byDay[d] ?? 0), pv = prevDays.map((d) => byDay[d] ?? 0);
-    return { labels, cur, prev: pv, total: A(mx.spend.value) ?? 0, change: delta(mx.spend, prev.spend) };
-  }, [daily, mx, prev, adCur, ws.fx_rate]);
+    let cur = labels.map((d) => byDay[d] ?? 0), pv = prevDays.map((d) => byDay[d] ?? 0);
+    // Long ranges: one point per day is just spikes, so add the days up into weeks.
+    const weekly = labels.length > 92;
+    const toWeeks = (a: number[]) => Array.from({ length: Math.ceil(a.length / 7) }, (_, i) => a.slice(i * 7, i * 7 + 7).reduce((x, y) => x + y, 0));
+    const pts = weekly ? labels.filter((_, i) => i % 7 === 0) : labels;
+    if (weekly) { cur = toWeeks(cur); pv = toWeeks(pv); }
+    // The range runs to today and today isn't over yet → the last point is still filling up, don't draw it as a drop.
+    // Weekly: the last week can also be short (e.g. 100 days = 14 weeks + 2 days).
+    const partialLast = labels.length > 1 && (mx.period.to === g.today || (weekly && labels.length % 7 !== 0));
+    return { labels: pts, cur, prev: pv, weekly, partialLast, total: A(mx.spend.value) ?? 0, change: delta(mx.spend, prev.spend) };
+  }, [daily, mx, prev, adCur, ws.fx_rate, g.today]);
 
   const noData = !loading && !ads.length && !mx?.chats.value && !g.orders.length && !g.allTime?.orders;
   const pageRef = usePageEnter<HTMLDivElement>((root) => {
@@ -161,11 +169,11 @@ export default function Dashboard({ ws, onWs }: { ws: Workspace; onWs?: (w: Work
         <div className="two">
           <section className="card">
             <div className="row between">
-              <div><h2>{T("Ad spend per day", "Matumizi ya matangazo kwa siku")}</h2><span className="small muted">{T("Solid: this period. Dashed: the one before.", "Mstari kamili: kipindi hiki. Wenye nukta: kilichopita.")} <SourceBadge p="platform" lang={lang} /></span></div>
+              <div><h2>{spendTitle(range, mx.period, lang)}</h2><span className="small muted">{trend.weekly ? T("Spend per week.", "Matumizi kwa wiki.") : T("Spend per day.", "Matumizi kwa siku.")}{trend.prev.some((v) => v > 0) ? T(" Solid: this period. Dashed: the one before.", " Mstari kamili: kipindi hiki. Wenye nukta: kilichopita.") : ""}{trend.partialLast ? (trend.weekly ? T(" The last week isn't complete.", " Wiki ya mwisho haijakamilika.") : T(" Today isn't over yet.", " Leo bado haijaisha.")) : ""} <SourceBadge p="platform" lang={lang} /></span></div>
               {trend.change != null && <span className={"delta " + (trend.change > 0 ? "up" : "down")}>{trend.change > 0 ? "↑" : "↓"} {Math.abs(Math.round(trend.change * 100))}%</span>}
             </div>
             <div className="big" ref={totalRef}>{money(trend.total, adCur)}</div>
-            {trend.labels.length ? <TrendChart days={trend.labels} cur={trend.cur} prev={trend.prev} /> : <span className="small muted">–</span>}
+            {trend.labels.length ? <TrendChart days={trend.labels} cur={trend.cur} prev={trend.prev} weekly={trend.weekly} partialLast={trend.partialLast} /> : <span className="small muted">–</span>}
           </section>
           <section className="card">
             <div><h2>{T("Where chats stop", "Chats zinaishia wapi")}</h2><span className="small muted">{T("Chats started in this period, compared with the period before.", "Chats zilizoanza kipindi hiki, ikilinganishwa na kilichopita.")}</span></div>
@@ -273,6 +281,16 @@ function ObjectionsByAd({ rows, names, lang, T }: { rows: AdObjections[]; names:
 }
 
 /** "1–7 Nov" style label for the Revenue card, so it's clear which days are counted. */
+/** Card title that says which range the total covers: "Ad spend · last 30 days", "Ad spend today". */
+function spendTitle(range: RangeSel, p: { from: string; to: string }, lang: "sw" | "en") {
+  const base = lang === "sw" ? "Matumizi ya matangazo" : "Ad spend";
+  if (range.key === "today") return lang === "sw" ? `${base} leo` : `${base} today`;
+  if (range.key === "yesterday") return lang === "sw" ? `${base} jana` : `${base} yesterday`;
+  if (range.key === "custom") return `${base} · ${periodText(p, lang)}`;
+  const l = presetLabel(range.key, lang);
+  return `${base} · ${l.charAt(0).toLowerCase()}${l.slice(1)}`;
+}
+
 function periodText(p: { from: string; to: string }, lang: "sw" | "en") {
   const f = (d: string, withMonth: boolean) => new Date(d + "T00:00:00Z").toLocaleDateString(lang === "sw" ? "sw-TZ" : "en-GB", { day: "numeric", ...(withMonth ? { month: "short" } : {}), timeZone: "UTC" });
   const same = p.from.slice(0, 7) === p.to.slice(0, 7);

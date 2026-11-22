@@ -3,7 +3,7 @@ import { fmt } from "./lib";
 export const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)", "var(--c6)"];
 
 /** Area chart of a daily series, with the previous period as a dashed line on the same scale. */
-export function TrendChart({ days, cur, prev }: { days: string[]; cur: number[]; prev: number[] }) {
+export function TrendChart({ days, cur, prev, weekly = false, partialLast = false }: { days: string[]; cur: number[]; prev: number[]; weekly?: boolean; partialLast?: boolean }) {
   const W = 720, H = 220, L = 46, R = 10, T = 12, B = 26;
   const max = Math.max(0.01, ...cur, ...prev);
   const step = niceStep(max / 4);
@@ -15,7 +15,7 @@ export function TrendChart({ days, cur, prev }: { days: string[]; cur: number[];
   const every = Math.max(1, Math.ceil(days.length / 7));
   const last = cur.length - 1;
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Daily ad spend, this period against the previous one">
+    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${weekly ? "Weekly" : "Daily"} ad spend, this period against the previous one`}>
       <defs>
         <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="var(--c2)" stopOpacity="0.35" /><stop offset="1" stopColor="var(--c2)" stopOpacity="0" />
@@ -31,8 +31,10 @@ export function TrendChart({ days, cur, prev }: { days: string[]; cur: number[];
       {prev.some((v) => v > 0) && <path d={line(prev)} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="4 4" />}
       {cur.length > 0 && <>
         <path d={`${line(cur)} L${x(last).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`} fill="url(#gfill)" />
-        <path d={line(cur)} fill="none" stroke="var(--c2)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={x(last)} cy={y(cur[last])} r="4.5" fill="var(--c2)" stroke="var(--card)" strokeWidth="2" />
+        <path d={line(partialLast && last > 0 ? cur.slice(0, last) : cur)} fill="none" stroke="var(--c2)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {/* Today is still filling up: dotted last step and a hollow dot, so a low "so far" figure doesn't look like a crash. */}
+        {partialLast && last > 0 && <path d={`M${x(last - 1).toFixed(1)},${y(cur[last - 1]).toFixed(1)} L${x(last).toFixed(1)},${y(cur[last]).toFixed(1)}`} fill="none" stroke="var(--c2)" strokeWidth="2" strokeDasharray="2 4" strokeLinecap="round" opacity="0.8" />}
+        <circle cx={x(last)} cy={y(cur[last])} r="4.5" fill={partialLast ? "var(--card)" : "var(--c2)"} stroke={partialLast ? "var(--c2)" : "var(--card)"} strokeWidth="2"><title>{partialLast ? "Today, so far" : ""}</title></circle>
       </>}
     </svg>
   );
