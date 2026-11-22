@@ -146,13 +146,17 @@ Deno.serve(async (req) => {
       const [due, snz, proposed, hot, signals] = await Promise.all([
         db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "open").lte("due_at", endOfToday),
         db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "snoozed").lte("snoozed_until", endOfToday),
-        db.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("status", "proposed").eq("source", "kito_promise"),
+        db.from("follow_up_tasks").select("conversation_id").eq("workspace_id", ws).eq("status", "proposed").eq("source", "kito_promise").limit(500),
         db.from("conversation_outcomes").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("not_customer", false)
           .eq("kito_temp", "hot").eq("last_dir", "in").eq("last_in_closing", false).eq("paid_orders", 0).gte("last_message_at", threeDays),
         db.from("conversation_outcomes").select("id", { count: "exact", head: true }).eq("workspace_id", ws).eq("not_customer", false).eq("paid_orders", 0)
           .or("and(kito_outcome.eq.sold,or(kito_confidence.is.null,kito_confidence.neq.low)),outcome_override.eq.sold").or("override_by.is.null,outcome_override.eq.sold"),
       ]);
-      const n = { due: (due.count ?? 0) + (snz.count ?? 0), proposed: proposed.count ?? 0, hot: hot.count ?? 0, signals: signals.count ?? 0 };
+      // Promises kept aside to measure what itaOS adds (migration 0068) are never mentioned to the owner.
+      const { data: kept } = await db.rpc("svc_atrisk_hidden", { p_ws: ws });
+      const aside = new Set(((kept ?? []) as { conversation_id: string; kind: string }[]).filter((x) => x.kind === "promise").map((x) => x.conversation_id));
+      const proposedN = ((proposed.data ?? []) as { conversation_id: string }[]).filter((t) => !aside.has(t.conversation_id)).length;
+      const n = { due: (due.count ?? 0) + (snz.count ?? 0), proposed: proposedN, hot: hot.count ?? 0, signals: signals.count ?? 0 };
       out[ws] = n;
       const parts = [
         n.due ? (sw ? `${n.due} ahadi/kazi za leo` : `${n.due} promise${n.due === 1 ? "" : "s"}/task${n.due === 1 ? "" : "s"} due`) : "",

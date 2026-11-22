@@ -18,7 +18,7 @@ type Draft = { text: string; why: string; missing: string[] };
 const DAY = 864e5;
 const daysSince = (iso: string) => Math.max(0, Math.round((Date.now() - Date.parse(iso)) / DAY));
 
-export function ReorderList({ ws, editor, onCount }: { ws: Workspace; editor: boolean; onCount?: (n: number) => void }) {
+export function ReorderList({ ws, editor, onCount, hidden }: { ws: Workspace; editor: boolean; onCount?: (n: number) => void; hidden?: Set<string> }) {
   const sw = ws.language === "sw";
   const T = (en: string, s: string) => (sw ? s : en);
   // Kept while the app is open: coming back shows the list at once and refreshes it quietly.
@@ -34,7 +34,7 @@ export function ReorderList({ ws, editor, onCount }: { ws: Workspace; editor: bo
     });
     return () => { live = false; };
   }, [ws.id, tick]);
-  const todo = (rows ?? []).filter((r) => r.state === "todo").sort((a, b) => Date.parse(a.last_paid_at) - Date.parse(b.last_paid_at));
+  const todo = (rows ?? []).filter((r) => r.state === "todo" && !hidden?.has(r.conversation_id)).sort((a, b) => Date.parse(a.last_paid_at) - Date.parse(b.last_paid_at));
   const done = (rows ?? []).filter((r) => r.state === "contacted").sort((a, b) => Date.parse(b.contacted_at ?? "") - Date.parse(a.contacted_at ?? ""));
   useEffect(() => { onCount?.(todo.length); }, [todo.length]);   // eslint-disable-line react-hooks/exhaustive-deps
   const back = done.filter((r) => r.reordered).length, replied = done.filter((r) => r.replied).length;

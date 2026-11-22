@@ -12,6 +12,8 @@ import { avaText, DoneRow } from "./ActionBits";
 import { useKept, kept, put } from "./keep";
 
 type Member = { user_id: string; role: string; email: string };
+type Hidden = { after_price: string[]; promise: string[]; reorder: string[] };
+const NO_HIDDEN: Hidden = { after_price: [], promise: [], reorder: [] };
 type Msg = { id: string; direction: "in" | "out"; sent_at: string; body: string | null };
 type Draft = { draft_sw: string; draft_en: string; why: string; grounded_on: string[]; missing: string[]; profile_used: boolean };
 
@@ -26,6 +28,8 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const [tasks, setTasks] = useKept<Task[]>(K + ":tasks", []);
   const [members, setMembers] = useKept<Member[]>(K + ":members", []);
   const [me, setMe] = useKept<string>(K + ":me", "");
+  // Customers itaOS keeps aside to measure what it adds (0068): left out of these lists and reminders only.
+  const [hidden, setHidden] = useKept<Hidden>(K + ":hidden", NO_HIDDEN);
   const [loading, setLoading] = useState(!kept(K + ":loaded"));
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
@@ -33,9 +37,10 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const [reorderCount, setReorderCount] = useKept<number | null>(K + ":reorders", null);
   useEffect(() => {
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data }) => {
-      if (Array.isArray(data)) setReorderCount(data.filter((r: { state: string }) => r.state === "todo").length);
+      const out = new Set(hidden.reorder);
+      if (Array.isArray(data)) setReorderCount(data.filter((r: { state: string; conversation_id: string }) => r.state === "todo" && !out.has(r.conversation_id)).length);
     });
-  }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ws.id, hidden.reorder.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   // Refresh quietly: after the first load the page stays on screen while new data comes in
   // (no skeleton flash). The returned promise resolves once the new data is shown, so a button
   // can keep its spinner until its card has moved.
@@ -54,8 +59,13 @@ export default function Actions({ ws }: { ws: Workspace }) {
       supabase.from("follow_up_tasks").select("*").eq("workspace_id", ws.id).order("updated_at", { ascending: false }).limit(300),
       supabase.rpc("workspace_members", { p_ws: ws.id }),
       supabase.auth.getUser(),
-    ]).then(([c, t, m, u]) => {
+      // Runs the at-risk check first, so a customer kept aside never flashes up in a list. Errors (older database) hide nobody.
+      supabase.rpc("atrisk_hidden", { p_ws: ws.id }),
+    ]).then(([c, t, m, u, h]) => {
       if (!live) return;
+      const hd: Hidden = { after_price: [], promise: [], reorder: [] };
+      for (const x of (h.data as { conversation_id: string; kind: keyof Hidden }[] | null) ?? []) hd[x.kind]?.push(x.conversation_id);
+      setHidden(hd);
       const e = c.error || t.error || m.error;
       if (e) setErr(e.message);
       setRows((c.data as Outcome[]) ?? []); setTasks((t.data as Task[]) ?? []); setMembers((m.data as Member[]) ?? []); setMe(u.data.user?.id ?? "");
@@ -65,12 +75,18 @@ export default function Actions({ ws }: { ws: Workspace }) {
     return () => { live = false; };
   }, [ws.id, tick]);
 
+  const hideAP = useMemo(() => new Set(hidden.after_price), [hidden]);
+  const hideAny = useMemo(() => new Set([...hidden.after_price, ...hidden.promise, ...hidden.reorder]), [hidden]);
+  const hideReorder = useMemo(() => new Set(hidden.reorder), [hidden]);
+  const rowsAP = useMemo(() => rows.filter((r) => !hideAP.has(r.id)), [rows, hideAP]);
+  // A promise kept aside is never proposed to the owner; once he has confirmed one it is his.
+  const tasksShown = useMemo(() => { const hp = new Set(hidden.promise); return tasks.filter((t) => !(t.source === "kito_promise" && t.status === "proposed" && hp.has(t.conversation_id))); }, [tasks, hidden]);
   // Customer promises (Ahadi) live in their own tab; the Tasks tab keeps the other follow-ups.
-  const promises = useMemo(() => tasks.filter((t) => t.source === "kito_promise"), [tasks]);
+  const promises = useMemo(() => tasksShown.filter((t) => t.source === "kito_promise"), [tasksShown]);
   const promiseCount = useMemo(() => promises.filter((t) => t.status === "proposed" || ((t.status === "open" || t.status === "snoozed") && dueBucket(t) !== "upcoming")).length, [promises]);
   const open = useMemo(() => tasks.filter((t) => t.source !== "kito_promise").filter((t) => t.status === "open" || (t.status === "snoozed" && (!t.snoozed_until || Date.parse(t.snoozed_until) <= Date.now()))), [tasks]);
   const snoozed = useMemo(() => tasks.filter((t) => t.source !== "kito_promise" && t.status === "snoozed" && t.snoozed_until && Date.parse(t.snoozed_until) > Date.now()), [tasks]);
-  const quietCount = useMemo(() => afterPriceCount(rows, tasks), [rows, tasks]);
+  const quietCount = useMemo(() => afterPriceCount(rowsAP, tasks), [rowsAP, tasks]);
   const closed = useMemo(() => tasks.filter((t) => t.status === "done" || t.status === "dismissed").slice(0, 50), [tasks]);
   const handled = useMemo(() => new Set(tasks.filter((t) => t.status !== "done" && t.status !== "dismissed" && t.status !== "proposed" || (t.completed_at && Date.now() - Date.parse(t.completed_at) < 7 * 864e5)).map((t) => t.conversation_id)), [tasks]);
 
@@ -83,13 +99,14 @@ export default function Actions({ ws }: { ws: Workspace }) {
         const temp = tempOf(r);
         const waiting = r.last_dir === "in" && !r.last_in_closing && r.last_message_at && now - Date.parse(r.last_message_at) > 30 * 60e3;
         const stale = r.last_dir === "out" && r.last_out_at && now - Date.parse(r.last_out_at) > H && (temp === "hot" || temp === "warm");
-        const reason = waiting ? "reply" : stale ? "follow_up" : null;
+        // Someone waiting for a reply is always shown; a follow-up nudge is not, for a customer kept aside.
+        const reason = waiting ? "reply" : stale && !hideAny.has(r.id) ? "follow_up" : null;
         return reason ? { r, reason, temp, age: now - Date.parse((waiting ? r.last_message_at : r.last_out_at) ?? r.last_message_at ?? "") } : null;
       })
       .filter((x): x is NonNullable<typeof x> => !!x);
     const rank = (x: typeof items[number]) => (x.reason === "reply" ? 0 : 10) + (x.temp === "hot" ? 0 : x.temp === "warm" ? 1 : 2);
     return items.sort((a, b) => rank(a) - rank(b) || b.age - a.age);
-  }, [rows, handled, ws.follow_up_hours]);
+  }, [rows, handled, ws.follow_up_hours, hideAny]);
 
   const pageRef = usePageEnter<HTMLDivElement>((root) => { if (loading) return; enterCards(select(root, ":scope > .card"), { stagger: 0.07 }); enterRows(select(root, ".pcard, .by-item"), { delay: 0.25, stagger: 0.04 }); }, [loading, tab]);
 
@@ -125,9 +142,9 @@ export default function Actions({ ws }: { ws: Workspace }) {
       {!editor && <p className="small muted">{T("You have a viewer role: you can see the queue but not change tasks.", "Una nafasi ya kutazama tu: unaweza kuona foleni lakini si kubadilisha kazi.")}</p>}
       <p className="small muted page-note"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>{T("itaOS never sends messages. Drafts here are suggestions: copy one, edit it and send it yourself from WhatsApp.", "itaOS haitumi ujumbe. Rasimu hapa ni mapendekezo: nakili, hariri na utume mwenyewe kutoka WhatsApp.")}</p>
 
-      {tab === "promises" && <PromiseList tasks={tasks} rows={rows} ws={ws} editor={editor} onChange={refresh} />}
-      {tab === "after_price" && <AfterPriceList rows={rows} tasks={tasks} ws={ws} editor={editor} onChange={refresh} />}
-      {tab === "reorders" && <ReorderList ws={ws} editor={editor} onCount={setReorderCount} />}
+      {tab === "promises" && <PromiseList tasks={tasksShown} rows={rows} ws={ws} editor={editor} onChange={refresh} />}
+      {tab === "after_price" && <AfterPriceList rows={rowsAP} tasks={tasks} ws={ws} editor={editor} onChange={refresh} />}
+      {tab === "reorders" && <ReorderList ws={ws} editor={editor} onCount={setReorderCount} hidden={hideReorder} />}
 
       {tab === "queue" && (
         <section className="card flat">
