@@ -186,8 +186,14 @@ describe("clear times: itaOS sets the reminder itself", () => {
     expect(local(ruleDue("leo", SAID, "k"))).toBe("2026-11-22 16:34");
     expect(local(ruleDue("leo", "2026-11-22T18:30:00Z", "k"))!.slice(0, 10)).toBe("2026-11-23"); // 21:30: tomorrow morning
   });
+  it("reads the short forms people type", () => {
+    expect(ruleDate("jmosi", "2026-11-22")).toBe("2026-11-28");
+    expect(ruleDate("jpl", "2026-11-22")).toBe("2026-11-29");
+    expect(ruleDate("j3", "2026-11-22")).toBe("2026-11-23");
+    expect(ruleDate("mwishon mwa huu mwez", "2026-11-15")).toBe("2026-11-30");
+  });
   it("leaves promises with no clear time for the owner", () => {
-    for (const w of ["nitakujulisha", "nitakuangalia", "nikipata mshahara", "baadae", "soon", ""]) expect(ruleDue(w, SAID, "k")).toBeNull();
+    for (const w of ["nitakujulisha", "nitakuangalia", "nikipata mshahara", "baadae", "soon", "", "nikirudi", "wiki 2 hivi", "januari", "ndan ya mwez", "ijuma tano"]) expect(ruleDue(w, SAID, "k")).toBeNull();
     expect(ruleOffset("saa tatu na dakika 10")).toBeNull(); // a clock time, not "in 10 minutes"
   });
   it("makes the 22 Nov card clear, so it opens by itself", () => {

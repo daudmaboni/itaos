@@ -61,10 +61,11 @@ export function localStamp(iso: string | number | Date, tz = "Africa/Dar_es_Sala
   }
 }
 
+// Includes the short forms people type: jpl, j2, jtatu, j3, jnne, j4, jtano, j5, alhms, ijmaa, jmosi, j1 is not used.
 const WEEKDAYS: [RegExp, number][] = [
-  [/\bjumapili\b|\bjuma\s*pili\b|\bsunday\b/, 0], [/\bjumatatu\b|\bjuma\s*tatu\b|\bmonday\b/, 1],
-  [/\bjumanne\b|\bjuma\s*nne\b|\btuesday\b/, 2], [/\bjumatano\b|\bjuma\s*tano\b|\bwednesday\b/, 3],
-  [/\balhamisi\b|\bthursday\b/, 4], [/\bijumaa\b|\bfriday\b/, 5], [/\bjumamosi\b|\bjuma\s*mosi\b|\bsaturday\b/, 6],
+  [/\bjumapili\b|\bjuma\s*pili\b|\bj\.?pili\b|\bjpl\b|\bsunday\b/, 0], [/\bjumatatu\b|\bjuma\s*tatu\b|\bj\.?tatu\b|\bj3\b|\bmonday\b/, 1],
+  [/\bjumanne\b|\bjuma\s*nne\b|\bj\.?nne\b|\bj4\b|\btuesday\b/, 2], [/\bjumatano\b|\bjuma\s*tano\b|\bj\.?tano\b|\bj5\b|\bwednesday\b/, 3],
+  [/\balhamisi\b|\balhamis\b|\balhms\b|\bthursday\b/, 4], [/\bijumaa\b|\bijmaa\b|\bfriday\b/, 5], [/\bjumamosi\b|\bjuma\s*mosi\b|\bj\.?mosi\b|\bsaturday\b/, 6],
 ];
 const ymd = (t: number) => new Date(t).toISOString().slice(0, 10);
 
@@ -78,7 +79,7 @@ export function ruleDate(whenText: string, saidDay: string): string | null {
   if (!m || !w.trim()) return null;
   const base = Date.UTC(+m[1], +m[2] - 1, +m[3]);
   const plus = (n: number) => ymd(base + n * 864e5);
-  if (/mwisho\s+wa\s+mwezi|end of (the )?month/.test(w)) {
+  if (/mwisho\w*\s+(wa|mwa)\s+(huu\s+)?mwez\w*|end of (the |this )?month/.test(w)) {
     let last = Date.UTC(+m[1], +m[2], 0);
     if (last === base) last = Date.UTC(+m[1], +m[2] + 1, 0); // said on the last day: next month's end
     return ymd(last);
