@@ -164,4 +164,26 @@ end $$;
 select t.denied('tasks cannot be deleted (history)', $$delete from public.follow_up_tasks where id = '50000000-0000-0000-0000-000000000001'$$, '00000000-0000-0000-0000-00000000000a');
 select t.rows('owner B cannot touch A tasks', $$update public.follow_up_tasks set status = 'done' where id = '50000000-0000-0000-0000-000000000001'$$, 0, '00000000-0000-0000-0000-00000000000b');
 
+-- ---------- privileged fields: no request from a business can raise its own access (22 Nov 2026) ----------
+select t.rows('owner cannot change their own role', $$update public.memberships set role = 'owner' where user_id = '00000000-0000-0000-0000-0000000000a2'$$, 0, '00000000-0000-0000-0000-0000000000a2');
+select t.denied('viewer cannot add themselves as owner', $$insert into public.memberships(workspace_id, user_id, role) values ('10000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000000a2', 'owner')$$, '00000000-0000-0000-0000-0000000000a2');
+select t.denied('owner cannot make themselves Pondi staff', $$insert into public.platform_admins(user_id) values ('00000000-0000-0000-0000-00000000000a')$$, '00000000-0000-0000-0000-00000000000a');
+select t.denied('owner cannot change plan or status', $$update public.workspace_admin_state set plan = 'pro', status = 'active'$$, '00000000-0000-0000-0000-00000000000a');
+select t.denied('owner cannot lift a staff send block', $$update public.workspace_admin_state set send_blocked = false$$, '00000000-0000-0000-0000-00000000000a');
+select t.denied('owner cannot call the staff send switch', $$select public.admin_set_send_enabled('10000000-0000-0000-0000-00000000000a', true)$$, '00000000-0000-0000-0000-00000000000a');
+
+-- Staff block sticks even when the owner flips their own switch.
+insert into auth.users(id, email) values ('00000000-0000-0000-0000-0000000000ff', 'staff@test');
+insert into public.platform_admins(user_id) values ('00000000-0000-0000-0000-0000000000ff');
+select t.run($$select public.admin_set_send_enabled('10000000-0000-0000-0000-00000000000a', false)$$, '00000000-0000-0000-0000-0000000000ff');
+select t.rows('owner flips own switch (allowed)', $$update public.workspaces set send_enabled = true where id = '10000000-0000-0000-0000-00000000000a'$$, 1, '00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  perform t.as_user('00000000-0000-0000-0000-00000000000a');
+  if public.send_blocked_by_staff('10000000-0000-0000-0000-00000000000a') is not true then raise exception 'FAIL: staff block lost after owner flipped their switch'; end if;
+  perform t.as_user('00000000-0000-0000-0000-00000000000b');
+  if public.send_blocked_by_staff('10000000-0000-0000-0000-00000000000a') is not null then raise exception 'FAIL: non-member can read another business''s send block'; end if;
+  reset role;
+  raise notice 'ok: staff send block survives the owner switch and is hidden from other businesses';
+end $$;
+
 rollback;

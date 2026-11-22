@@ -22,7 +22,7 @@ export async function callFn<T = any>(name: string, body: Record<string, unknown
 
 export type Role = "owner" | "admin" | "analyst" | "viewer";
 export type Workspace = { id: string; name: string; currency: string; language: "sw" | "en"; unit_cost: number | null; fx_rate: number | null; fx_auto?: boolean; fx_updated_at?: string | null; fx_source?: string | null; fx_base?: string | null;
-  timezone: string; follow_up_hours: number; conversion_window_days: number; send_enabled?: boolean; display_currency?: "TZS" | "USD" | null; role?: Role;
+  timezone: string; follow_up_hours: number; conversion_window_days: number; send_enabled?: boolean; send_blocked?: boolean; display_currency?: "TZS" | "USD" | null; role?: Role;
   rule_ad_texts?: string[]; rule_loc_question?: string[]; rule_loc_reply?: string[]; rule_paid_texts?: string[];
   // 0059: everything per business
   rule_delivered_texts?: string[]; rule_owner_tick?: boolean; rules_reviewed_at?: string | null;
@@ -187,3 +187,6 @@ export function moneyInput(set: (v: string) => void, format: (s: string) => stri
 const PRICED_OR_LATER = ["priced", "awaiting_payment", "paid", "shipped", "received", "using"];
 export const gotPrice = (c: Pick<Outcome, "price_shared" | "kito_label">) =>
   !!c.price_shared || PRICED_OR_LATER.includes(c.kito_label ?? "");
+
+/** Replies can go out from itaOS: the owner's switch is on and Pondi staff have not blocked it (0067). */
+export const canSend = (ws: Workspace) => ws.send_enabled !== false && !ws.send_blocked;

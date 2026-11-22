@@ -145,11 +145,13 @@ export default function App() {
         w = await createFromSignup(session.user.user_metadata.business_name.trim(), session.user.user_metadata.language === "en" ? "en" : "sw");
       }
       if (w) {
-        const [{ data: role }, { data: status }] = await Promise.all([
+        const [{ data: role }, { data: status }, { data: blocked }] = await Promise.all([
           supabase.rpc("member_role", { ws: w.id }),
           supabase.rpc("workspace_status", { p_ws: w.id }), // errors (older database) count as active
+          supabase.rpc("send_blocked_by_staff", { p_ws: w.id }), // staff-only switch (0067); errors count as not blocked
         ]);
         w.role = (role as Role) ?? "viewer";
+        w.send_blocked = blocked === true;
         setPaused(status === "suspended");
       }
       setWs(w);

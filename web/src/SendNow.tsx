@@ -4,7 +4,7 @@
 // this list with the customer's name filled in, and sends that after the owner confirms. Either way, onSent
 // runs so the card can record the follow-up as Sent (and the Home "Money itaOS brought back" card can count it).
 import { useEffect, useState } from "react";
-import { supabase, callFn, Workspace, canManage } from "./lib";
+import { supabase, callFn, Workspace, canManage, canSend } from "./lib";
 import { useKept } from "./keep";
 
 export type Purpose = "after_price" | "reorder" | "promise";
@@ -41,7 +41,7 @@ export function SendNow({ ws, conversationId, purpose, draft, name, product, T, 
   const [open, setOpen] = useState<null | "text" | "template">(null);   // what will be sent, once checked
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  if (!canManage(ws) || ws.send_enabled === false) return null;
+  if (!canManage(ws) || !canSend(ws)) return null;
 
   async function check() {
     setBusy(true); setMsg("");

@@ -35,7 +35,7 @@ export type AuditRow = { at: string; actor_email: string | null; action: string;
 export type Detail = {
   workspace: { id: string; name: string; created_at: string; currency: string; timezone: string; language: string;
                fx_rate: number | null; status: WsStatus; plan: string; note: string | null; state_updated_at: string | null;
-               unit_cost?: number | null; follow_up_hours?: number | null; send_enabled?: boolean };
+               unit_cost?: number | null; follow_up_hours?: number | null; send_enabled?: boolean; send_blocked?: boolean };
   members: { email: string; role: string; joined: string; last_sign_in_at: string | null }[];
   connections: { provider: string; label: string | null; external_id: string; status: string;
                  last_sync_at: string | null; last_error: string | null; created_at: string;
