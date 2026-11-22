@@ -81,72 +81,84 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
   const copy = async () => { try { await navigator.clipboard.writeText(draft); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } };
 
   const bucket = dueBucket(t);
+  const initials = (name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("") || "?").toUpperCase();
+  const picks: [string, string][] = [
+    [T("Tomorrow", "Kesho"), eatDay(1)], [T("In 3 days", "Siku 3"), eatDay(3)],
+    [T("Next week", "Wiki ijayo"), eatDay(7)], [T("End of month", "Mwisho wa mwezi"), lastOfMonth()],
+  ];
+  const dueDay = due.slice(0, 10);
   return (
-    <div className={"qitem promise" + (proposed ? " proposed" : "") + (bucket === "overdue" && !proposed ? " overdue" : "")}>
-      <div>
-        <b>{name}</b>
-        <div className="small" style={{ marginTop: 3 }}>
+    <div className={"pcard" + (proposed ? " proposed" : "") + (bucket === "overdue" && !proposed ? " overdue" : "") + (busy ? " busy" : "")}>
+      <div className="pc-head">
+        <span className="pc-ava" aria-hidden>{initials}</span>
+        <div className="pc-who">
+          <b title={name}>{name}</b>
+          <span className="small muted">{T("said", "alisema")} {ago(t.promise_at ?? t.created_at)}</span>
+        </div>
+        <div className="pc-chips">
           {!proposed && <span className="chip">{kindLabel(t.kind, sw)}</span>}
-          {t.when_text && <span className="chip">{t.when_text}</span>}
           {!proposed && at && <span className={"chip " + (bucket === "overdue" ? "bad" : bucket === "today" ? "ok" : "")}>{bucket === "overdue" ? T("overdue · ", "imepita · ") : bucket === "today" ? T("today · ", "leo · ") : ""}{when(at)}</span>}
           {t.result === "no_answer" && <span className="chip">{T("no answer last time", "hakupokea mara iliyopita")}</span>}
           {t.result === "postponed" && <span className="chip">{T("postponed", "ameahirisha")}</span>}
         </div>
-        {t.promise_text && <div className="promise-quote">“{t.promise_text}”</div>}
-        <div className="small muted">{T("said", "alisema")} {ago(t.promise_at ?? t.created_at)}{r?.kito_summary ? ` · ${r.kito_summary}` : ""}</div>
-        <a className="small" href={"#chats/open=" + t.conversation_id}>{T("Open chat →", "Fungua chat →")}</a>
       </div>
 
-      {proposed ? (
-        <div className="small" style={{ display: "grid", gap: 6, alignContent: "start" }}>
-          <span className="muted">{t.needs_date
-            ? T("Kito couldn't tell the day. Pick one:", "Kito hakujua siku. Chagua:")
-            : T("Kito read this day. Fix it if it's wrong:", "Kito amesoma siku hii. Rekebisha kama si sahihi:")}</span>
-          {editor && <>
-            <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
-              <button className="small" onClick={() => quick(eatDay(1))}>{T("Tomorrow", "Kesho")}</button>
-              <button className="small" onClick={() => quick(eatDay(3))}>{T("In 3 days", "Siku 3")}</button>
-              <button className="small" onClick={() => quick(eatDay(7))}>{T("Next week", "Wiki ijayo")}</button>
-              <button className="small" onClick={() => quick(lastOfMonth())}>{T("End of month", "Mwisho wa mwezi")}</button>
-            </div>
-            <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
-            <label className="muted">{T("Type", "Aina")}{" "}
-              <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k, sw)}</option>)}</select>
-            </label>
-          </>}
+      {t.promise_text && (
+        <div className="pc-quote">
+          <span>{t.promise_text}</span>
+          {t.when_text && <em className="pc-when">{t.when_text}</em>}
         </div>
+      )}
+      {r?.kito_summary && <p className="pc-sum">{r.kito_summary}</p>}
+      <a className="pc-open small" href={"#chats/open=" + t.conversation_id}>{T("Open chat", "Fungua chat")} →</a>
+
+      {proposed ? (
+        editor ? (
+          <div className="pc-foot">
+            <div className="pc-q">
+              {t.needs_date ? T("When should itaOS remind you?", "itaOS ikukumbushe lini?") : T("Kito read this day. Fix it if it's wrong.", "Kito amesoma siku hii. Rekebisha kama si sahihi.")}
+            </div>
+            <div className="pc-picks" role="group">
+              {picks.map(([label, d]) => (
+                <button key={label} type="button" className={"pc-pick" + (dueDay === d ? " on" : "")} aria-pressed={dueDay === d} onClick={() => quick(d)}>{label}</button>
+              ))}
+            </div>
+            <div className="pc-fields">
+              <input className="pc-date" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} aria-label={T("Day and time", "Siku na saa")} />
+              <select className="pc-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} aria-label={T("Type", "Aina")}>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k, sw)}</option>)}</select>
+            </div>
+            <div className="pc-acts">
+              <button className="linkish small" disabled={busy} onClick={() => patch("dismiss", { status: "dismissed" })}>{spin("dismiss")}{T("Not a promise", "Si ahadi")}</button>
+              <button className="primary" disabled={busy} aria-busy={doing === "remind"} onClick={confirm}>{spin("remind")}{doing === "remind" ? T("Saving…", "Inahifadhi…") : T("Remind me", "Nikumbushe")}</button>
+            </div>
+          </div>
+        ) : null
       ) : (
-        <div>
+        <div className="pc-foot">
           <div className="draft-label">{T("Draft — not sent", "Rasimu — haijatumwa")}</div>
           <textarea value={draft} disabled={!editor} onChange={(e) => setDraft(e.target.value)} placeholder={T("Ask Kito for a message that mentions their promise, or write your own.", "Muombe Kito ujumbe unaotaja ahadi yake, au andika wako.")} />
-          {editor && <div className="row" style={{ gap: 6, marginTop: 6 }}>
-            <button className="small" disabled={writing} onClick={askKito}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
-            <button className="small" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
+          {editor && <div className="pc-picks">
+            <button className="pc-pick" disabled={writing} onClick={askKito}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
+            <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
           </div>}
           {moving && editor && (
-            <div className="row" style={{ gap: 6, marginTop: 6 }}>
-              <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
-              <button className="small primary" disabled={busy || !due} onClick={() => { setMoving(false); patch("move", { status: "open", due_at: fromLocalInput(due), snoozed_until: null, result: "postponed" }); }}>{spin("move")}{T("Save new day", "Hifadhi siku mpya")}</button>
+            <div className="pc-fields">
+              <input className="pc-date" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
+              <button className="primary small" disabled={busy || !due} onClick={() => { setMoving(false); patch("move", { status: "open", due_at: fromLocalInput(due), snoozed_until: null, result: "postponed" }); }}>{spin("move")}{T("Save new day", "Hifadhi siku mpya")}</button>
+            </div>
+          )}
+          {editor && (
+            <div className="pc-acts wrap">
+              <button className="pc-pick" disabled={busy} onClick={() => patch("lost", { status: "dismissed", result: "not_interested" })}>{spin("lost")}{T("Not interested", "Hana nia")}</button>
+              <button className="pc-pick" disabled={busy} onClick={() => setMoving((m) => !m)}>{T("Postponed…", "Ameahirisha…")}</button>
+              <button className="pc-pick" disabled={busy} onClick={() => patch("snooze", { status: "snoozed", snoozed_until: new Date(Date.now() + DAY).toISOString(), result: "no_answer" })}>{spin("snooze")}{T("No answer — tomorrow", "Hakupokea — kesho")}</button>
+              <button className="pc-pick" disabled={busy} onClick={() => patch("called", { status: "done", result: "called" })}>{spin("called")}{T("Talked to them", "Nimeongea naye")}</button>
+              <button className="primary" disabled={busy} onClick={() => { patch("paid", { status: "done", result: "paid" }); location.hash = "#chats/open=" + t.conversation_id; }} title={T("Opens the chat so you can record the sale", "Inafungua chat ili urekodi mauzo")}>{spin("paid")}{T("Paid → record sale", "Amelipa → rekodi mauzo")}</button>
             </div>
           )}
         </div>
       )}
-
-      {editor && (
-        <div className={"promise-acts" + (proposed ? " proposed" : "")}>
-          {proposed ? <>
-            <button className="small primary" disabled={busy} aria-busy={doing === "remind"} onClick={confirm}>{spin("remind")}{doing === "remind" ? T("Saving…", "Inahifadhi…") : T("Remind me", "Nikumbushe")}</button>
-            <button className="linkish small" disabled={busy} onClick={() => patch("dismiss", { status: "dismissed" })}>{spin("dismiss")}{T("Not a promise", "Si ahadi")}</button>
-          </> : <>
-            <button className="small primary" disabled={busy} onClick={() => { patch("paid", { status: "done", result: "paid" }); location.hash = "#chats/open=" + t.conversation_id; }} title={T("Opens the chat so you can record the sale", "Inafungua chat ili urekodi mauzo")}>{spin("paid")}{T("Paid → record sale", "Amelipa → rekodi mauzo")}</button>
-            <button className="small" disabled={busy} onClick={() => patch("called", { status: "done", result: "called" })}>{spin("called")}{T("Talked to them", "Nimeongea naye")}</button>
-            <button className="small" disabled={busy} onClick={() => patch("snooze", { status: "snoozed", snoozed_until: new Date(Date.now() + DAY).toISOString(), result: "no_answer" })}>{spin("snooze")}{T("No answer — tomorrow", "Hakupokea — kesho")}</button>
-            <button className="small" disabled={busy} onClick={() => setMoving((m) => !m)}>{T("Postponed…", "Ameahirisha…")}</button>
-            <button className="small" disabled={busy} onClick={() => patch("lost", { status: "dismissed", result: "not_interested" })}>{spin("lost")}{T("Not interested", "Hana nia")}</button>
-          </>}
-        </div>
-      )}
-      {msg && <div className={"small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")} style={{ gridColumn: "1 / -1" }}>{msg}</div>}
+      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
     </div>
   );
 }
@@ -171,12 +183,12 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
         <div><h2>{T("Kito found these promises", "Kito amepata ahadi hizi")} ({proposed.length})</h2>
           <span className="small muted">{T("Customers who said when they'll pay, call or come. Confirm the day and itaOS reminds you on your phone, or dismiss it.", "Wateja waliosema lini watalipa, wapigiwe au watakuja. Thibitisha siku na itaOS itakukumbusha kwenye simu, au iondoe.")}</span></div>
         {proposed.length === 0 ? <div className="empty">{T("Nothing new. Kito checks every chat that gets a new message.", "Hakuna mpya. Kito anaangalia kila chat inayopata ujumbe mpya.")}</div>
-          : <div className="queue">{proposed.map(card)}</div>}
+          : <div className="pgrid">{proposed.map(card)}</div>}
       </section>
       <section className="card flat">
         <div><h2>{T("Your reminders", "Vikumbusho vyako")} ({live.length})</h2></div>
         {live.length === 0 ? <div className="empty">{T("No confirmed promises yet.", "Hakuna ahadi zilizothibitishwa bado.")}</div> : groups.map(([label, list]) => list.length > 0 && (
-          <div key={label}><h3>{label} ({list.length})</h3><div className="queue">{list.map(card)}</div></div>
+          <div key={label}><h3>{label} ({list.length})</h3><div className="pgrid">{list.map(card)}</div></div>
         ))}
       </section>
     </>
