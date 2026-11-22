@@ -6,6 +6,9 @@ import { canPromptInstall, isInstalled, isIOS, onPwaChange, promptInstall, pushS
 
 type Tr = (en: string, sw: string) => string;
 
+/** A computer (mouse, no touch screen) rather than a phone or tablet. */
+const isComputer = () => !!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches && !window.matchMedia?.("(pointer: coarse)").matches;
+
 export default function PhoneApp({ ws, T }: { ws: Workspace; T: Tr }) {
   return <><Install T={T} /><Notifications ws={ws} T={T} /><InAppPopup ws={ws} T={T} /></>;
 }
@@ -15,14 +18,23 @@ function Install({ T }: { T: Tr }) {
   useEffect(() => onPwaChange(() => tick((n) => n + 1)), []);
   const installed = isInstalled();
   const ios = isIOS();
+  const computer = isComputer();
   return (
     <section className="card">
-      <div><h2>{T("Put itaOS on your phone", "Weka itaOS kwenye simu yako")}</h2>
-        <span className="small muted">{T("itaOS gets its own icon on your home screen and opens full screen, like any other app. Nothing to download from the Play Store or App Store.", "itaOS inapata alama yake kwenye skrini ya simu na inafunguka skrini nzima, kama app nyingine. Huhitaji kupakua kutoka Play Store au App Store.")}</span></div>
+      <div><h2>{computer ? T("Install itaOS on this computer", "Sakinisha itaOS kwenye kompyuta hii") : T("Install itaOS on this phone", "Sakinisha itaOS kwenye simu hii")}</h2>
+        <span className="small muted">{computer
+          ? T("itaOS opens in its own window, with its own icon in your dock or taskbar, like any other app. Nothing to download from a store.", "itaOS inafunguka kwenye dirisha lake, na alama yake kwenye dock au taskbar, kama app nyingine. Huhitaji kupakua kutoka store.")
+          : T("itaOS gets its own icon on your home screen and opens full screen, like any other app. Nothing to download from the Play Store or App Store.", "itaOS inapata alama yake kwenye skrini ya simu na inafunguka skrini nzima, kama app nyingine. Huhitaji kupakua kutoka Play Store au App Store.")}</span></div>
       {installed ? (
         <p className="small">✅ {T("You're using the itaOS app on this device.", "Unatumia app ya itaOS kwenye kifaa hiki.")}</p>
       ) : canPromptInstall() ? (
         <div><button type="button" className="primary" onClick={() => promptInstall()}>{T("Install itaOS", "Sakinisha itaOS")}</button></div>
+      ) : computer ? (
+        <ol className="small" style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
+          <li>{T("Open itaos.app in Chrome or Edge.", "Fungua itaos.app kwenye Chrome au Edge.")}</li>
+          <li>{T("Click the install icon at the right end of the address bar (a screen with a down arrow).", "Bonyeza alama ya kusakinisha mwisho wa kulia wa sehemu ya anwani (skrini yenye mshale wa chini).")}</li>
+          <li>{T("Click \"Install\". itaOS opens in its own window.", "Bonyeza \"Install\". itaOS itafunguka kwenye dirisha lake.")}</li>
+        </ol>
       ) : ios ? (
         <ol className="small" style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
           <li>{T("Open itaos.app in Safari.", "Fungua itaos.app kwenye Safari.")}</li>
@@ -113,6 +125,7 @@ function InAppPopup({ ws, T }: { ws: Workspace; T: Tr }) {
 export function AppTip({ sw }: { sw: boolean }) {
   const T: Tr = (en, s) => (sw ? s : en);
   const [show, setShow] = useState(false);
+  const computer = isComputer();
   useEffect(() => {
     let gone = false;
     try { gone = localStorage.getItem("itaos-app-tip") === "hide"; } catch { /* storage unavailable */ }
@@ -124,8 +137,10 @@ export function AppTip({ sw }: { sw: boolean }) {
   const hide = () => { setShow(false); try { localStorage.setItem("itaos-app-tip", "hide"); } catch { /* ignore */ } };
   return (
     <div className="card app-tip" role="note">
-      <span>📲 {T("Put itaOS on your phone and get a notification when a customer writes.", "Weka itaOS kwenye simu yako na upate arifa mteja akiandika.")}</span>
-      <a className="btn small primary" href="#settings/app" onClick={hide}>{T("Set up", "Weka")}</a>
+      <span>{computer
+        ? "🔔 " + T("Know the moment a customer writes: turn on notifications on this computer.", "Jua papo hapo mteja akiandika: washa arifa kwenye kompyuta hii.")
+        : "📲 " + T("Know the moment a customer writes: add itaOS to this phone and turn on notifications.", "Jua papo hapo mteja akiandika: weka itaOS kwenye simu hii na uwashe arifa.")}</span>
+      <a className="btn small primary" href="#settings/app" onClick={hide}>{computer ? T("Turn on", "Washa") : T("Set up", "Weka")}</a>
       <button type="button" className="small" aria-label={T("Hide", "Ficha")} onClick={hide}>×</button>
     </div>
   );

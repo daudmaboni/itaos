@@ -8,7 +8,7 @@ import PhoneApp from "./PhoneApp";
 import { enterCards, enterRows, flash, shake, usePageEnter, select } from "./motion";
 
 type Tab = "business" | "profile" | "appearance" | "rules" | "app" | "account";
-const TABS: [Tab, string, string][] = [["business", "Business", "Biashara"], ["profile", "Business profile", "Wasifu wa biashara"], ["appearance", "Appearance", "Muonekano"], ["rules", "Rules & rates", "Kanuni na viwango"], ["app", "Phone app", "App ya simu"], ["account", "My profile", "Wasifu wangu"]];
+const TABS: [Tab, string, string][] = [["business", "Business", "Biashara"], ["profile", "Business profile", "Wasifu wa biashara"], ["appearance", "Appearance", "Muonekano"], ["rules", "Rules & rates", "Kanuni na viwango"], ["app", "App & notifications", "App na arifa"], ["account", "My profile", "Wasifu wangu"]];
 const CURRENCIES: [string, string, string][] = [["TZS", "Tanzanian shillings", "Shilingi za Tanzania"], ["KES", "Kenyan shillings", "Shilingi za Kenya"], ["UGX", "Ugandan shillings", "Shilingi za Uganda"], ["RWF", "Rwandan francs", "Faranga za Rwanda"]];  // customers pay in local money; USD is for ad spend only, never for sales
 const TIMEZONES: [string, string][] = [["Africa/Dar_es_Salaam", "Tanzania (Dar es Salaam)"], ["Africa/Nairobi", "Kenya (Nairobi)"], ["Africa/Kampala", "Uganda (Kampala)"], ["Africa/Kigali", "Rwanda (Kigali)"], ["Africa/Johannesburg", "South Africa"], ["Europe/London", "UK (London)"], ["UTC", "UTC"]];
 
