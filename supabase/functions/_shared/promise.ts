@@ -176,6 +176,19 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
   };
 }
 
+/**
+ * For a promise saved earlier and still waiting for the owner: the due time itaOS can set by itself,
+ * or null when the day was not said plainly. Keeps the hour already read (Kito's or the default).
+ */
+export function clearDue(whenText: string | null, promiseAt: string, savedDue: string | null, kind: string, tz = "Africa/Dar_es_Salaam"): string | null {
+  const said = Date.parse(promiseAt);
+  if (!whenText || !Number.isFinite(said)) return null;
+  const day = ruleDate(whenText, localStamp(said, tz).slice(4, 14));
+  if (!day) return null;
+  const hour = savedDue ? localStamp(savedDue, tz).slice(15, 20) : (kind === "call" ? "10:00" : "09:00");
+  return zonedToUtc(day, hour, tz);
+}
+
 export function promiseTitle(kind: PromiseKind, lang: string) {
   const sw = lang === "sw";
   switch (kind) {

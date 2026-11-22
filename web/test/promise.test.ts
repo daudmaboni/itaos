@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { zonedToUtc, localStamp, findSource, planPromise, ruleDate } from "../../supabase/functions/_shared/promise";
+import { zonedToUtc, localStamp, findSource, planPromise, ruleDate, clearDue } from "../../supabase/functions/_shared/promise";
 
 const inn = (id: string, body: string, at: string) => ({ id, direction: "in", sent_at: at, body, type: "text" });
 const out = (id: string, body: string, at: string) => ({ id, direction: "out", sent_at: at, body, type: "text" });
@@ -112,5 +112,18 @@ describe("fixed date rules", () => {
     const m = [inn("b", "Mwisho wa mwezi nitakuja Biafra", "2026-07-10T10:25:00Z")];
     const p = planPromise({ kind: "collect", quote: "Mwisho wa mwezi nitakuja Biafra", when_text: "Mwisho wa mwezi", due_date: "2026-06-30", due_time: null }, m, { now: Date.parse("2026-07-12T00:00:00Z") });
     expect(p?.due_at).toBe("2026-07-31T06:00:00.000Z");
+  });
+});
+
+describe("opening promises saved before clear days were automatic", () => {
+  it("fixes the day and keeps the hour already read", () => {
+    // The card from 22 Nov: "Tar 3" saved as 24 Nov 09:00
+    expect(clearDue("Tar 3", "2026-11-22T11:00:00Z", "2026-11-24T06:00:00Z", "come_back")).toBe("2026-12-03T06:00:00.000Z");
+    expect(clearDue("kesho saa kumi", "2026-11-22T11:00:00Z", "2026-11-23T13:00:00Z", "call")).toBe("2026-11-23T13:00:00.000Z");
+    expect(clearDue("Ijumaa", "2026-11-22T11:00:00Z", null, "call")).toBe("2026-11-27T07:00:00.000Z");
+  });
+  it("leaves vague days for the owner", () => {
+    expect(clearDue("mshahara", "2026-11-22T11:00:00Z", null, "pay")).toBeNull();
+    expect(clearDue(null, "2026-11-22T11:00:00Z", null, "pay")).toBeNull();
   });
 });

@@ -6,7 +6,7 @@
 // business confirming payment) are read at once via wa-webhook; the owner's button reads at once too.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { claude, type UsageMeta } from "../_shared/claude.ts";
-import { planPromise, promiseTitle, localStamp, PROMISE_KINDS } from "../_shared/promise.ts";
+import { planPromise, promiseTitle, localStamp, clearDue, PROMISE_KINDS } from "../_shared/promise.ts";
 import { isMoneyMoment } from "../_shared/money.ts";
 
 const cors = {
@@ -337,6 +337,32 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
   if (error) console.error("promise save failed", error.message);
 }
 
+/**
+ * Promises saved before clear days were set automatically (or whose chat had another open task then)
+ * still wait as proposals. On each scheduled run, open the ones whose day was said plainly.
+ * Same rules as savePromise: future days only, never over the owner's own task. No AI involved.
+ */
+async function openClearPromises(db: ReturnType<typeof admin>, cache: Map<string, WsInfo>) {
+  const { data: rows } = await db.from("follow_up_tasks")
+    .select("id,workspace_id,conversation_id,kind,when_text,promise_at,due_at")
+    .eq("source", "kito_promise").eq("status", "proposed").not("when_text", "is", null).not("promise_at", "is", null)
+    .order("promise_at", { ascending: false }).limit(300);
+  let opened = 0;
+  for (const t of rows ?? []) {
+    const info = await wsInfoFor(db, cache, t.workspace_id);
+    const due = clearDue(t.when_text, t.promise_at, t.due_at, t.kind ?? "other", info.tz);
+    if (!due || Date.parse(due) <= Date.now()) continue;
+    const { data: other } = await db.from("follow_up_tasks").select("id,source")
+      .eq("conversation_id", t.conversation_id).in("status", ["open", "snoozed"]).neq("id", t.id);
+    if (other?.some((o: any) => o.source !== "kito_promise")) continue;
+    if (other?.length) await db.from("follow_up_tasks").update({ status: "dismissed" }).in("id", other.map((o: any) => o.id));
+    const { error } = await db.from("follow_up_tasks").update({ status: "open", due_at: due, needs_date: false })
+      .eq("id", t.id).eq("status", "proposed");
+    if (error) console.error("open clear promise failed", error.message); else opened++;
+  }
+  return opened;
+}
+
 async function wsInfoFor(db: ReturnType<typeof admin>, cache: Map<string, WsInfo>, ws: string) {
   if (!cache.has(ws)) {
     const { data: w } = await db.from("workspaces").select("language,currency,rule_paid_texts,rule_delivered_texts,timezone").eq("id", ws).single();
@@ -435,6 +461,10 @@ Deno.serve(async (req) => {
     const { data: ok } = await userClient(req).rpc("is_member", { ws: body.workspace_id });
     if (!ok) return json({ error: "not a member of this workspace" }, 403);
     wsFilter = body.workspace_id;
+  }
+  if (isCron) {
+    try { const n = await openClearPromises(db, new Map()); if (n) console.log(`opened ${n} clear promises`); }
+    catch (e) { console.error("clear promises sweep failed", (e as Error).message); }
   }
   if (!KEY) return json({ ready: false, error: "Kito has no AI key yet. Add the ANTHROPIC_API_KEY secret in Supabase." }, isCron ? 200 : 503);
 
