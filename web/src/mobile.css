@@ -39,7 +39,12 @@ html[data-font="urbanist"] .shell.dash-ia, html[data-font="inter"] .shell.dash-i
   .hero:has(> .seg) { flex-wrap: wrap; gap: 12px; }
   .hero:has(> .seg) > :first-child { flex-basis: 100%; }
   .hero:has(> .seg) .sub { gap: 2px 12px; font-size: 13px; }
-  .hero > .seg { flex: 1 1 100%; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+  /* Page tabs: fill the row when they fit, scroll sideways when they don't. Six equal grid columns used to
+     force the whole page wider than the phone (Actions: content cut off on the right, 22 Nov 2026). */
+  .hero > .seg { flex: 1 1 100%; min-width: 0; max-width: 100%; display: flex; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .hero > .seg::-webkit-scrollbar { display: none; }
+  .hero > .seg button { flex: 1 0 auto; }
+  .shell-grid > * { min-width: 0; }
   .hero > .seg button { white-space: nowrap; padding-left: 6px; padding-right: 6px; font-size: 13px; }
   .hero > .row > .small.muted { display: none; } /* "Updating…" — the spinner on the KPIs is enough */
   .dr-trigger { height: 40px; min-height: 40px; padding: 0 12px 0 13px; gap: 6px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); box-shadow: none; font-size: 13.5px; }
