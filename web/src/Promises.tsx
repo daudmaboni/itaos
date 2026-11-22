@@ -204,7 +204,7 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
     <>
       <section className="card flat">
         <div><h2>{T("Kito found these promises", "Kito amepata ahadi hizi")} ({proposed.length})</h2>
-          <span className="small muted">{T("Customers who said when they'll pay, call or come. Confirm the day and itaOS reminds you on your phone, or dismiss it.", "Wateja waliosema lini watalipa, wapigiwe au watakuja. Thibitisha siku na itaOS itakukumbusha kwenye simu, au iondoe.")}</span></div>
+          <span className="small muted">{T("When a customer names the day plainly (\"tar 3\", \"kesho\", \"Ijumaa\"), itaOS sets the reminder by itself. These ones were less clear: confirm the day, or dismiss it.", "Mteja akitaja siku waziwazi (\"tar 3\", \"kesho\", \"Ijumaa\"), itaOS inaweka kikumbusho yenyewe. Hizi hazikuwa wazi: thibitisha siku, au iondoe.")}</span></div>
         {proposed.length === 0 ? <div className="empty">{T("Nothing new. Kito checks every chat that gets a new message.", "Hakuna mpya. Kito anaangalia kila chat inayopata ujumbe mpya.")}</div>
           : <div className="pgrid">{proposed.map(card)}</div>}
       </section>

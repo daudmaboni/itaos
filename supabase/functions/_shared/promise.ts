@@ -16,6 +16,8 @@ export type Planned = {
   promise_key: string;
   promise_at: string;
   due_at: string | null;   // null = the owner must pick a date ("nikipata mshahara", "baadae")
+  /** The customer named the day plainly ("tar 3", "kesho", "Ijumaa"): itaOS sets the reminder itself. */
+  clear: boolean;
 };
 
 /** Promises older than this (when the customer said them) are not turned into reminders. */
@@ -149,7 +151,8 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
   let due: string | null = null;
   const whenText = String(raw.when_text ?? "");
   const saidDay = localStamp(promiseAt, tz).slice(4, 14);
-  const date = ruleDate(whenText, saidDay) ?? (typeof raw.due_date === "string" ? raw.due_date.trim() : "");
+  const ruled = ruleDate(whenText, saidDay);
+  const date = ruled ?? (typeof raw.due_date === "string" ? raw.due_date.trim() : "");
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     const tm = typeof raw.due_time === "string" && /^\d{1,2}:\d{2}$/.test(raw.due_time.trim()) ? raw.due_time.trim() : (kind === "call" ? "10:00" : "09:00");
     due = zonedToUtc(date, tm, tz);
@@ -169,6 +172,7 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
     promise_key: key,
     promise_at: new Date(promiseAt).toISOString(),
     due_at: due,
+    clear: !!ruled && !!due, // only fixed rules count: Kito's own date guesses still need a yes
   };
 }
 

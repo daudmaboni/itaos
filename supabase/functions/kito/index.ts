@@ -301,10 +301,12 @@ async function draftReply(db: ReturnType<typeof admin>, ws: string, conversation
 type WsInfo = { language: string; currency: string; paid: string[]; delivered: string[]; tz: string };
 
 /**
- * Ahadi: save the customer's still-open promise as a PROPOSED task the owner confirms or dismisses.
+ * Ahadi: save the customer's still-open promise as a task.
+ * A clear day ("tar 3", "kesho", "Ijumaa" — read by a fixed rule, not guessed) becomes a reminder straight
+ * away (status open). Anything vaguer, or a day Kito had to work out itself, is PROPOSED for the owner.
  * Never for buyers, non-customers, chats with a recorded paid order, or old promises. The same promise
  * never makes two tasks (unique conversation_id + promise_key; a dismissed one is not proposed again).
- * A newer promise replaces an older one still waiting for the owner.
+ * A newer promise replaces an older Kito promise still waiting or open.
  */
 async function savePromise(db: ReturnType<typeof admin>, c: { id: string; workspace_id: string }, r: any, msgs: any[], info: WsInfo) {
   if (!r?.promise || r.outcome === "sold" || (r.party && r.party !== "customer")) return;
@@ -312,10 +314,22 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
   if (!plan) return;
   const { data: paid } = await db.from("orders").select("id").eq("conversation_id", c.id).eq("status", "paid").limit(1);
   if (paid?.length) return;
+  const { data: seen } = await db.from("follow_up_tasks").select("id").eq("conversation_id", c.id).eq("promise_key", plan.promise_key).limit(1);
+  if (seen?.length) return; // already saved, confirmed or dismissed: leave the owner's choice alone
+
+  let auto = plan.clear && !!plan.due_at && Date.parse(plan.due_at) > Date.now();
+  if (auto) {
+    // One open task per chat: a clear new promise replaces an older Kito promise, but never the owner's
+    // own task or another kind of follow-up. Those stay, and this one waits for the owner instead.
+    const { data: other } = await db.from("follow_up_tasks").select("id,source")
+      .eq("conversation_id", c.id).in("status", ["open", "snoozed"]);
+    if (other?.some((t: any) => t.source !== "kito_promise")) auto = false;
+  }
   await db.from("follow_up_tasks").update({ status: "dismissed" })
-    .eq("conversation_id", c.id).eq("source", "kito_promise").eq("status", "proposed").neq("promise_key", plan.promise_key);
+    .eq("conversation_id", c.id).eq("source", "kito_promise").neq("promise_key", plan.promise_key)
+    .in("status", auto ? ["proposed", "open", "snoozed"] : ["proposed"]);
   const { error } = await db.from("follow_up_tasks").upsert({
-    workspace_id: c.workspace_id, conversation_id: c.id, status: "proposed", source: "kito_promise",
+    workspace_id: c.workspace_id, conversation_id: c.id, status: auto ? "open" : "proposed", source: "kito_promise",
     title: promiseTitle(plan.kind, info.language), kind: plan.kind, promise_text: redact(plan.promise_text),
     when_text: plan.when_text || null, promise_key: plan.promise_key, promise_at: plan.promise_at,
     due_at: plan.due_at, needs_date: !plan.due_at,

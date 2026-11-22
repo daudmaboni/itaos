@@ -37,6 +37,18 @@ describe("planning a promise", () => {
     const p = planPromise({ kind: "pay", quote: "Nitalipa kesho saa nne", when_text: "kesho saa nne", due_date: "2026-11-20", due_time: "10:00" }, msgs, { now: NOW });
     expect(p).toMatchObject({ kind: "pay", due_at: "2026-11-20T07:00:00.000Z", promise_key: "m:m2:pay", promise_at: "2026-11-19T08:00:00.000Z" });
   });
+  it("marks a plainly named day as clear, so itaOS sets the reminder itself", () => {
+    const m = [inn("t1", "Tar 3 ndo narud ntawachek sasa", "2026-11-22T11:00:00Z")];
+    const p = planPromise({ kind: "come_back", quote: "Tar 3 ndo narud", when_text: "Tar 3", due_date: "2026-11-24", due_time: null }, m, { now: Date.parse("2026-11-22T11:10:00Z") });
+    expect(p).toMatchObject({ clear: true, due_at: "2026-12-03T06:00:00.000Z" });
+  });
+  it("keeps Kito's own date guesses and vague promises for the owner to confirm", () => {
+    const m = [inn("v1", "Nitakuja siku ya mshahara", "2026-11-19T08:00:00Z")];
+    const guess = planPromise({ kind: "collect", quote: "Nitakuja siku ya mshahara", when_text: "siku ya mshahara", due_date: "2026-11-25", due_time: null }, m, { now: NOW });
+    expect(guess?.clear).toBe(false);
+    const vague = planPromise({ kind: "collect", quote: "Nitakuja siku ya mshahara", when_text: "", due_date: null, due_time: null }, m, { now: NOW });
+    expect(vague).toMatchObject({ clear: false, due_at: null });
+  });
   it("uses a default hour when only the day is known", () => {
     const p = planPromise({ kind: "call", quote: "Nitalipa kesho saa nne", due_date: "2026-11-21", due_time: null }, msgs, { now: NOW });
     expect(p?.due_at).toBe("2026-11-21T07:00:00.000Z"); // 10:00 EAT for calls
