@@ -69,10 +69,19 @@ function agoText(iso: string, now = Date.now()) {
   return m < 60 ? `${m} minutes ago` : m < 48 * 60 ? `${Math.round(m / 60)} hours ago` : `${Math.round(m / 1440)} days ago`;
 }
 
+const AFTER_SALE = ["paid", "shipped", "received", "using"];
+/** Did the business send one of its own "customer has paid" texts? Loose compare: case, spaces and hyphens ignored
+ *  ("Matumizi Ya KayaTox" = "Matumizi ya KayaTox"). Exported for tests. */
+export function sentPaidText(msgs: { direction: string; body: string | null }[], texts: string[] = []) {
+  const sq = (s: string) => s.toLowerCase().replace(/[\s\-]+/gu, "");
+  const ps = texts.map((t) => sq(t ?? "")).filter((t) => t.length >= 4);
+  return ps.length > 0 && msgs.some((m) => m.direction === "out" && !!m.body && ps.some((p) => sq(m.body!).includes(p)));
+}
+
 /** The business's own "customer has paid" messages (Settings → How itaOS reads your chats). */
 function paidLine(texts: string[]) {
   const t = texts.map((x) => x.replace(/["\n]/g, " ").trim().slice(0, 80)).filter(Boolean).slice(0, 5);
-  return t.length ? `The business sending ${t.map((x) => `"${x}"`).join(" or ")} means the customer paid: that alone is "sold". ` : "";
+  return t.length ? `The business sending ${t.map((x) => `"${x}"`).join(" or ")} (any capitalisation) means the customer paid: that alone is "sold", even if it was days ago and the customer has written again since. ` : "";
 }
 
 function prompt(chat: string, lastAt: string, lang: string, currency: string, paidTexts: string[] = [], tz = "Africa/Dar_es_Salaam", now = Date.now()) {
@@ -93,7 +102,8 @@ ${rulesBody(lang, currency, paidTexts)}`;
 function rulesBody(lang: string, currency: string, paidTexts: string[] = []) {
   return `Decide:
 - outcome: "sold" if the customer paid or clearly received/collected the goods (the customer's payment message or "[picha ya malipo]", the business confirming it received the money, or the customer confirming they received/collected the goods). Only something that ALREADY happened counts: a question, a "what if" ("je mfano nikichukua dawa…", "kama nikilipa…", "nikitumia zisiponisaidia mnafanyeje?"), a plan ("nitalipa kesho", "nikifika dar") or asking how to pay is NOT payment, even when it uses words like "nimechukua", "nimelipa" or "nimetuma". When unsure whether money really moved, do not say "sold": use "open" and confidence "low". Delivery arranged ("unaletewa na boda", "tutakutumia kesho") is not payment until the customer confirms they paid or received the goods, or the business confirms it got the money. ${paidLine(paidTexts)}Usage or after-sale instructions${paidTexts.length ? " for anything else" : ""} count only together with a payment sign (payment message, "[picha ya malipo]", the business confirming payment, or the customer confirming they received the goods). A photo that could not be read ("[image]", "<Media omitted>", "[media_placeholder]") is never payment on its own. "open" if the chat is still in progress: ANY message in the last 2 days means "open" unless the customer clearly said no. "lost" only when the chat went quiet for more than 2 days, or the customer clearly refused. A slow reply by the business is a blocker (business_slow), never by itself a reason for "lost".
-- Judge mainly the latest part of the chat. Many chats have old messages weeks earlier and then a new conversation: the new conversation decides outcome and temperature; old messages are background.
+- Judge mainly the latest part of the chat. Many chats have old messages weeks earlier and then a new conversation: the new conversation decides outcome and temperature; old messages are background. Exception: a customer who already got the goods and now only asks how to use them (a photo of the product they have, "nipe maelezo ya hii dawa", the business saying "dawa ulizopokea") is after-sale, not a new open chat: keep "sold" and use label "received" or "using".
+- label "priced" only if the business actually sent a price in the chat.
 - Bargaining ("haipungui?", "bei ya mwisho?", "naweza kupata kwa ...?"), asking how to pay, or asking about delivery to their own place are buying signals: usually "hot". Asking the price alone ("bei gani?", "mnapatikana wapi?", or the ad's ready-made first message) is NOT enough for "warm": what the customer does AFTER the business answers decides.
 - label: the furthest stage reached, one of ${JSON.stringify(LABELS)}.
 - amount: the amount paid in ${currency} as a number, only if stated in the chat. Otherwise null. Never guess.
@@ -598,6 +608,14 @@ Deno.serve(async (req) => {
       // You sent how to pay (Lipa Namba…) and the customer promised to pay — even "nasubiri hela": about to buy.
       if (r.outcome !== "sold" && r.promise?.kind === "pay" && ["new", "talking", "priced"].includes(r.label) && sentPayDetails(msgs as any[])) {
         r.label = "awaiting_payment"; r.temperature = "hot"; if (r.outcome === "lost") r.outcome = "open";
+      }
+      // Guard: the business sent one of its own "customer has paid" messages (Settings → How itaOS reads your
+      // chats, e.g. "Matumizi ya KayaTox") somewhere in the chat. That is a sale, even when the customer writes
+      // again days later to ask how to use the goods (22 Nov: kelvinngoko showed "Got the price, still deciding").
+      if (r.outcome !== "sold" && sentPaidText(msgs as any[], info.paid)) {
+        r.outcome = "sold"; r.blocker = "none"; r.promise = null;
+        if (!AFTER_SALE.includes(r.label)) r.label = "received";
+        if (r.confidence === "low") r.confidence = "medium";
       }
       // Guard: a chat with a message in the last 2 days isn't "lost" unless the customer turned it down (cold).
       if (r.outcome === "lost" && Date.now() - Date.parse(c.last_message_at) < 48 * 3600e3 && r.temperature !== "cold") r.outcome = "open";
