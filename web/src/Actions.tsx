@@ -1,6 +1,6 @@
 // Action Centre: the follow-up queue. Surfaces chats that need a reply or a follow-up, lets
-// staff assign / snooze / complete / dismiss tasks, and asks Kito for a DRAFT that a human
-// reviews and sends from their own phone. itaOS never sends WhatsApp messages.
+// staff assign / snooze / complete / dismiss tasks, and asks Kito for a DRAFT that a human reviews and
+// sends (copy to WhatsApp, or Send from itaOS). The Today tab (Today.tsx) merges all lists into one.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { enterCards, enterRows, usePageEnter, select } from "./motion";
 import { supabase, callFn, Workspace, Outcome, Task, L, when, ago, canEdit } from "./lib";
@@ -10,6 +10,7 @@ import { ReorderList } from "./Reorders";
 import { AfterPriceList, afterPriceCount } from "./AfterPrice";
 import { avaText, DoneRow } from "./ActionBits";
 import { useKept, kept, put } from "./keep";
+import { TodayList, QueueCard } from "./Today";
 
 type Member = { user_id: string; role: string; email: string };
 type Hidden = { after_price: string[]; promise: string[]; reorder: string[] };
@@ -33,7 +34,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const [loading, setLoading] = useState(!kept(K + ":loaded"));
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
-  const [tab, setTab] = useState<"promises" | "after_price" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : location.hash.includes("tab=after_price") ? "after_price" : "promises"));
+  const [tab, setTab] = useState<"today" | "promises" | "after_price" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : location.hash.includes("tab=after_price") ? "after_price" : location.hash.includes("tab=promises") ? "promises" : "today"));
   const [reorderCount, setReorderCount] = useKept<number | null>(K + ":reorders", null);
   useEffect(() => {
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data }) => {
@@ -100,7 +101,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
         const waiting = r.last_dir === "in" && !r.last_in_closing && r.last_message_at && now - Date.parse(r.last_message_at) > 30 * 60e3;
         const stale = r.last_dir === "out" && r.last_out_at && now - Date.parse(r.last_out_at) > H && (temp === "hot" || temp === "warm");
         // Someone waiting for a reply is always shown; a follow-up nudge is not, for a customer kept aside.
-        const reason = waiting ? "reply" : stale && !hideAny.has(r.id) ? "follow_up" : null;
+        const reason: "reply" | "follow_up" | null = waiting ? "reply" : stale && !hideAny.has(r.id) ? "follow_up" : null;
         return reason ? { r, reason, temp, age: now - Date.parse((waiting ? r.last_message_at : r.last_out_at) ?? r.last_message_at ?? "") } : null;
       })
       .filter((x): x is NonNullable<typeof x> => !!x);
@@ -130,6 +131,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
           <div className="sub"><span>{queue.length} {T("chats need attention", "chats zinahitaji hatua")}</span><span>{open.length} {T("open tasks", "kazi wazi")}</span><span>{T("follow-up rule", "kanuni")}: {ws.follow_up_hours} h <a href="#settings/rules" className="small">{T("change", "badilisha")}</a></span></div>
         </div>
         <div className="seg" role="group" aria-label="View">
+          <button className={tab === "today" ? "on" : ""} onClick={() => setTab("today")}>{T("Today", "Leo")}</button>
           <button className={tab === "promises" ? "on" : ""} onClick={() => setTab("promises")}>{T("Promises", "Ahadi")}{promiseCount ? ` (${promiseCount})` : ""}</button>
           <button className={tab === "after_price" ? "on" : ""} onClick={() => setTab("after_price")}>{T("After price", "Baada ya bei")}{quietCount ? ` (${quietCount})` : ""}</button>
           <button className={tab === "reorders" ? "on" : ""} onClick={() => setTab("reorders")}>{T("Reorders", "Nunua tena")}{reorderCount ? ` (${reorderCount})` : ""}</button>
@@ -140,8 +142,9 @@ export default function Actions({ ws }: { ws: Workspace }) {
       </div>
       {err && <p className="err">{err}</p>}
       {!editor && <p className="small muted">{T("You have a viewer role: you can see the queue but not change tasks.", "Una nafasi ya kutazama tu: unaweza kuona foleni lakini si kubadilisha kazi.")}</p>}
-      <p className="small muted page-note"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>{T("itaOS never sends messages. Drafts here are suggestions: copy one, edit it and send it yourself from WhatsApp.", "itaOS haitumi ujumbe. Rasimu hapa ni mapendekezo: nakili, hariri na utume mwenyewe kutoka WhatsApp.")}</p>
+      <p className="small muted page-note"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>{T("Nothing is sent without you. Ask Kito for a draft, edit it, then copy it to WhatsApp or tap Send from itaOS (an approved WhatsApp template after 24 hours).", "Hakuna kinachotumwa bila wewe. Muombe Kito rasimu, ihariri, kisha inakili WhatsApp au bonyeza Tuma kutoka itaOS (kiolezo kilichoidhinishwa na WhatsApp baada ya saa 24).")}</p>
 
+      {tab === "today" && <TodayList ws={ws} rows={rowsAP} tasks={tasks} promises={promises} queue={queue} hiddenReorder={hideReorder} editor={editor} onChange={refresh} onTake={createTask} />}
       {tab === "promises" && <PromiseList tasks={tasksShown} rows={rows} ws={ws} editor={editor} onChange={refresh} />}
       {tab === "after_price" && <AfterPriceList rows={rowsAP} tasks={tasks} ws={ws} editor={editor} onChange={refresh} />}
       {tab === "reorders" && <ReorderList ws={ws} editor={editor} onCount={setReorderCount} hidden={hideReorder} />}
@@ -150,30 +153,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
         <section className="card flat">
           <div><h2>{T("Needs a reply or a follow-up", "Inahitaji jibu au ufuatiliaji")}</h2><span className="small muted">{T(`Customer waiting for a reply, or a warm chat with no message from you for ${ws.follow_up_hours} hours. Buyers, lost chats and handled chats are excluded.`, `Mteja anasubiri jibu, au chat yenye nia bila ujumbe wako kwa saa ${ws.follow_up_hours}. Wanunuzi, waliopotea na zilizoshughulikiwa hazimo.`)}</span></div>
           {queue.length === 0 ? <div className="empty">{T("Nothing waiting. Nice.", "Hakuna anayesubiri. Safi.")}</div> : (
-            <div className="pgrid">{queue.map(({ r, reason, temp }) => {
-              const name = r.contact_name ?? T("Customer", "Mteja");
-              return (
-                <div className="pcard" key={r.id}>
-                  <div className="pc-head">
-                    <span className="pc-ava" aria-hidden>{avaText(name)}</span>
-                    <div className="pc-who">
-                      <b title={name}>{name}</b>
-                      <span className="small muted">{T("Last message", "Ujumbe wa mwisho")} {ago(r.last_message_at)}{r.last_dir === "in" ? T(" · from customer", " · kutoka mteja") : T(" · from you", " · kutoka kwako")}</span>
-                    </div>
-                    <div className="pc-chips">
-                      <span className={"chip " + (reason === "reply" ? "bad" : "")}>{reason === "reply" ? T("Customer is waiting", "Mteja anasubiri") : T("Follow-up due", "Ufuatiliaji umefika")}</span>
-                      {temp && <span className={"temp " + temp + (r.kito_temp ? "" : " guess")}>{L[lang].temp[temp]}</span>}
-                      {(r.kito_label ?? r.label) && <span className="chip">{L[lang].label[(r.kito_label ?? r.label)!]}</span>}
-                    </div>
-                  </div>
-                  {r.kito_summary ? <p className="pc-sum">{r.kito_summary}</p> : <p className="pc-sum muted">{T("Kito has not read this chat yet.", "Kito bado hajasoma chat hii.")}</p>}
-                  {r.kito_next && <div className="small muted">→ {r.kito_next}</div>}
-                  {r.kito_blocker && r.kito_blocker !== "none" && <div className="small muted">{T("Blocker", "Kikwazo")}: {L[lang].blocker[r.kito_blocker] ?? r.kito_blocker}</div>}
-                  <a className="pc-open small" href={"#chats/ids=" + r.id}>{T("Open chat", "Fungua chat")} →</a>
-                  {editor ? <div className="pc-foot"><div className="pc-acts"><button className="primary" onClick={() => createTask(r, reason)}>{T("Take it", "Chukua")}</button></div></div> : <div style={{ height: 6 }} />}
-                </div>
-              );
-            })}</div>
+            <div className="pgrid">{queue.map((q) => <QueueCard key={q.r.id} q={q} ws={ws} editor={editor} onTake={createTask} />)}</div>
           )}
         </section>
       )}

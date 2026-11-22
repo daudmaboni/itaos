@@ -8,6 +8,7 @@ import { avaText, DoneRow } from "./ActionBits";
 import { useKept } from "./keep";
 import { SendNow } from "./SendNow";
 
+export type ReorderRow = Row;
 type Row = {
   conversation_id: string; contact_name: string | null; last_paid_at: string; products: string | null; amount: number | null;
   currency: string | null; orders_count: number; last_message_at: string | null; last_dir: string | null; state: "todo" | "contacted";
@@ -67,7 +68,7 @@ export function ReorderList({ ws, editor, onCount, hidden }: { ws: Workspace; ed
   );
 }
 
-function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspace; editor: boolean; T: (en: string, s: string) => string; onDone: () => void }) {
+export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspace; editor: boolean; T: (en: string, s: string) => string; onDone: () => void }) {
   const sw = ws.language === "sw";
   // The draft survives switching tabs (and arrives even if you left while Kito was writing).
   const [d, setD] = useKept<Draft | null>("reorder-draft:" + r.conversation_id, null);

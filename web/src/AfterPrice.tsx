@@ -58,7 +58,7 @@ export function AfterPriceList({ rows, tasks, ws, editor, onChange }: { rows: Ou
   );
 }
 
-function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: Outcome; quietDays: number; phone: string | null; ws: Workspace; editor: boolean; T: (en: string, s: string) => string; onDone: () => void | Promise<void> }) {
+export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: Outcome; quietDays: number; phone: string | null; ws: Workspace; editor: boolean; T: (en: string, s: string) => string; onDone: () => void | Promise<void> }) {
   const lang = ws.language;
   // The draft survives switching tabs (and arrives even if you left while Kito was writing).
   const [d, setD] = useKept<Draft | null>("afterprice-draft:" + r.id, null);
