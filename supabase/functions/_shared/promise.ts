@@ -91,6 +91,21 @@ export function ruleDate(whenText: string, saidDay: string): string | null {
     return plus(diff);
   }
   if (/\bleo\b|\btoday\b/.test(w)) return plus(0);
+  // A day of the month: "tar 3", "tarehe 3", "tr 15", "3 tarehe", "the 3rd", "on 3rd".
+  // The next such date on or after the day it was said; past days roll to next month.
+  const dm = /\b(?:tarehe|tar|tr|trh)\.?\s*(\d{1,2})\b/.exec(w)
+    ?? /\b(\d{1,2})\s*(?:tarehe|tar)\b/.exec(w)
+    ?? /\b(\d{1,2})(?:st|nd|rd|th)\b/.exec(w);
+  if (dm) {
+    const day = +dm[1];
+    if (day < 1 || day > 31) return null;
+    const y = +m[1], mo = +m[2] - 1, today = +m[3];
+    for (let add = day >= today ? 0 : 1; add < 3; add++) {
+      const t = Date.UTC(y, mo + add, day);
+      if (new Date(t).getUTCDate() === day) return ymd(t); // skips months without a 31st
+    }
+    return null;
+  }
   return null;
 }
 

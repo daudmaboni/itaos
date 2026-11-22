@@ -83,6 +83,15 @@ describe("fixed date rules", () => {
     expect(ruleDate("Mwisho wa mwezi", "2026-07-10")).toBe("2026-07-31");
     expect(ruleDate("MWISHO WA mwezi", "2026-09-30")).toBe("2026-10-31");
   });
+  it("reads a day of the month (tarehe / tar / 3rd)", () => {
+    expect(ruleDate("Tar 3", "2026-11-22")).toBe("2026-12-03"); // already passed: next month
+    expect(ruleDate("tarehe 28", "2026-11-22")).toBe("2026-11-28");
+    expect(ruleDate("tr. 22", "2026-11-22")).toBe("2026-11-22");
+    expect(ruleDate("the 3rd", "2026-11-22")).toBe("2026-12-03");
+    expect(ruleDate("tarehe 31", "2026-11-05")).toBe("2026-12-31"); // November has no 31st
+    expect(ruleDate("tar 40", "2026-11-22")).toBeNull();
+    expect(ruleDate("saa 3", "2026-11-22")).toBeNull(); // a time, not a date
+  });
   it("leaves unknown phrases to Kito", () => {
     expect(ruleDate("nikipata mshahara", "2026-07-10")).toBeNull();
     expect(ruleDate("", "2026-07-10")).toBeNull();
