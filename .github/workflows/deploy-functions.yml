@@ -29,9 +29,10 @@ concurrency:
 env:
   PROJECT_REF: jrdxeagnmunmatxtgmpk
   # Functions that are live. d360-connect stays in the repo but is not deployed.
-  LIVE: "ads-sync capi chat-import dualhook-connect fx-rate kito kito-ask meta-connect names product-match push-send reorder signals-rescan voice wa-send wa-webhook"
+  LIVE: "ads-sync capi chat-import dualhook-connect fx-rate google kito kito-ask meta-connect names product-match push-send reorder signals-rescan voice wa-send wa-webhook"
   # These check their own secret (Meta signature, Dualhook token or x-cron-secret) and must stay public.
-  NO_JWT: "wa-webhook fx-rate signals-rescan"
+  # google: Google's sign-in redirect carries no Supabase JWT; it checks a signed state, and each POST checks the caller.
+  NO_JWT: "wa-webhook fx-rate signals-rescan google"
 
 jobs:
   deploy:

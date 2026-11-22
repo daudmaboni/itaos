@@ -382,3 +382,18 @@ html.glass-lite :is(.card, .kpi):not(.chats) { -webkit-backdrop-filter: none; ba
 }
 .pcard a.pc-pick { text-decoration: none; }
 .pcard a.pc-pick.gcal svg { color: #1a73e8; flex: none; }
+
+/* ---- Google card (Connections, 22 Nov 2026) ---- */
+.gcard-title { display: flex; align-items: center; gap: 10px; margin: 0; }
+.gcard-body { display: grid; gap: 4px; }
+.gopt { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+.gopt > div { display: grid; gap: 4px; min-width: 0; }
+.gopt > div b { font-size: 15px; }
+.gwho { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.gwho select { min-height: 36px; border-radius: 10px; padding: 0 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 500 13.5px var(--font); max-width: 100%; }
+button.gsw { all: unset; box-sizing: border-box; flex: none; position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--line-2, #c7ccd6); cursor: pointer; transition: background .2s; display: grid; place-items: center; }
+button.gsw i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0003; transition: transform .2s var(--ease); }
+button.gsw.on { background: var(--accent); }
+button.gsw.on i { transform: translateX(18px); }
+button.gsw:disabled { cursor: default; opacity: .6; }
+button.gsw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

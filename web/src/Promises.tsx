@@ -70,6 +70,8 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
     if (error) { setDoing(null); setMsg(error.message); return; }
     if (ok) setMsg(ok);
     try { await onChange(); } finally { setDoing(null); }
+    // If this business has Google connected, push the change to Google Tasks now (the 5-minute job is the backup).
+    callFn("google", { action: "sync", workspace_id: ws.id, only: "tasks" }).catch(() => {});
   }
   const patch = (which: string, p: Partial<Task>, ok?: string) => run(which, supabase.from("follow_up_tasks").update(p).eq("id", t.id).eq("workspace_id", ws.id), ok);
   const confirm = () => {

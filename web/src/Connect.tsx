@@ -117,6 +117,7 @@ function ConnectSimple({ ws }: { ws: Workspace }) {
         ))}
       </section>
       {canManage(ws) && <SalesToMeta ws={ws} T={T} />}
+      <GoogleCard ws={ws} T={T} />
       <p className="small muted" style={{ margin: 0 }}>{T("Exchange rate, language and your password are in ", "Kiwango cha kubadilisha fedha, lugha na nenosiri viko kwenye ")}<a href="#settings">{T("Settings", "Mipangilio")}</a>.</p>
     </div>
   );
@@ -463,6 +464,131 @@ function SalesToMeta({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => 
           </div>
         </div>
       ) : <div><button className="linkish small" onClick={() => setOpen(true)}>{T("Replace token", "Badilisha token")}</button></div>}
+    </section>
+  );
+}
+
+/** Google (Contacts + Tasks) for this business: one Google account, two switches. The sign-in happens on
+ *  Google's page and comes back to #connect with ?google=ok|cancelled|partial|norefresh|error. */
+type GLink = { email: string | null; status: string; last_error: string | null; last_sync_at: string | null; connected_at: string;
+  tasks_on: boolean; tasks_synced: number; contacts_on: boolean; contacts_days: number; contacts_synced: number; contacts_skipped: number; contacts_full: boolean };
+function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => string }) {
+  const [ready, setReady] = useState<boolean | null>(null);
+  const [link, setLink] = useState<GLink | null | undefined>(undefined);
+  const [waiting, setWaiting] = useState<number | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok?: string; err?: string }>(() => {
+    const r = new URLSearchParams(location.search).get("google");
+    if (!r) return {};
+    history.replaceState(null, "", location.pathname + location.hash);
+    if (r === "ok") return { ok: T("Google connected. Your reminders are being added to Google Tasks.", "Google imeunganishwa. Vikumbusho vyako vinaongezwa Google Tasks.") };
+    if (r === "partial") return { err: T("Connected, but some boxes were unticked on Google's page. Disconnect and connect again, and tick all of them.", "Imeunganishwa, lakini baadhi ya visanduku havikuwekwa tiki kwenye ukurasa wa Google. Tenganisha na unganisha tena, weka tiki zote.") };
+    if (r === "cancelled") return { err: T("You cancelled on Google's page. Nothing was connected.", "Umeghairi kwenye ukurasa wa Google. Hakuna kilichounganishwa.") };
+    if (r === "norefresh") return { err: T("Google didn't give itaOS lasting access. Try Connect again.", "Google haikuipa itaOS ruhusa ya kudumu. Jaribu Unganisha tena.") };
+    return { err: T("Google connection failed. Try again.", "Kuunganisha Google kumeshindwa. Jaribu tena.") };
+  });
+  const manage = canManage(ws);
+  const load = () => {
+    supabase.from("google_links").select("email,status,last_error,last_sync_at,connected_at,tasks_on,tasks_synced,contacts_on,contacts_days,contacts_synced,contacts_skipped,contacts_full")
+      .eq("workspace_id", ws.id).maybeSingle().then(({ data }) => setLink((data as GLink) ?? null));
+    supabase.rpc("google_contacts_waiting", { p_ws: ws.id }).then(({ data }) => setWaiting(typeof data === "number" ? data : null));
+  };
+  useEffect(() => {
+    callFn<{ configured: boolean }>("google", { action: "status" }).then((r) => setReady(!!r.configured)).catch(() => setReady(false));
+    load();
+    const id = setInterval(load, 30e3);
+    return () => clearInterval(id);
+  }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function connect() {
+    setBusy("connect"); setMsg({});
+    try { const r = await callFn<{ url: string }>("google", { action: "start", workspace_id: ws.id }); location.href = r.url; }
+    catch (e) { setMsg({ err: (e as Error).message }); setBusy(null); }
+  }
+  async function save(patch: Partial<Pick<GLink, "tasks_on" | "contacts_on" | "contacts_days">>, which: string) {
+    setBusy(which); setMsg({});
+    setLink((l) => (l ? { ...l, ...patch } : l));
+    try { await callFn("google", { action: "settings", workspace_id: ws.id, ...patch }); load(); }
+    catch (e) { setMsg({ err: (e as Error).message }); load(); }
+    setBusy(null);
+  }
+  async function disconnect() {
+    if (!window.confirm(T("Disconnect Google? Tasks and contacts already in Google stay there; itaOS just stops adding new ones.", "Tenganisha Google? Kazi na majina yaliyopo Google yatabaki; itaOS itaacha kuongeza mapya."))) return;
+    setBusy("disconnect"); setMsg({});
+    try { await callFn("google", { action: "disconnect", workspace_id: ws.id }); setMsg({ ok: T("Google disconnected.", "Google imetenganishwa.") }); load(); }
+    catch (e) { setMsg({ err: (e as Error).message }); }
+    setBusy(null);
+  }
+  async function syncNow() {
+    setBusy("sync"); setMsg({});
+    try { await callFn("google", { action: "sync", workspace_id: ws.id }); load(); } catch (e) { setMsg({ err: (e as Error).message }); }
+    setBusy(null);
+  }
+
+  const ok = link?.status === "active" && !link.last_error;
+  const expired = link && link.status !== "active";
+  const spin = (w: string) => busy === w && <span className="kito-spin sm" aria-hidden />;
+  const sw = (on: boolean, onChange: () => void, label: string, which: string) => (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} className={"gsw" + (on ? " on" : "")} disabled={!manage || !!busy} onClick={onChange}>{busy === which ? <span className="kito-spin sm" aria-hidden /> : <i />}</button>
+  );
+  return (
+    <section className="card gcard">
+      <div className="row between" style={{ gap: 10, flexWrap: "wrap" }}>
+        <h2 className="gcard-title">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+          {T("Google — Contacts & Tasks", "Google — Majina na Kazi")}
+        </h2>
+        {link && <span className={"pill-s " + (ok ? "on" : "err")}>{ok ? T("Connected ✓", "Imeunganishwa ✓") : T("Needs attention", "Inahitaji kuangaliwa")}</span>}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>{T("Connect a Google account so your promise reminders show up in Google Tasks, and your buyers' names are saved in Google Contacts (so WhatsApp on your phone shows who's who). itaOS never reads your email.", "Unganisha akaunti ya Google ili vikumbusho vya ahadi vionekane Google Tasks, na majina ya wanunuzi wako yahifadhiwe Google Contacts (WhatsApp kwenye simu itaonyesha nani ni nani). itaOS haisomi barua pepe zako.")}</p>
+      {msg.ok && <p className="ok small" style={{ margin: 0 }}>{msg.ok}</p>}
+      {msg.err && <p className="err small" style={{ margin: 0 }}>{msg.err}</p>}
+
+      {link === undefined || ready === null ? null : !link ? (
+        ready ? (
+          manage ? <div><button className="primary" disabled={!!busy} onClick={connect}>{spin("connect")}{T("Connect Google", "Unganisha Google")}</button></div>
+            : <p className="small muted" style={{ margin: 0 }}>{T("Ask the business owner to connect Google.", "Muombe mmiliki wa biashara aunganishe Google.")}</p>
+        ) : <p className="small muted" style={{ margin: 0 }}><span className="status-dot warn" /> {T("Coming soon: Pondi is finishing the Google setup.", "Inakuja hivi karibuni: Pondi wanamalizia mpangilio wa Google.")}</p>
+      ) : (
+        <div className="gcard-body">
+          <div className="row between" style={{ gap: 10, flexWrap: "wrap" }}>
+            <span><span className={"status-dot " + (ok ? "on" : "err")} /> <b>{link.email ?? T("Google account", "Akaunti ya Google")}</b>
+              <span className="small muted">{link.last_sync_at ? T(` · synced ${ago(link.last_sync_at)}`, ` · imesawazishwa ${ago(link.last_sync_at)}`) : T(" · waiting for the first sync", " · inasubiri usawazishaji wa kwanza")}</span></span>
+            {manage && !expired && <button className="small" disabled={!!busy} onClick={syncNow}>{spin("sync")}{T("Sync now", "Sawazisha sasa")}</button>}
+          </div>
+          {expired && <div className="finding bad small"><b>{T("Google sign-in expired.", "Muunganisho wa Google umeisha.")}</b> {T("Nothing is being added to Google until you reconnect.", "Hakuna kinachoongezwa Google mpaka uunganishe tena.")} {manage && ready && <button className="small primary" disabled={!!busy} onClick={connect} style={{ marginLeft: 6 }}>{spin("connect")}{T("Reconnect", "Unganisha tena")}</button>}</div>}
+          {!expired && link.last_error && <p className="small err" style={{ margin: 0 }}>{link.last_error}</p>}
+
+          <div className="gopt">
+            <div>
+              <b>{T("Promises → Google Tasks", "Ahadi → Google Tasks")}</b>
+              <span className="small muted">{T(`Each reminder you confirm becomes a task in the list "itaOS · ${ws.name}", and is ticked off when the customer pays or you close it. Google Tasks shows the day, not the time.`, `Kila kikumbusho unachothibitisha kinakuwa kazi kwenye orodha "itaOS · ${ws.name}", na kinatiwa tiki mteja akilipa au ukikifunga. Google Tasks inaonyesha siku, si saa.`)}{link.tasks_synced ? T(` ${link.tasks_synced} added so far.`, ` ${link.tasks_synced} zimeongezwa hadi sasa.`) : ""}</span>
+            </div>
+            {sw(link.tasks_on, () => save({ tasks_on: !link.tasks_on }, "tasks"), T("Promises to Google Tasks", "Ahadi kwenda Google Tasks"), "tasks")}
+          </div>
+
+          <div className="gopt">
+            <div>
+              <b>{T("Save contacts to Google", "Hifadhi majina Google")}</b>
+              <span className="small muted">{T(`Saved as "Name · ${ws.name.split(/\s+/)[0]} · Region" under the label itaOS. Numbers already in your Google contacts are left as they are.`, `Yanahifadhiwa kama "Jina · ${ws.name.split(/\s+/)[0]} · Mkoa" chini ya lebo itaOS. Namba zilizopo tayari kwenye Google zinaachwa kama zilivyo.`)}</span>
+              {link.contacts_on && <span className="small">{T(`${link.contacts_synced} saved`, `${link.contacts_synced} yamehifadhiwa`)}{link.contacts_skipped ? T(` · ${link.contacts_skipped} already in Google`, ` · ${link.contacts_skipped} yalikuwepo Google`) : ""}{waiting ? T(` · ${waiting} waiting (about 2,400 an hour)`, ` · ${waiting} yanasubiri (karibu 2,400 kwa saa)`) : ""}</span>}
+              {link.contacts_full && <span className="small err">{T("Google's limit of 25,000 contacts is reached, so itaOS stopped adding. Remove some contacts in Google to make room.", "Kikomo cha Google cha majina 25,000 kimefikiwa, itaOS imeacha kuongeza. Futa baadhi ya majina Google kupata nafasi.")}</span>}
+              {link.contacts_on && manage && (
+                <label className="small muted gwho">{T("Who to save", "Wahifadhiwe nani")}{" "}
+                  <select value={link.contacts_days} disabled={!!busy} onChange={(e) => save({ contacts_days: Number(e.target.value) }, "days")}>
+                    <option value={0}>{T("Paying buyers only", "Wanunuzi waliolipa tu")}</option>
+                    <option value={30}>{T("Buyers + chats from the last 30 days", "Wanunuzi + chat za siku 30")}</option>
+                    <option value={90}>{T("Buyers + chats from the last 90 days", "Wanunuzi + chat za siku 90")}</option>
+                  </select>
+                </label>
+              )}
+            </div>
+            {sw(link.contacts_on, () => save({ contacts_on: !link.contacts_on }, "contacts"), T("Save contacts to Google", "Hifadhi majina Google"), "contacts")}
+          </div>
+
+          {manage && <div><button className="linkish small" disabled={!!busy} onClick={disconnect}>{spin("disconnect")}{T("Disconnect Google", "Tenganisha Google")}</button></div>}
+        </div>
+      )}
     </section>
   );
 }
