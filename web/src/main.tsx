@@ -14,11 +14,13 @@ import "./island.css";   // always in the main stylesheet, loaded last so nothin
 import { startPwa } from "./pwa";
 import { startPullRefresh } from "./pullRefresh";
 import { startNoZoom } from "./noZoom";
+import { startChatReturn } from "./chatReturn";
 import { startGlassCards } from "./glassCards";
 
 startPwa();
 startPullRefresh();
 startNoZoom();
+startChatReturn();
 startGlassCards();
 
 // "/" is the public homepage; the app lives at "/app".

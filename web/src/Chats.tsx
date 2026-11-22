@@ -2,6 +2,7 @@
 // Each card answers three questions: who is this, where do things stand, and what should I do now.
 // The technical detail (which rule or Kito reading decided the label) is still there, tucked away.
 import { enterRows, usePageEnter, select } from "./motion";
+import { takeChatReturn } from "./chatReturn";
 import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, fmt, when, canEdit, canManage, money, localDay } from "./lib";
 import DateRange from "./DateRange";
@@ -62,6 +63,9 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const [boughtInRange, setBoughtInRange] = useState<number | null>(cached?.boughtInRange ?? null);
   const [limit, setLimit] = useState(PAGE);
   const [openId, setOpenId] = useState<string | null>(hashOpen());
+  // Opened from another page's "Open chat" link: the back arrow on that chat returns to that page.
+  const backTo = useRef<string | null>(ids ? takeChatReturn() : null);
+  const autoOpened = useRef<string | null>(null);
   // Search by name or phone, and an optional date range (own to this page; empty = all dates).
   const [qText, setQText] = useState("");
   const [search, setSearch] = useState("");
@@ -231,7 +235,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
       if (!cur) return;
       setPhones(Object.fromEntries((cts ?? []).map((x: any) => [x.id, x.wa_id])));
       setRows(list);
-      if (filter === "ids" && list.length && list.length <= 3) setOpenId((cur) => cur ?? list[0].id);
+      if (filter === "ids" && list.length && list.length <= 3) setOpenId((cur) => { if (!cur) autoOpened.current = list[0].id; return cur ?? list[0].id; });
       setAdNames(Object.fromEntries((a.data ?? []).map((x: any) => [x.ad_id, x.name])));
       setTasks(Object.fromEntries(((t.data ?? []) as Task[]).map((task) => [task.conversation_id, task])));
       setLoading(false); shownKey.current = viewKey;
@@ -443,7 +447,15 @@ export default function Chats({ ws }: { ws: Workspace }) {
           )}
         </div>
         {openRow && <ChatPane key={openRow.id} r={openRow} ws={ws} T={T} adName={openRow.ad_id ? adNames[openRow.ad_id] : undefined} phone={phoneOf(phones[openRow.contact_id])}
-          task={tasks[openRow.id]} onChange={refreshQuiet} onClose={() => setOpenId(null)} startConfirm={openConfirm} />}
+          task={tasks[openRow.id]} onChange={refreshQuiet} onClose={() => {
+            // Came here from Actions / After price / Kito …: go back to that page, not to the Chats list.
+            if (backTo.current && (autoOpened.current === openRow.id || (ids && ids.length === 1))) {
+              const to = backTo.current; backTo.current = null;
+              if (history.length > 1) history.back(); else location.hash = to;
+              return;
+            }
+            setOpenId(null);
+          }} startConfirm={openConfirm} />}
         {!openRow && (
           <div className="ib-empty" aria-hidden={false}>
             <KitoLogo size={44} />
