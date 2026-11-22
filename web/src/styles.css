@@ -1665,3 +1665,21 @@ nav.tabs.glass-tabs[data-tone] .more-menu a.more-item { color: var(--ink); }
 }
 .by-list-h{margin:0;padding:10px 12px 4px}
 h3.by-list-h{font-size:15px}
+
+/* Actions tabs: done-lists are Buyers rows that link to the chat; cards reuse the Promises card */
+a.by-row{color:inherit;text-decoration:none}
+.by-money .chip,.by-money .pill{margin:0}
+.by-list > .empty{margin:8px}
+.pcard .pc-open{font-weight:600;color:var(--accent-text);text-decoration:none}
+.pcard .pc-foot .pc-fields .pc-kind{flex:1 1 200px}
+/* Phones: nothing in the Actions cards or rows may run off the screen */
+.pcard, .pcard * { min-width: 0; }
+.pcard .pc-sum, .pcard .small, .by-phone { overflow-wrap: anywhere; }
+.pcard .pc-picks .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .pcard .pc-acts.wrap > button { flex: 1 1 calc(50% - 6px); justify-content: center; }
+  .pcard .pc-fields { flex-wrap: wrap; }
+  .pcard .pc-fields .pc-kind { flex: 1 1 100%; width: 100%; }
+  .by-money { max-width: 42vw; white-space: normal; }
+  .by-money .chip, .by-money .pill { white-space: nowrap; }
+}

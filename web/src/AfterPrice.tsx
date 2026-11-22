@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, L, ago } from "./lib";
 import { phoneOf } from "./chatParts";
 import { KitoLoader } from "./KitoLoader";
+import { avaText, DoneRow } from "./ActionBits";
 import { useKept } from "./keep";
 import { quietAfterPrice, contactedAfterPrice } from "./afterPrice";
 
@@ -37,21 +38,18 @@ export function AfterPriceList({ rows, tasks, ws, editor, onChange }: { rows: Ou
             "Wateja waliopata bei yako, hawajanunua na hawajaandika kwa siku moja au zaidi (siku 14 zilizopita). Wa moto kwanza. Muombe Kito ujumbe wa kufuatilia, utume kutoka WhatsApp, kisha bonyeza Nimetuma.")}</span></div>
         {todo.length === 0
           ? <div className="empty">{T("Nobody waiting on a follow-up. Customers appear here a day after they go quiet on your price.", "Hakuna anayesubiri kufuatiliwa. Wateja wanaonekana hapa siku moja baada ya kunyamaza kwenye bei yako.")}</div>
-          : <div className="queue">{todo.map(({ r, quietFor }) => <QuietCard key={r.id} r={r} quietDays={Math.max(1, Math.floor(quietFor / DAY))} phone={phoneOf(phones[r.contact_id])} ws={ws} editor={editor} T={T} onDone={onChange} />)}</div>}
+          : <div className="pgrid">{todo.map(({ r, quietFor }) => <QuietCard key={r.id} r={r} quietDays={Math.max(1, Math.floor(quietFor / DAY))} phone={phoneOf(phones[r.contact_id])} ws={ws} editor={editor} T={T} onDone={onChange} />)}</div>}
       </section>
       {done.length > 0 && (
-        <section className="card flat">
-          <div><h2>{T("Followed up", "Umewafuatilia")} ({done.length})</h2>
+        <section className="card by-list">
+          <div className="by-list-h"><h2 style={{ margin: 0 }}>{T("Followed up", "Umewafuatilia")} ({done.length})</h2>
             <span className="small muted">{T(`Last 14 days: ${replied} replied, ${bought} bought.`, `Siku 14 zilizopita: ${replied} wamejibu, ${bought} wamenunua.`)}</span></div>
-          <div className="queue">{done.map(({ r, t, replied, bought }) => (
-            <div className="qitem reorder done" key={t.id}>
-              <div><b>{r?.contact_name ?? T("Customer", "Mteja")}</b>
-                <div className="small muted">{T("Followed up", "Ulimfuatilia")} {ago(t.completed_at)}</div></div>
-              <div className="small">{bought ? <span className="chip ok">{T("Bought", "Amenunua")}</span>
-                : replied ? <span className="chip">{T("Replied", "Amejibu")}</span> : <span className="chip">{T("No reply yet", "Bado hajajibu")}</span>}</div>
-              <a className="small" href={"#chats/ids=" + t.conversation_id}>{T("Open chat →", "Fungua chat →")}</a>
-            </div>))}
-          </div>
+          {done.map(({ r, t, replied, bought }) => (
+            <DoneRow key={t.id} seed={t.conversation_id} name={r?.contact_name ?? T("Customer", "Mteja")} href={"#chats/ids=" + t.conversation_id}
+              sub={`${T("Followed up", "Ulimfuatilia")} ${ago(t.completed_at)}`}
+              right={bought ? <span className="chip ok">{T("Bought", "Amenunua")}</span>
+                : replied ? <span className="chip">{T("Replied", "Amejibu")}</span> : <span className="chip">{T("No reply yet", "Bado hajajibu")}</span>} />
+          ))}
         </section>
       )}
     </>
@@ -90,38 +88,42 @@ function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: Outcome;
   }
   const waHref = phone ? `https://wa.me/${phone}${d?.text ? "?text=" + encodeURIComponent(d.text) : ""}` : null;
 
+  const name = r.contact_name ?? T("Customer", "Mteja");
   return (
-    <div className="qitem reorder">
-      <div>
-        <b>{r.contact_name ?? T("Customer", "Mteja")}</b>
-        <div className="small" style={{ marginTop: 3 }}>
-          <span className="chip bad">{quietDays === 1 ? T("quiet 1 day", "kimya siku 1") : T(`quiet ${quietDays} days`, `kimya siku ${quietDays}`)}</span>
+    <div className={"pcard" + (doing ? " busy" : "")}>
+      <div className="pc-head">
+        <span className="pc-ava" aria-hidden>{avaText(name)}</span>
+        <div className="pc-who">
+          <b title={name}>{name}</b>
+          <span className="small muted">{quietDays === 1 ? T("quiet for 1 day after the price", "kimya siku 1 baada ya bei") : T(`quiet for ${quietDays} days after the price`, `kimya siku ${quietDays} baada ya bei`)}</span>
+        </div>
+        <div className="pc-chips">
           {r.kito_temp && <span className={"temp " + r.kito_temp}>{L[lang].temp[r.kito_temp]}</span>}
           {r.kito_blocker && r.kito_blocker !== "none" && <span className="chip">{L[lang].blocker[r.kito_blocker] ?? r.kito_blocker}</span>}
         </div>
-        {r.kito_summary && <div className="promise-quote">{r.kito_summary}</div>}
-        {r.kito_next && <div className="small muted">→ {r.kito_next}</div>}
-        <a className="small" href={"#chats/ids=" + r.id}>{T("Open chat →", "Fungua chat →")}</a>
       </div>
-      <div>
+      {r.kito_summary && <p className="pc-sum">{r.kito_summary}</p>}
+      {r.kito_next && <div className="small muted">→ {r.kito_next}</div>}
+      <a className="pc-open small" href={"#chats/ids=" + r.id}>{T("Open chat", "Fungua chat")} →</a>
+      <div className="pc-foot">
         <div className="draft-label">{T("Draft — not sent", "Rasimu — haijatumwa")}</div>
         <textarea value={d?.text ?? ""} disabled={!editor} onChange={(e) => setD({ text: e.target.value, why: d?.why ?? "", missing: d?.missing ?? [] })}
           placeholder={T("Ask Kito for a short follow-up based on this chat, or write your own.", "Muombe Kito ujumbe mfupi wa kufuatilia kutokana na chat hii, au andika wako.")} />
         {d?.why ? <div className="small muted">{d.why}</div> : null}
         {d?.missing?.length ? <div className="small warnt">{T("Fill in before sending:", "Jaza kabla ya kutuma:")} {d.missing.join(", ")}</div> : null}
-        {editor && <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-          <button className="small" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a follow-up", "Muombe Kito ujumbe")}</button>
-          <button className="small" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
-          {waHref && <button className={"small" + (d?.text ? " primary" : "")} onClick={() => window.open(waHref, "_blank", "noopener")} title={T("Opens the chat with the message filled in. You press send.", "Inafungua chat ikiwa na ujumbe tayari. Wewe unabonyeza tuma.")}>{T("Open in WhatsApp", "Fungua WhatsApp")}</button>}
+        {editor && <div className="pc-picks">
+          <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a follow-up", "Muombe Kito ujumbe")}</button>
+          <button className="pc-pick" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
+          {waHref && <button className="pc-pick" onClick={() => window.open(waHref, "_blank", "noopener")} title={T("Opens the chat with the message filled in. You press send.", "Inafungua chat ikiwa na ujumbe tayari. Wewe unabonyeza tuma.")}>{T("Open in WhatsApp", "Fungua WhatsApp")}</button>}
         </div>}
+        {editor && (
+          <div className="pc-acts">
+            <button className="linkish small" disabled={!!doing} onClick={() => record("dismissed")} title={T("Hide for 14 days", "Ficha kwa siku 14")}>{doing === "skip" && <span className="kito-spin sm" aria-hidden />}{T("Not now", "Si sasa")}</button>
+            <button className="primary" disabled={!!doing} onClick={() => record("done")} title={T("You sent a follow-up from WhatsApp", "Umetuma ujumbe kutoka WhatsApp")}>{doing === "sent" && <span className="kito-spin sm" aria-hidden />}{T("Sent", "Nimetuma")}</button>
+          </div>
+        )}
       </div>
-      {editor && (
-        <div className="promise-acts">
-          <button className="small primary" disabled={!!doing} onClick={() => record("done")} title={T("You sent a follow-up from WhatsApp", "Umetuma ujumbe kutoka WhatsApp")}>{doing === "sent" && <span className="kito-spin sm" aria-hidden />}{T("Sent", "Nimetuma")}</button>
-          <button className="linkish small" disabled={!!doing} onClick={() => record("dismissed")} title={T("Hide for 14 days", "Ficha kwa siku 14")}>{doing === "skip" && <span className="kito-spin sm" aria-hidden />}{T("Not now", "Si sasa")}</button>
-        </div>
-      )}
-      {msg && <div className={"small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")} style={{ gridColumn: "1 / -1" }}>{msg}</div>}
+      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
     </div>
   );
 }

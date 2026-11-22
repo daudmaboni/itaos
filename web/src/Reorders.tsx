@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, ago, money } from "./lib";
 import { KitoLoader } from "./KitoLoader";
+import { avaText, DoneRow } from "./ActionBits";
 import { useKept } from "./keep";
 
 type Row = {
@@ -45,22 +46,20 @@ export function ReorderList({ ws, editor, onCount }: { ws: Workspace; editor: bo
           <span className="small muted">{T("Customers whose last purchase was 45–120 days ago and who haven't bought since. Ask Kito for a message, send it from WhatsApp, then tap Sent.", "Wateja walionunua mara ya mwisho siku 45–120 zilizopita na hawajanunua tena. Muombe Kito ujumbe, utume kutoka WhatsApp, kisha bonyeza Nimetuma.")}</span></div>
         {err && <p className="err">{err}</p>}
         {todo.length === 0 ? <div className="empty">{T("Nobody to contact right now. Customers appear here 45 days after they buy.", "Hakuna wa kuwasiliana sasa. Wateja wanaonekana hapa siku 45 baada ya kununua.")}</div>
-          : <div className="queue">{todo.map((r) => <ReorderCard key={r.conversation_id} r={r} ws={ws} editor={editor} T={T} onDone={() => setTick((t) => t + 1)} />)}</div>}
+          : <div className="pgrid">{todo.map((r) => <ReorderCard key={r.conversation_id} r={r} ws={ws} editor={editor} T={T} onDone={() => setTick((t) => t + 1)} />)}</div>}
       </section>
       {done.length > 0 && (
-        <section className="card flat">
-          <div><h2>{T("Contacted", "Umewasiliana nao")} ({done.length})</h2>
+        <section className="card by-list">
+          <div className="by-list-h"><h2 style={{ margin: 0 }}>{T("Contacted", "Umewasiliana nao")} ({done.length})</h2>
             <span className="small muted">{T(`Last 45 days: ${replied} replied, ${back} bought again.`, `Siku 45 zilizopita: ${replied} wamejibu, ${back} wamenunua tena.`)}</span></div>
-          <div className="queue">{done.map((r) => (
-            <div className="qitem reorder done" key={r.conversation_id}>
-              <div><b>{r.contact_name ?? T("Customer", "Mteja")}</b>
-                <div className="small muted">{T("Contacted", "Ulimtumia")} {ago(r.contacted_at)} · {r.products ?? ""}</div></div>
-              <div className="small">{r.reordered
-                ? <span className="chip ok">{T("Bought again", "Amenunua tena")}{r.reorder_amount ? ` · ${money(r.reorder_amount, r.currency ?? ws.currency)}` : ""}</span>
-                : r.replied ? <span className="chip">{T("Replied", "Amejibu")}</span> : <span className="chip">{T("No reply yet", "Bado hajajibu")}</span>}</div>
-              <a className="small" href={"#chats/open=" + r.conversation_id}>{T("Open chat →", "Fungua chat →")}</a>
-            </div>))}
-          </div>
+          {done.map((r) => (
+            <DoneRow key={r.conversation_id} seed={r.conversation_id} name={r.contact_name ?? T("Customer", "Mteja")} href={"#chats/open=" + r.conversation_id}
+              sub={`${T("Contacted", "Ulimtumia")} ${ago(r.contacted_at)}`}
+              right={r.reordered
+                ? <><b>{r.reorder_amount ? money(r.reorder_amount, r.currency ?? ws.currency) : ""}</b><span className="chip ok">{T("Bought again", "Amenunua tena")}</span></>
+                : r.replied ? <span className="chip">{T("Replied", "Amejibu")}</span> : <span className="chip">{T("No reply yet", "Bado hajajibu")}</span>}
+              chips={r.products ? r.products.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 4).map((x, i) => <span key={i} className="chip">{x}</span>) : undefined} />
+          ))}
         </section>
       )}
     </>
@@ -98,36 +97,41 @@ function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspace; edit
     if (error) setMsg(error.message); else { setD(null); onDone(); }
   }
 
+  const name = r.contact_name ?? T("Customer", "Mteja");
+  const prods = (r.products ?? "").split(",").map((x) => x.trim()).filter(Boolean);
   return (
-    <div className="qitem reorder">
-      <div>
-        <b>{r.contact_name ?? T("Customer", "Mteja")}</b>
-        <div className="small" style={{ marginTop: 3 }}>
-          <span className="chip">{T(`${days} days ago`, `siku ${days} zilizopita`)}</span>
+    <div className={"pcard" + (doing ? " busy" : "")}>
+      <div className="pc-head">
+        <span className="pc-ava" aria-hidden>{avaText(name)}</span>
+        <div className="pc-who">
+          <b title={name}>{name}</b>
+          <span className="small muted">{T(`last bought ${days} days ago`, `alinunua mara ya mwisho siku ${days} zilizopita`)}</span>
+        </div>
+        <div className="pc-chips">
           {r.amount ? <span className="chip">{money(r.amount, r.currency ?? ws.currency)}</span> : null}
           {r.orders_count > 1 && <span className="chip ok">{T(`bought ${r.orders_count}×`, `amenunua mara ${r.orders_count}`)}</span>}
         </div>
-        {r.products && <div className="promise-quote">{r.products}</div>}
-        {r.last_message_at && <div className="small muted">{T("Last message", "Ujumbe wa mwisho")} {ago(r.last_message_at)}{r.last_dir === "in" ? T(" · from them", " · kutoka kwake") : ""}</div>}
-        <a className="small" href={"#chats/open=" + r.conversation_id}>{T("Open chat →", "Fungua chat →")}</a>
       </div>
-      <div>
+      {prods.length > 0 && <div className="pc-picks">{prods.map((x, i) => <span key={i} className="chip">{x}</span>)}</div>}
+      {r.last_message_at && <p className="pc-sum">{T("Last message", "Ujumbe wa mwisho")} {ago(r.last_message_at)}{r.last_dir === "in" ? T(" · from them", " · kutoka kwake") : ""}</p>}
+      <a className="pc-open small" href={"#chats/open=" + r.conversation_id}>{T("Open chat", "Fungua chat")} →</a>
+      <div className="pc-foot">
         <div className="draft-label">{T("Draft — not sent", "Rasimu — haijatumwa")}</div>
         <textarea value={d?.text ?? ""} disabled={!editor} onChange={(e) => setD({ text: e.target.value, why: d?.why ?? "", missing: d?.missing ?? [] })}
           placeholder={T("Ask Kito for a message that mentions what they bought, or write your own.", "Muombe Kito ujumbe unaotaja walichonunua, au andika wako.")} />
-        {d?.missing?.length ? <div className="small muted">{T("Fill in before sending:", "Jaza kabla ya kutuma:")} {d.missing.join(", ")}</div> : null}
-        {editor && <div className="row" style={{ gap: 6, marginTop: 6 }}>
-          <button className="small" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
-          <button className="small" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
+        {d?.missing?.length ? <div className="small warnt">{T("Fill in before sending:", "Jaza kabla ya kutuma:")} {d.missing.join(", ")}</div> : null}
+        {editor && <div className="pc-picks">
+          <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
+          <button className="pc-pick" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
         </div>}
+        {editor && (
+          <div className="pc-acts">
+            <button className="linkish small" disabled={!!doing} onClick={() => record("dismissed")} title={T("Hide for 60 days", "Ficha kwa siku 60")}>{doing === "skip" && <span className="kito-spin sm" aria-hidden />}{T("Not now", "Si sasa")}</button>
+            <button className="primary" disabled={!!doing} onClick={() => record("done")} title={T("You sent a message from WhatsApp", "Umetuma ujumbe kutoka WhatsApp")}>{doing === "sent" && <span className="kito-spin sm" aria-hidden />}{T("Sent", "Nimetuma")}</button>
+          </div>
+        )}
       </div>
-      {editor && (
-        <div className="promise-acts">
-          <button className="small primary" disabled={!!doing} onClick={() => record("done")} title={T("You sent a message from WhatsApp", "Umetuma ujumbe kutoka WhatsApp")}>{doing === "sent" && <span className="kito-spin sm" aria-hidden />}{T("Sent", "Nimetuma")}</button>
-          <button className="linkish small" disabled={!!doing} onClick={() => record("dismissed")} title={T("Hide for 60 days", "Ficha kwa siku 60")}>{doing === "skip" && <span className="kito-spin sm" aria-hidden />}{T("Not now", "Si sasa")}</button>
-        </div>
-      )}
-      {msg && <div className={"small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")} style={{ gridColumn: "1 / -1" }}>{msg}</div>}
+      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
     </div>
   );
 }

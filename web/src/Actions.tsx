@@ -8,6 +8,7 @@ import { KitoLoader } from "./KitoLoader";
 import { PromiseList, dueBucket } from "./Promises";
 import { ReorderList } from "./Reorders";
 import { AfterPriceList, afterPriceCount } from "./AfterPrice";
+import { avaText, DoneRow } from "./ActionBits";
 import { useKept, kept, put } from "./keep";
 
 type Member = { user_id: string; role: string; email: string };
@@ -90,7 +91,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
     return items.sort((a, b) => rank(a) - rank(b) || b.age - a.age);
   }, [rows, handled, ws.follow_up_hours]);
 
-  const pageRef = usePageEnter<HTMLDivElement>((root) => { if (loading) return; enterCards(select(root, ":scope > .card"), { stagger: 0.07 }); enterRows(select(root, ".qitem"), { delay: 0.25, stagger: 0.04 }); }, [loading, tab]);
+  const pageRef = usePageEnter<HTMLDivElement>((root) => { if (loading) return; enterCards(select(root, ":scope > .card"), { stagger: 0.07 }); enterRows(select(root, ".pcard, .by-item"), { delay: 0.25, stagger: 0.04 }); }, [loading, tab]);
 
   async function createTask(r: Outcome, reason: string) {
     const { error } = await supabase.from("follow_up_tasks").insert({
@@ -132,28 +133,30 @@ export default function Actions({ ws }: { ws: Workspace }) {
         <section className="card flat">
           <div><h2>{T("Needs a reply or a follow-up", "Inahitaji jibu au ufuatiliaji")}</h2><span className="small muted">{T(`Customer waiting for a reply, or a warm chat with no message from you for ${ws.follow_up_hours} hours. Buyers, lost chats and handled chats are excluded.`, `Mteja anasubiri jibu, au chat yenye nia bila ujumbe wako kwa saa ${ws.follow_up_hours}. Wanunuzi, waliopotea na zilizoshughulikiwa hazimo.`)}</span></div>
           {queue.length === 0 ? <div className="empty">{T("Nothing waiting. Nice.", "Hakuna anayesubiri. Safi.")}</div> : (
-            <div className="queue">{queue.map(({ r, reason, temp }) => (
-              <div className="qitem" key={r.id}>
-                <div>
-                  <b>{r.contact_name ?? T("Customer", "Mteja")}</b>
-                  <div className="small" style={{ marginTop: 3 }}>
-                    <span className={"chip " + (reason === "reply" ? "bad" : "")}>{reason === "reply" ? T("Customer is waiting", "Mteja anasubiri") : T("Follow-up due", "Ufuatiliaji umefika")}</span>
-                    {temp && <span className={"temp " + temp + (r.kito_temp ? "" : " guess")}>{L[lang].temp[temp]}</span>}
-                    {(r.kito_label ?? r.label) && <span className="chip">{L[lang].label[(r.kito_label ?? r.label)!]}</span>}
+            <div className="pgrid">{queue.map(({ r, reason, temp }) => {
+              const name = r.contact_name ?? T("Customer", "Mteja");
+              return (
+                <div className="pcard" key={r.id}>
+                  <div className="pc-head">
+                    <span className="pc-ava" aria-hidden>{avaText(name)}</span>
+                    <div className="pc-who">
+                      <b title={name}>{name}</b>
+                      <span className="small muted">{T("Last message", "Ujumbe wa mwisho")} {ago(r.last_message_at)}{r.last_dir === "in" ? T(" · from customer", " · kutoka mteja") : T(" · from you", " · kutoka kwako")}</span>
+                    </div>
+                    <div className="pc-chips">
+                      <span className={"chip " + (reason === "reply" ? "bad" : "")}>{reason === "reply" ? T("Customer is waiting", "Mteja anasubiri") : T("Follow-up due", "Ufuatiliaji umefika")}</span>
+                      {temp && <span className={"temp " + temp + (r.kito_temp ? "" : " guess")}>{L[lang].temp[temp]}</span>}
+                      {(r.kito_label ?? r.label) && <span className="chip">{L[lang].label[(r.kito_label ?? r.label)!]}</span>}
+                    </div>
                   </div>
-                  <div className="small muted" style={{ marginTop: 3 }}>{T("Last message", "Ujumbe wa mwisho")} {ago(r.last_message_at)}{r.last_dir === "in" ? T(" (from customer)", " (kutoka mteja)") : T(" (from you)", " (kutoka kwako)")}</div>
-                  <a className="small" href={"#chats/ids=" + r.id}>{T("Open chat →", "Fungua chat →")}</a>
+                  {r.kito_summary ? <p className="pc-sum">{r.kito_summary}</p> : <p className="pc-sum muted">{T("Kito has not read this chat yet.", "Kito bado hajasoma chat hii.")}</p>}
+                  {r.kito_next && <div className="small muted">→ {r.kito_next}</div>}
+                  {r.kito_blocker && r.kito_blocker !== "none" && <div className="small muted">{T("Blocker", "Kikwazo")}: {L[lang].blocker[r.kito_blocker] ?? r.kito_blocker}</div>}
+                  <a className="pc-open small" href={"#chats/ids=" + r.id}>{T("Open chat", "Fungua chat")} →</a>
+                  {editor ? <div className="pc-foot"><div className="pc-acts"><button className="primary" onClick={() => createTask(r, reason)}>{T("Take it", "Chukua")}</button></div></div> : <div style={{ height: 6 }} />}
                 </div>
-                <div className="small">
-                  {r.kito_summary ? <div>{r.kito_summary}</div> : <div className="muted">{T("Kito has not read this chat yet.", "Kito bado hajasoma chat hii.")}</div>}
-                  {r.kito_next && <div style={{ marginTop: 3 }}>→ {r.kito_next}</div>}
-                  {r.kito_blocker && <div className="muted" style={{ marginTop: 3 }}>{T("Blocker", "Kikwazo")}: {L[lang].blocker[r.kito_blocker] ?? r.kito_blocker}</div>}
-                </div>
-                <div className="row" style={{ gap: 6 }}>
-                  {editor && <button className="small primary" onClick={() => createTask(r, reason)}>{T("Take it", "Chukua")}</button>}
-                </div>
-              </div>
-            ))}</div>
+              );
+            })}</div>
           )}
         </section>
       )}
@@ -162,9 +165,9 @@ export default function Actions({ ws }: { ws: Workspace }) {
         <section className="card flat">
           <h2>{T("Open tasks", "Kazi zilizo wazi")}</h2>
           {open.length === 0 && snoozed.length === 0 ? <div className="empty">{T("No open tasks. Take one from the queue.", "Hakuna kazi wazi. Chukua moja kutoka foleni.")}</div> : (
-            <div className="queue">
+            <div className="pgrid">
               {open.map((t) => <TaskCard key={t.id} t={t} r={rows.find((x) => x.id === t.conversation_id)} ws={ws} members={members} me={me} editor={editor} onChange={refresh} />)}
-              {snoozed.length > 0 && <h3>{T("Snoozed", "Zimeahirishwa")}</h3>}
+              {snoozed.length > 0 && <h3 style={{ gridColumn: "1 / -1", margin: "8px 0 0" }}>{T("Snoozed", "Zimeahirishwa")}</h3>}
               {snoozed.map((t) => <TaskCard key={t.id} t={t} r={rows.find((x) => x.id === t.conversation_id)} ws={ws} members={members} me={me} editor={editor} onChange={refresh} />)}
             </div>
           )}
@@ -172,14 +175,15 @@ export default function Actions({ ws }: { ws: Workspace }) {
       )}
 
       {tab === "done" && (
-        <section className="card flat">
-          <h2>{T("Completed and dismissed", "Zilizokamilika na zilizoondolewa")}</h2>
-          {closed.length === 0 ? <div className="empty">{T("Nothing yet.", "Hakuna bado.")}</div> : (
-            <div className="scroll"><table>
-              <thead><tr><th>{T("Task", "Kazi")}</th><th>{T("Status", "Hali")}</th><th>{T("Closed", "Imefungwa")}</th><th>{T("Draft", "Rasimu")}</th></tr></thead>
-              <tbody>{closed.map((t) => <tr key={t.id}><td><a href={"#chats/ids=" + t.conversation_id}>{t.title}</a></td><td><span className={"pill " + (t.status === "done" ? "sold" : "lost")}>{t.status}</span></td><td className="small muted">{when(t.completed_at)}</td><td className="small muted">{t.draft_source ? `${t.draft_source}${t.draft_edited_at ? " · " + when(t.draft_edited_at) : ""}` : "–"}</td></tr>)}</tbody>
-            </table></div>
-          )}
+        <section className="card by-list">
+          <h2 className="by-list-h">{T("Completed and dismissed", "Zilizokamilika na zilizoondolewa")}</h2>
+          {closed.length === 0 ? <div className="empty">{T("Nothing yet.", "Hakuna bado.")}</div> : closed.map((t) => {
+            const r = rows.find((x) => x.id === t.conversation_id);
+            const name = r?.contact_name ?? t.title;
+            return <DoneRow key={t.id} seed={t.conversation_id} name={name} href={"#chats/ids=" + t.conversation_id}
+              sub={`${r?.contact_name ? t.title + " · " : ""}${T("closed", "imefungwa")} ${when(t.completed_at)}`}
+              right={<span className={"pill " + (t.status === "done" ? "sold" : "lost")}>{t.status === "done" ? T("Done", "Imekamilika") : T("Dismissed", "Imeondolewa")}</span>} />;
+          })}
         </section>
       )}
     </div>
@@ -229,25 +233,35 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
   const copy = async () => { try { await navigator.clipboard.writeText(draft); setErr(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setErr(T("Could not copy.", "Haikunakiliwa.")); } };
   const snoozeFor = (days: number) => patch({ status: "snoozed", snoozed_until: new Date(Date.now() + days * 864e5).toISOString() });
 
+  const name = r?.contact_name ?? t.title;
   return (
-    <div className="qitem">
-      <div>
-        <b>{t.title}</b>
-        <div className="small muted" style={{ marginTop: 3 }}>{t.status === "snoozed" ? `${T("snoozed until", "imeahirishwa hadi")} ${when(t.snoozed_until)}` : `${T("created", "imetengenezwa")} ${ago(t.created_at)}`} · {t.source === "queue" ? T("from queue", "kutoka foleni") : T("manual", "mkono")}</div>
-        {r && <div className="small" style={{ marginTop: 3 }}>{r.kito_summary ?? ""}</div>}
-        {!compact && <div className="small" style={{ marginTop: 4 }}><a href={"#chats/ids=" + t.conversation_id}>{T("Open chat →", "Fungua chat →")}</a> · <button className="small" style={{ padding: 0, border: 0, background: "none", color: "var(--accent)" }} onClick={showChat}>{msgs ? T("Hide last messages", "Ficha") : T("Last messages", "Ujumbe wa mwisho")}</button> · <button className="small" style={{ padding: 0, border: 0, background: "none", color: "var(--accent)" }} onClick={showHistory}>{history ? T("Hide history", "Ficha historia") : T("History", "Historia")}</button></div>}
-        {msgs && <div className="bubbles" style={{ maxHeight: 220 }}>{msgs.map((m) => <div key={m.id} className={"bub " + m.direction}><span className="t">{m.direction === "in" ? r?.contact_name ?? T("Customer", "Mteja") : ws.name} · {when(m.sent_at)}</span>{m.body ?? ""}</div>)}</div>}
-        {history && <div className="evidence">{history.length === 0 ? <span className="muted">–</span> : history.map((h, i) => <span key={i}><b>{h.action}</b> · {when(h.at)} {h.details ? <span className="muted">{JSON.stringify(h.details)}</span> : null}</span>)}</div>}
+    <div className={"pcard" + (busy ? " busy" : "")}>
+      <div className="pc-head">
+        <span className="pc-ava" aria-hidden>{avaText(name)}</span>
+        <div className="pc-who">
+          <b title={name}>{name}</b>
+          <span className="small muted">{r?.contact_name ? t.title + " · " : ""}{t.status === "snoozed" ? `${T("snoozed until", "imeahirishwa hadi")} ${when(t.snoozed_until)}` : `${T("created", "imetengenezwa")} ${ago(t.created_at)}`}</span>
+        </div>
+        <div className="pc-chips"><span className="chip">{t.source === "queue" ? T("from queue", "kutoka foleni") : T("manual", "mkono")}</span></div>
+      </div>
+      {r?.kito_summary && <p className="pc-sum">{r.kito_summary}</p>}
+      {!compact && <div className="small" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        <a className="pc-open" href={"#chats/ids=" + t.conversation_id}>{T("Open chat", "Fungua chat")} →</a>
+        <button className="linkish small" onClick={showChat}>{msgs ? T("Hide last messages", "Ficha") : T("Last messages", "Ujumbe wa mwisho")}</button>
+        <button className="linkish small" onClick={showHistory}>{history ? T("Hide history", "Ficha historia") : T("History", "Historia")}</button>
+      </div>}
+      {msgs && <div className="bubbles" style={{ maxHeight: 220 }}>{msgs.map((m) => <div key={m.id} className={"bub " + m.direction}><span className="t">{m.direction === "in" ? r?.contact_name ?? T("Customer", "Mteja") : ws.name} · {when(m.sent_at)}</span>{m.body ?? ""}</div>)}</div>}
+      {history && <div className="evidence">{history.length === 0 ? <span className="muted">–</span> : history.map((h, i) => <span key={i}><b>{h.action}</b> · {when(h.at)} {h.details ? <span className="muted">{JSON.stringify(h.details)}</span> : null}</span>)}</div>}
+      <div className="pc-foot">
         {editor && (
-          <label className="small muted" style={{ display: "block", marginTop: 6 }}>{T("Assigned to", "Imepewa")}
-            <select value={t.assigned_to ?? ""} disabled={busy} onChange={(e) => patch({ assigned_to: e.target.value || null })} style={{ marginLeft: 6, padding: "3px 8px" }}>
+          <div className="pc-fields">
+            <span className="small muted">{T("Assigned to", "Imepewa")}</span>
+            <select className="pc-kind" value={t.assigned_to ?? ""} disabled={busy} onChange={(e) => patch({ assigned_to: e.target.value || null })}>
               <option value="">{T("nobody", "hakuna")}</option>
               {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.email}{m.user_id === me ? T(" (me)", " (mimi)") : ""}</option>)}
             </select>
-          </label>
+          </div>
         )}
-      </div>
-      <div>
         <div className="draft-label">{T("Draft — not sent", "Rasimu — haijatumwa")}{t.draft_source ? ` · ${t.draft_source === "kito" ? T("written by Kito", "imeandikwa na Kito") : t.draft_source === "edited" ? T("edited by you", "imehaririwa na wewe") : T("written by you", "imeandikwa na wewe")}` : ""}</div>
         <textarea value={draft} disabled={!editor || busy} onChange={(e) => setDraft(e.target.value)} placeholder={T("Write the message you plan to send, or ask Kito for a draft.", "Andika ujumbe unaopanga kutuma, au muombe Kito rasimu.")} />
         {kito && (
@@ -260,22 +274,22 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
           </div>
         )}
         {editor && (
-          <div className="row" style={{ gap: 6, marginTop: 6 }}>
-            <button className="small" disabled={busy} onClick={askKito}>{asking ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
-            <button className="small" disabled={busy || draft === (t.draft ?? "")} onClick={() => patch({ draft: draft || null }, T("Draft saved.", "Rasimu imehifadhiwa."))}>{T("Save draft", "Hifadhi rasimu")}</button>
-            <button className="small" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
+          <div className="pc-picks">
+            <button className="pc-pick" disabled={busy} onClick={askKito}>{asking ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
+            <button className="pc-pick" disabled={busy || draft === (t.draft ?? "")} onClick={() => patch({ draft: draft || null }, T("Draft saved.", "Rasimu imehifadhiwa."))}>{T("Save draft", "Hifadhi rasimu")}</button>
+            <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
           </div>
         )}
-        {err && <div className={"small " + (/saved|Copied|Imenakiliwa|imehifadhiwa/.test(err) ? "ok" : "err")}>{err}</div>}
+        {editor && (
+          <div className="pc-acts wrap">
+            <button className="pc-pick" disabled={busy} onClick={() => patch({ status: "dismissed" })}>{T("Dismiss", "Ondoa")}</button>
+            <button className="pc-pick" disabled={busy} onClick={() => snoozeFor(1)}>{T("Snooze 1 day", "Ahirisha siku 1")}</button>
+            <button className="pc-pick" disabled={busy} onClick={() => snoozeFor(3)}>{T("Snooze 3 days", "Ahirisha siku 3")}</button>
+            <button className="primary" disabled={busy} onClick={() => patch({ status: "done" })}>{T("Done", "Imekamilika")}</button>
+          </div>
+        )}
       </div>
-      {editor && (
-        <div className="row" style={{ gap: 6, flexDirection: "column", alignItems: "stretch" }}>
-          <button className="small primary" disabled={busy} onClick={() => patch({ status: "done" })}>{T("Done", "Imekamilika")}</button>
-          <button className="small" disabled={busy} onClick={() => snoozeFor(1)}>{T("Snooze 1 day", "Ahirisha siku 1")}</button>
-          <button className="small" disabled={busy} onClick={() => snoozeFor(3)}>{T("Snooze 3 days", "Ahirisha siku 3")}</button>
-          <button className="small" disabled={busy} onClick={() => patch({ status: "dismissed" })}>{T("Dismiss", "Ondoa")}</button>
-        </div>
-      )}
+      {err && <div className={"pc-msg small " + (/saved|Copied|Imenakiliwa|imehifadhiwa/.test(err) ? "ok" : "err")}>{err}</div>}
     </div>
   );
 }
