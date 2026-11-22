@@ -67,6 +67,7 @@ type Link = {
   workspace_id: string; email: string | null; token_secret_id: string | null; status: string; tasks_on: boolean; tasklist_id: string | null;
   tasks_synced: number; contacts_on: boolean; contacts_days: number; contact_group: string | null; contacts_synced: number;
   contacts_skipped: number; contacts_full: boolean; contacts_checked_at: string | null; contacts_google_total: number | null;
+  buyers_group: string | null; leads_group: string | null;
 };
 
 const back = (q: string) => Response.redirect(`${APP}/app?google=${q}#connect`, 303);
@@ -93,12 +94,12 @@ Deno.serve(async (req) => {
         workspace_id: state.w, email, token_secret_id: secret, scopes: granted, status: "active", last_error: null,
         connected_by: state.u, connected_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         // A different Google account starts clean: new task list, new label, re-check existing contacts.
-        ...(sameAccount ? {} : { tasklist_id: null, contact_group: null, tasks_synced: 0, contacts_synced: 0, contacts_skipped: 0, contacts_full: false, contacts_checked_at: null }),
+        ...(sameAccount ? {} : { tasklist_id: null, contact_group: null, buyers_group: null, leads_group: null, tasks_synced: 0, contacts_synced: 0, contacts_skipped: 0, contacts_full: false, contacts_checked_at: null }),
       }, { onConflict: "workspace_id" });
       if (error) throw new Error(error.message);
       if (!sameAccount) {
         await db.from("follow_up_tasks").update({ google_task_id: null, google_synced_at: null }).eq("workspace_id", state.w).not("google_task_id", "is", null);
-        await db.from("contacts").update({ google_resource: null }).eq("workspace_id", state.w).not("google_resource", "is", null);
+        await db.from("contacts").update({ google_resource: null, google_kind: null }).eq("workspace_id", state.w).not("google_resource", "is", null);
       }
       // First sync right away (tasks first; contacts follow on the 5-minute job).
       // @ts-ignore EdgeRuntime is provided by Supabase
@@ -158,7 +159,9 @@ Deno.serve(async (req) => {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (typeof body.tasks_on === "boolean") patch.tasks_on = body.tasks_on;
     if (typeof body.contacts_on === "boolean") patch.contacts_on = body.contacts_on;
-    if (Number.isInteger(body.contacts_days) && body.contacts_days >= 0 && body.contacts_days <= 365) patch.contacts_days = body.contacts_days;
+    if (Number.isInteger(body.contacts_days) && body.contacts_days >= 0 && body.contacts_days <= 36500) patch.contacts_days = body.contacts_days;
+    // Widening who to save means more contacts to check against the owner's Google list: re-check on the next run.
+    if ("contacts_days" in patch || body.contacts_on === true) patch.contacts_checked_at = null;
     const { error } = await db.from("google_links").update(patch).eq("workspace_id", ws);
     if (error) return json({ error: error.message }, 500);
     // @ts-ignore EdgeRuntime is provided by Supabase
@@ -176,7 +179,7 @@ Deno.serve(async (req) => {
     // Tasks and contacts already in Google stay there (they're the owner's now); itaOS just stops syncing.
     await db.from("google_links").delete().eq("workspace_id", ws);
     await db.from("follow_up_tasks").update({ google_task_id: null, google_synced_at: null }).eq("workspace_id", ws).not("google_task_id", "is", null);
-    await db.from("contacts").update({ google_resource: null }).eq("workspace_id", ws).not("google_resource", "is", null);
+    await db.from("contacts").update({ google_resource: null, google_kind: null }).eq("workspace_id", ws).not("google_resource", "is", null);
     return json({ ok: true });
   }
 
@@ -287,21 +290,45 @@ async function syncTasks(db: ReturnType<typeof admin>, link: Link, token: string
 // ---------- Contacts → Google Contacts ----------
 const last9 = (p: string) => p.replace(/\D/g, "").slice(-9);
 
+/** Find or create a Google contact label by name; remembers it on google_links[col]. */
+async function ensureGroup(db: ReturnType<typeof admin>, ws: string, token: string, name: string, known: string | null, col: string) {
+  if (known) return known;
+  const gs = await gfetch(`${PEOPLE}/contactGroups?pageSize=1000`, token);
+  let rn: string | null = (gs.contactGroups ?? []).find((g: any) => g.groupType === "USER_CONTACT_GROUP" && g.name === name)?.resourceName ?? null;
+  if (!rn) rn = (await gfetch(`${PEOPLE}/contactGroups`, token, { method: "POST", body: JSON.stringify({ contactGroup: { name } }) })).resourceName;
+  await db.from("google_links").update({ [col]: rn }).eq("workspace_id", ws);
+  return rn as string;
+}
+
 async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: string, wsName: string) {
   const ws = link.workspace_id;
-  // 1. The "itaOS" label
-  let group = link.contact_group;
-  if (!group) {
-    const gs = await gfetch(`${PEOPLE}/contactGroups?pageSize=1000`, token);
-    group = (gs.contactGroups ?? []).find((g: any) => g.groupType === "USER_CONTACT_GROUP" && g.name === "itaOS")?.resourceName ?? null;
-    if (!group) group = (await gfetch(`${PEOPLE}/contactGroups`, token, { method: "POST", body: JSON.stringify({ contactGroup: { name: "itaOS" } }) })).resourceName;
-    await db.from("google_links").update({ contact_group: group }).eq("workspace_id", ws);
+  // 1. Labels: "itaOS" on every saved contact, plus "itaOS Buyers" (has paid) or "itaOS Leads" (everyone else).
+  const group = await ensureGroup(db, ws, token, "itaOS", link.contact_group, "contact_group");
+  const buyers = await ensureGroup(db, ws, token, "itaOS Buyers", link.buyers_group, "buyers_group");
+  const leads = await ensureGroup(db, ws, token, "itaOS Leads", link.leads_group, "leads_group");
+  const kindGroup = (k: string) => (k === "buyer" ? buyers : leads);
+
+  // 2. Keep Buyers / Leads right for contacts already saved (a lead who paid moves to Buyers). Up to 1,000 a run.
+  let relabelled = 0;
+  {
+    const { data: todo } = await db.rpc("svc_google_label_todo", { p_ws: ws, p_limit: 1000 });
+    const rows = (todo ?? []) as { id: string; resource: string; kind: "buyer" | "lead" }[];
+    for (const kind of ["buyer", "lead"] as const) {
+      const list = rows.filter((r) => r.kind === kind);
+      if (!list.length) continue;
+      const add = kindGroup(kind), remove = kindGroup(kind === "buyer" ? "lead" : "buyer");
+      const res = list.map((r) => r.resource);
+      await gfetch(`${PEOPLE}/${add}/members:modify`, token, { method: "POST", body: JSON.stringify({ resourceNamesToAdd: res }) });
+      await gfetch(`${PEOPLE}/${remove}/members:modify`, token, { method: "POST", body: JSON.stringify({ resourceNamesToRemove: res }) }).catch(() => {});
+      await db.rpc("svc_mark_google_kind", { p_ids: list.map((r) => r.id), p_kinds: list.map(() => kind) });
+      relabelled += list.length;
+    }
   }
 
-  // 2. Once a day: read the owner's Google contacts, so phones they already have are skipped, and count them.
+  // 3. Once a day: read the owner's Google contacts, so phones they already have are skipped, and count them.
   let total = link.contacts_google_total ?? 0;
   const stale = !link.contacts_checked_at || Date.now() - Date.parse(link.contacts_checked_at) > 24 * 3600e3;
-  if (link.contacts_full && !stale) return { created: 0, full: true, google_total: total };
+  if (link.contacts_full && !stale) return { created: 0, relabelled, full: true, google_total: total };
   if (stale) {
     const have = new Set<string>();
     let page = "";
@@ -312,41 +339,44 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
       page = r.nextPageToken ?? "";
       if (!page) break;
     }
-    // Mark waiting itaOS contacts whose phone the owner already has, so we never create a duplicate.
-    let skipped = 0;
-    for (let i = 0; i < 20; i++) {
-      const { data: todo } = await db.rpc("svc_google_contacts_todo", { p_ws: ws, p_days: link.contacts_days, p_limit: 1000 });
-      const dup = (todo ?? []).filter((c: any) => have.has(last9(c.wa_id)));
-      if (!dup.length) break;
-      await db.rpc("svc_mark_google_contacts", { p_ids: dup.map((c: any) => c.id), p_res: dup.map(() => "skip:existing") });
-      skipped += dup.length;
-      if ((todo ?? []).length < 1000) break;
+    // Mark every waiting itaOS contact whose phone the owner already has, so we never create a duplicate.
+    const { data: waiting } = await db.rpc("svc_google_contacts_todo", { p_ws: ws, p_days: link.contacts_days, p_limit: 50000 });
+    const dup = ((waiting ?? []) as any[]).filter((c) => have.has(last9(c.wa_id)));
+    for (let i = 0; i < dup.length; i += 1000) {
+      const part = dup.slice(i, i + 1000);
+      await db.rpc("svc_mark_google_contacts", { p_ids: part.map((c) => c.id), p_res: part.map(() => "skip:existing") });
     }
     const full = total >= GOOGLE_CAP;
-    await db.from("google_links").update({ contacts_checked_at: new Date().toISOString(), contacts_skipped: link.contacts_skipped + skipped, contacts_full: full, contacts_google_total: total }).eq("workspace_id", ws);
-    if (full) return { created: 0, skipped, full: true, google_total: total };
+    await db.from("google_links").update({ contacts_checked_at: new Date().toISOString(), contacts_skipped: link.contacts_skipped + dup.length, contacts_full: full, contacts_google_total: total }).eq("workspace_id", ws);
+    if (full) return { created: 0, relabelled, skipped: dup.length, full: true, google_total: total };
   }
 
-  // 3. Up to 200 new contacts per run (Google's batch size), buyers first.
+  // 4. Up to 200 new contacts per run (Google's batch size): buyers first, then the most recent chats.
   const room = GOOGLE_CAP - total;
   const { data: todo, error } = await db.rpc("svc_google_contacts_todo", { p_ws: ws, p_days: link.contacts_days, p_limit: Math.max(0, Math.min(200, room)) });
   if (error) throw new Error(error.message);
-  if (!todo?.length) return { created: 0 };
+  if (!todo?.length) return { created: 0, relabelled };
   const short = wsName.split(/\s+/)[0] || wsName;
   const people = (todo as any[]).map((c) => ({
     contactPerson: {
       names: [{ givenName: [c.full_name || c.name || "Customer", short, c.region].filter(Boolean).join(" · ").slice(0, 200) }],
       phoneNumbers: [{ value: "+" + String(c.wa_id).replace(/\D/g, ""), type: "mobile" }],
-      memberships: [{ contactGroupMembership: { contactGroupResourceName: group } }],
+      memberships: [
+        { contactGroupMembership: { contactGroupResourceName: group } },
+        { contactGroupMembership: { contactGroupResourceName: kindGroup(c.buyer ? "buyer" : "lead") } },
+      ],
     },
   }));
   const r = await gfetch(`${PEOPLE}/people:batchCreateContacts`, token, { method: "POST", body: JSON.stringify({ contacts: people, readMask: "names" }) });
   const made = (r.createdPeople ?? []) as { person?: { resourceName?: string } }[];
-  const ids: string[] = [], res: string[] = [];
-  (todo as any[]).forEach((c, i) => { const rn = made[i]?.person?.resourceName; if (rn) { ids.push(c.id); res.push(rn); } });
-  if (ids.length) await db.rpc("svc_mark_google_contacts", { p_ids: ids, p_res: res });
+  const ids: string[] = [], res: string[] = [], kinds: string[] = [];
+  (todo as any[]).forEach((c, i) => { const rn = made[i]?.person?.resourceName; if (rn) { ids.push(c.id); res.push(rn); kinds.push(c.buyer ? "buyer" : "lead"); } });
+  if (ids.length) {
+    await db.rpc("svc_mark_google_contacts", { p_ids: ids, p_res: res });
+    await db.rpc("svc_mark_google_kind", { p_ids: ids, p_kinds: kinds });
+  }
   const synced = link.contacts_synced + ids.length;
   total += ids.length;
   await db.from("google_links").update({ contacts_synced: synced, contacts_google_total: total, contacts_full: total >= GOOGLE_CAP }).eq("workspace_id", ws);
-  return { created: ids.length };
+  return { created: ids.length, relabelled };
 }

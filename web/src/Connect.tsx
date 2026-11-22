@@ -570,7 +570,7 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
           <div className="gopt">
             <div>
               <b>{T("Save contacts to Google", "Hifadhi majina Google")}</b>
-              <span className="small muted">{T(`Saved as "Name · ${ws.name.split(/\s+/)[0]} · Region" under the label itaOS. Numbers already in your Google contacts are left as they are.`, `Yanahifadhiwa kama "Jina · ${ws.name.split(/\s+/)[0]} · Mkoa" chini ya lebo itaOS. Namba zilizopo tayari kwenye Google zinaachwa kama zilivyo.`)}</span>
+              <span className="small muted">{T(`Saved as "Name · ${ws.name.split(/\s+/)[0]} · Region" under the label itaOS, and also "itaOS Buyers" (has paid) or "itaOS Leads" (hasn't paid yet). A lead who pays moves to Buyers by itself. Numbers already in your Google contacts are left as they are.`, `Yanahifadhiwa kama "Jina · ${ws.name.split(/\s+/)[0]} · Mkoa" chini ya lebo itaOS, pamoja na "itaOS Buyers" (amelipa) au "itaOS Leads" (bado hajalipa). Aliyekuwa lead akilipa anahamia Buyers mwenyewe. Namba zilizopo tayari kwenye Google zinaachwa kama zilivyo.`)}</span>
               <span className="ginfo small">
                 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
                 <span>{T("Google allows at most 25,000 contacts per account. If this Google account already has a lot of contacts, connect a separate Gmail just for itaOS (add it to the phone that runs WhatsApp so the names still show).", "Google inaruhusu majina 25,000 tu kwa kila akaunti. Kama akaunti hii ya Google tayari ina majina mengi, unganisha Gmail nyingine ya itaOS tu (iweke kwenye simu inayotumia WhatsApp ili majina yaonekane).")}</span>
@@ -599,8 +599,15 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
                     <option value={0}>{T("Paying buyers only", "Wanunuzi waliolipa tu")}</option>
                     <option value={30}>{T("Buyers + chats from the last 30 days", "Wanunuzi + chat za siku 30")}</option>
                     <option value={90}>{T("Buyers + chats from the last 90 days", "Wanunuzi + chat za siku 90")}</option>
+                    <option value={36500}>{T("Everyone who messaged on WhatsApp", "Kila aliyetuma ujumbe WhatsApp")}</option>
                   </select>
                 </label>
+              )}
+              {link.contacts_on && waiting != null && !link.contacts_full && (link.contacts_google_total ?? 0) + waiting > 24500 && (
+                <span className="finding warn small gfull">
+                  <b>{T("Not everyone will fit", "Si wote watatosha")}</b>
+                  <span>{T(`${fmtN(waiting)} contacts are waiting, but this Google account has room for about ${fmtN(Math.max(0, 24500 - (link.contacts_google_total ?? 0)))} more (Google's limit is 25,000). itaOS saves buyers first, then the most recent chats, and stops when it's full.`, `Majina ${fmtN(waiting)} yanasubiri, lakini akaunti hii ya Google ina nafasi ya karibu ${fmtN(Math.max(0, 24500 - (link.contacts_google_total ?? 0)))} tu (kikomo cha Google ni 25,000). itaOS inahifadhi wanunuzi kwanza, kisha chat za karibuni, na inasimama ikijaa.`)}</span>
+                </span>
               )}
             </div>
             {sw(link.contacts_on, () => save({ contacts_on: !link.contacts_on }, "contacts"), T("Save contacts to Google", "Hifadhi majina Google"), "contacts")}
