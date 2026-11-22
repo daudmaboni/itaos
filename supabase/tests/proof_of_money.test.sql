@@ -1,4 +1,4 @@
--- Money itaOS brought back (migration 0068): who gets flagged, the hidden comparison group, and the number.
+-- Money itaOS brought back, method v2 (migrations 0068 + 0070): who gets flagged, the customer-level trial, the number.
 \set ON_ERROR_STOP on
 \t on
 \pset footer off
@@ -22,12 +22,8 @@ insert into public.memberships(workspace_id, user_id, role) values ('10000000-00
 insert into public.workspace_admin_state(workspace_id, holdout_pct) values ('10000000-0000-0000-0000-0000000000e1', 0);
 
 -- ================= Finding slipping-away customers =================
--- s1: got a price, our message unanswered for 25 h  → after_price
--- s2: same but marked Not a customer               → never
--- s3: same but already paid                         → never
--- s4: customer wrote last (waiting for us)          → never
--- s5: bought 50 days ago, nothing since             → reorder
--- s6: Kito found a promise                          → promise
+-- s1 quiet after price → flagged · s2 not a customer, s3 already paid, s4 waiting for us → never
+-- s5 bought 50 days ago → reorder · s6 Kito promise → promise
 insert into public.contacts(id, workspace_id, wa_id, name, not_customer)
 select pg_temp.u('sc', i), '10000000-0000-0000-0000-0000000000e1', '2557000000' || i, 'Scan ' || i, i = 2 from generate_series(1, 6) i;
 insert into public.conversations(id, workspace_id, contact_id, phone_number_id, started_at, last_message_at, price_shared, last_dir, last_out_at)
@@ -47,9 +43,10 @@ select pg_temp.check_((select count(*) = 1 from public.atrisk_flags where conver
 select pg_temp.check_((select count(*) = 1 from public.atrisk_flags where task_id = pg_temp.u('st', 6) and kind = 'promise'), 'Kito promise is flagged');
 select private.atrisk_scan('10000000-0000-0000-0000-0000000000e1');
 select pg_temp.check_((select count(*) = 3 from public.atrisk_flags where workspace_id = '10000000-0000-0000-0000-0000000000e1'), 'scanning again adds nothing');
-select pg_temp.check_((select count(*) = 0 from public.atrisk_flags where workspace_id = '10000000-0000-0000-0000-0000000000e1' and holdout), 'holdout 0% keeps nobody aside');
+select pg_temp.check_((select count(*) = 0 from public.atrisk_assign where workspace_id = '10000000-0000-0000-0000-0000000000e1'), 'test switched off: nobody enters the trial');
 
--- Holdout at 20% over 200 fresh customers: some kept aside, never more than about a fifth, never the same person twice.
+-- ================= The customer-level, balanced trial =================
+-- 200 fresh after-price customers in one stratum at 20% → blocks of 5 → exactly 40 held.
 update public.workspace_admin_state set holdout_pct = 20 where workspace_id = '10000000-0000-0000-0000-0000000000e1';
 insert into public.contacts(id, workspace_id, wa_id, name)
 select pg_temp.u('hc', i), '10000000-0000-0000-0000-0000000000e1', '2557100' || i, 'H ' || i from generate_series(1, 200) i;
@@ -57,10 +54,24 @@ insert into public.conversations(id, workspace_id, contact_id, phone_number_id, 
 select pg_temp.u('hv', i), '10000000-0000-0000-0000-0000000000e1', pg_temp.u('hc', i), 'pn-e', now() - interval '5 days', now() - interval '25 hours',
        true, 'out', now() - interval '25 hours' from generate_series(1, 200) i;
 select private.atrisk_scan('10000000-0000-0000-0000-0000000000e1');
-select pg_temp.check_((select count(*) filter (where holdout) between 15 and 70 from public.atrisk_flags where conversation_id in (select pg_temp.u('hv', i) from generate_series(1, 200) i)), 'about 1 in 5 kept aside at 20%');
-select pg_temp.check_((select count(*) = count(distinct contact_id) from public.atrisk_flags where holdout), 'nobody kept aside twice');
+select pg_temp.check_((select count(*) = 200 and count(*) filter (where arm = 'hold') = 40 from public.atrisk_assign where workspace_id = '10000000-0000-0000-0000-0000000000e1'), 'balanced: exactly 1 in 5 held at 20%');
+select pg_temp.check_((select bool_and(f.holdout = (s.arm = 'hold')) from public.atrisk_assign s join public.atrisk_flags f on f.id = s.flag_id), 'held customers are hidden, shown ones are not');
+select pg_temp.check_((select count(distinct (cnt / 5)) = 40 from (select row_number() over (order by id) - 1 cnt, arm from public.atrisk_assign) b where arm = 'hold'), 'one held customer in every block of 5');
 
--- The owner sees which chats to leave out; outsiders don't.
+-- A held customer's next flag (another kind) is hidden too, with no second assignment; a shown customer stays shown.
+insert into public.orders(workspace_id, conversation_id, amount, currency, status, paid_at)
+select '10000000-0000-0000-0000-0000000000e1', c.id, 10000, 'TZS', 'paid', now() - interval '46 days'
+  from public.atrisk_assign s join public.conversations c on c.contact_id = s.contact_id
+ where s.id in ((select min(id) from public.atrisk_assign where arm = 'hold'), (select min(id) from public.atrisk_assign where arm = 'show'));
+update public.conversations set price_shared = false where contact_id in (select contact_id from public.atrisk_assign);
+select private.atrisk_scan('10000000-0000-0000-0000-0000000000e1');
+select pg_temp.check_((select count(*) = 200 from public.atrisk_assign), 'nobody is assigned twice');
+select pg_temp.check_((select f.holdout from public.atrisk_flags f where f.kind = 'reorder'
+                         and f.contact_id = (select contact_id from public.atrisk_assign where arm = 'hold' order by id limit 1)), 'held customer: the new reorder flag is hidden too');
+select pg_temp.check_((select not f.holdout from public.atrisk_flags f where f.kind = 'reorder'
+                         and f.contact_id = (select contact_id from public.atrisk_assign where arm = 'show' order by id limit 1)), 'shown customer: never moved to held');
+
+-- The owner gets the list of chats to leave out; outsiders and the raw tables are closed.
 create temp table hid (n bigint); grant all on hid to authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
 insert into hid select count(*) from public.atrisk_hidden('10000000-0000-0000-0000-0000000000e1');
@@ -74,70 +85,88 @@ do $$ begin
   exception when insufficient_privilege then null; end;
   reset role;
   perform pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
+  begin perform count(*) from public.atrisk_assign; raise exception 'FAIL: owner read the assignments';
+  exception when insufficient_privilege then null; end;
   begin perform count(*) from public.atrisk_flags; raise exception 'FAIL: owner read the raw log';
   exception when insufficient_privilege then null; end;
   reset role;
-  raise notice 'ok: outsiders and the raw log are closed';
+  raise notice 'ok: outsiders and the raw tables are closed';
 end $$;
 
 -- ================= The number =================
--- A clean business: 101 customers shown, 40 kept aside, all flagged 20 days ago (window closed 6 days ago).
---   shown 1–20   : messaged, replied, paid 40,000      → very likely
---   shown 21–25  : messaged, no reply, paid            → likely
---   shown 26–30  : never messaged, paid                → paid on their own (not credited)
---   shown 31–65  : messaged, didn't pay
---   shown 66–100 : nobody messaged, didn't pay         → money left on the table
---   shown 101    : came back through a new ad, paid    → the ad's credit
---   kept aside   : 4 of 40 paid
-insert into public.workspaces(id, name, currency) values ('10000000-0000-0000-0000-0000000000f1', 'Numbers Shop', 'TZS');
-insert into public.memberships(workspace_id, user_id, role) values ('10000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000e1', 'owner');
-insert into public.workspace_admin_state(workspace_id, price_month) values ('10000000-0000-0000-0000-0000000000f1', 100000);
-insert into public.contacts(id, workspace_id, wa_id, name)
-select pg_temp.u('nc', i), '10000000-0000-0000-0000-0000000000f1', '2557200' || i, 'N ' || i from generate_series(1, 141) i;
-insert into public.conversations(id, workspace_id, contact_id, phone_number_id, started_at, last_message_at, last_dir)
-select pg_temp.u('nv', i), '10000000-0000-0000-0000-0000000000f1', pg_temp.u('nc', i), 'pn-f', now() - interval '25 days', now() - interval '10 days', 'in'
-  from generate_series(1, 141) i;
-insert into public.atrisk_flags(workspace_id, conversation_id, contact_id, kind, flagged_at, until_at, holdout)
-select '10000000-0000-0000-0000-0000000000f1', pg_temp.u('nv', i), pg_temp.u('nc', i), 'after_price', now() - interval '20 days', now() - interval '6 days', i > 101
-  from generate_series(1, 141) i;
--- owner messages
-insert into public.messages(id, workspace_id, conversation_id, direction, origin, sent_at, type, body)
-select 'out-' || i, '10000000-0000-0000-0000-0000000000f1', pg_temp.u('nv', i), 'out', 'app_echo', now() - interval '19 days', 'text', 'Habari'
-  from generate_series(1, 65) i where i <= 25 or i > 30;
--- customer replies
-insert into public.messages(id, workspace_id, conversation_id, direction, origin, sent_at, type, body)
-select 'in-' || i, '10000000-0000-0000-0000-0000000000f1', pg_temp.u('nv', i), 'in', 'webhook', now() - interval '18 days', 'text', 'Sawa'
-  from generate_series(1, 20) i;
--- the ad click
-insert into public.messages(id, workspace_id, conversation_id, direction, origin, sent_at, type, body, raw)
-values ('ad-101', '10000000-0000-0000-0000-0000000000f1', pg_temp.u('nv', 101), 'in', 'webhook', now() - interval '18 days', 'text', 'Bei?', '{"referral": {"source_type": "ad"}}');
--- payments
+-- Windows opened 20 days ago and closed 6 days ago.
+create function pg_temp.trial(ws uuid, n_show int, k_show int, n_hold int, k_hold int, n_msg_hold int) returns void language plpgsql as $$
+declare i int;
+begin
+  insert into public.workspaces(id, name, currency) values (ws, 'Trial ' || ws, 'TZS');
+  insert into public.memberships(workspace_id, user_id, role) values (ws, '00000000-0000-0000-0000-0000000000e1', 'owner');
+  for i in 1 .. n_show + n_hold loop
+    insert into public.contacts(id, workspace_id, wa_id, name) values (pg_temp.u(ws::text || 'c', i), ws, '255' || i, 'T ' || i);
+    insert into public.conversations(id, workspace_id, contact_id, phone_number_id, started_at, last_message_at)
+    values (pg_temp.u(ws::text || 'v', i), ws, pg_temp.u(ws::text || 'c', i), 'pn', now() - interval '30 days', now() - interval '10 days');
+    insert into public.atrisk_assign(workspace_id, contact_id, version, arm, stratum, pct, kind, assigned_at, until_at)
+    values (ws, pg_temp.u(ws::text || 'c', i), 'v2', case when i <= n_show then 'show' else 'hold' end, 'after_price:warm', 10, 'after_price',
+            now() - interval '20 days', now() - interval '6 days');
+    if (i <= k_show) or (i > n_show and i <= n_show + k_hold) then
+      insert into public.orders(workspace_id, conversation_id, amount, currency, status, paid_at)
+      values (ws, pg_temp.u(ws::text || 'v', i), 40000, 'TZS', 'paid', now() - interval '15 days');
+    end if;
+    if i > n_show + n_hold - n_msg_hold then
+      insert into public.messages(id, workspace_id, conversation_id, direction, origin, sent_at, type, body)
+      values ('m' || ws || i, ws, pg_temp.u(ws::text || 'v', i), 'out', 'app_echo', now() - interval '19 days', 'text', 'Habari');
+    end if;
+  end loop;
+end $$;
+create temp table r (k text, j jsonb); grant all on r to authenticated;
+-- clear:    120 shown, 36 bought (30%) · 40 held, 4 bought (10%), 3 held messaged anyway
+-- unsure:   30% vs 25%
+-- learning: only 10 held
+select pg_temp.trial('10000000-0000-0000-0000-0000000000f1', 120, 36, 40, 4, 3);
+select pg_temp.trial('10000000-0000-0000-0000-0000000000f2', 120, 36, 40, 10, 0);
+select pg_temp.trial('10000000-0000-0000-0000-0000000000f3', 120, 36, 10, 1, 0);
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
+insert into r select 'clear',    public.recovered_sales('10000000-0000-0000-0000-0000000000f1', current_date - 29, current_date);
+insert into r select 'unsure',   public.recovered_sales('10000000-0000-0000-0000-0000000000f2', current_date - 29, current_date);
+insert into r select 'learning', public.recovered_sales('10000000-0000-0000-0000-0000000000f3', current_date - 29, current_date);
+reset role;
+
+select pg_temp.check_((select (j->'trial'->'show'->>'n')::int = 120 and (j->'trial'->'show'->>'bought')::int = 36
+                          and (j->'trial'->'hold'->>'n')::int = 40 and (j->'trial'->'hold'->>'bought')::int = 4 from r where k = 'clear'), 'groups counted per customer');
+select pg_temp.check_((select (j->'trial'->'hold'->>'contaminated')::int = 3 from r where k = 'clear'), 'held customers messaged anyway stay held and are reported');
+-- Wilson 36/120 ≈ 22.5–38.8%; 4/40 ≈ 4.0–23.1%
+select pg_temp.check_((select round((j->'trial'->'show'->>'rate_lo')::numeric, 3) = 0.225 and round((j->'trial'->'hold'->>'rate_hi')::numeric, 3) = 0.231 from r where k = 'clear'), 'Wilson intervals');
+select pg_temp.check_((select (j->'trial'->>'diff_lo')::numeric between 0.04 and 0.06 from r where k = 'clear'), 'Newcombe lower bound above zero');
+select pg_temp.check_((select j->>'status' = 'clear' from r where k = 'clear'), 'clear when the whole range is above zero');
+-- per customer: 36×40,000/120 − 4×40,000/40 = 12,000 − 4,000 = 8,000 × 120 shown = 960,000
+select pg_temp.check_((select (j->'trial'->>'extra')::numeric = 960000 from r where k = 'clear'), 'extra = revenue per customer difference × shown customers');
+select pg_temp.check_((select (j->'trial'->>'extra_lo')::numeric < 960000 and (j->'trial'->>'extra_hi')::numeric > 960000 from r where k = 'clear'), 'with a range');
+select pg_temp.check_((select j->>'status' = 'estimate' and (j->'trial'->>'diff_lo')::numeric < 0 from r where k = 'unsure'), '30% vs 25%: an estimate that could still be zero');
+select pg_temp.check_((select j->>'status' = 'learning' from r where k = 'learning'), 'only 10 held: still learning');
+select pg_temp.check_((select j->>'version' = 'v2' from r where k = 'clear'), 'method version reported');
+
+-- ================= Sales after follow-ups (observational, never added to the trial number) =================
+-- j1 messaged + replied + paid · j2 messaged + paid · j3 paid without a message · j4 came back through a new ad · j5 nobody messaged, no sale
+insert into public.workspaces(id, name, currency) values ('10000000-0000-0000-0000-0000000000f9', 'Journeys', 'TZS');
+insert into public.memberships(workspace_id, user_id, role) values ('10000000-0000-0000-0000-0000000000f9', '00000000-0000-0000-0000-0000000000e1', 'owner');
+insert into public.contacts(id, workspace_id, wa_id, name) select pg_temp.u('jc', i), '10000000-0000-0000-0000-0000000000f9', '2558' || i, 'J ' || i from generate_series(1, 5) i;
+insert into public.conversations(id, workspace_id, contact_id, phone_number_id, started_at, last_message_at)
+select pg_temp.u('jv', i), '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jc', i), 'pn', now() - interval '30 days', now() - interval '5 days' from generate_series(1, 5) i;
+insert into public.atrisk_flags(workspace_id, conversation_id, contact_id, kind, flagged_at, until_at)
+select '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jv', i), pg_temp.u('jc', i), 'after_price', now() - interval '20 days', now() - interval '6 days' from generate_series(1, 5) i;
+insert into public.messages(id, workspace_id, conversation_id, direction, origin, sent_at, type, body, raw) values
+  ('jo1', '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jv', 1), 'out', 'app_echo', now() - interval '19 days', 'text', 'Habari', null),
+  ('ji1', '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jv', 1), 'in', 'webhook', now() - interval '18 days', 'text', 'Sawa', null),
+  ('jo2', '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jv', 2), 'out', 'itaos', now() - interval '19 days', 'text', 'Habari', null),
+  ('ja4', '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jv', 4), 'in', 'webhook', now() - interval '18 days', 'text', 'Bei?', '{"referral": {"source_type": "ad"}}');
 insert into public.orders(workspace_id, conversation_id, amount, currency, status, paid_at)
-select '10000000-0000-0000-0000-0000000000f1', pg_temp.u('nv', i), 40000, 'TZS', 'paid', now() - interval '15 days'
-  from generate_series(1, 145) i where i <= 30 or i = 101 or i between 102 and 105;
-
+select '10000000-0000-0000-0000-0000000000f9', pg_temp.u('jv', i), 40000, 'TZS', 'paid', now() - interval '15 days' from generate_series(1, 4) i;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
-create temp table r as select public.recovered_sales('10000000-0000-0000-0000-0000000000f1', current_date - 29, current_date) j;
+insert into r select 'journeys', public.recovered_sales('10000000-0000-0000-0000-0000000000f9', current_date - 29, current_date);
 reset role;
-select pg_temp.check_((select (j->'proof'->>'ready')::boolean and (j->'proof'->>'shown_n')::int = 101 and (j->'proof'->>'hidden_n')::int = 40
-                         and (j->'proof'->>'shown_paid')::int = 30 and (j->'proof'->>'hidden_paid')::int = 4 from r), 'comparison groups counted right (ad sale not counted as paid)');
-select pg_temp.check_((select j->>'method' = 'proven' from r), 'enough kept aside: the number is proven');
--- (30/101 - 4/40) × 101 shown × 40,000 = (0.29703 - 0.1) × 101 × 40,000 ≈ 796,000
-select pg_temp.check_((select (j->>'headline')::numeric between 795000 and 797000 from r), 'proven extra ≈ 796,000');
-select pg_temp.check_((select (j->>'headline_low')::numeric < (j->>'headline')::numeric and (j->>'headline_high')::numeric > (j->>'headline')::numeric from r), 'range around it');
-select pg_temp.check_((select (j->'tiers'->'very_likely'->>'orders')::int = 20 and (j->'tiers'->'very_likely'->>'amount')::numeric = 800000 from r), '20 very likely (messaged, replied, paid)');
-select pg_temp.check_((select (j->'tiers'->'likely'->>'orders')::int = 5 from r), '5 likely (messaged, paid)');
-select pg_temp.check_((select (j->'tiers'->'on_own'->>'orders')::int = 5 from r), '5 paid on their own, not credited');
-select pg_temp.check_((select (j->'tiers'->'ad'->>'orders')::int = 1 from r), 'the ad gets its sale');
-select pg_temp.check_((select (j->>'orders')::int = 25 and jsonb_array_length(j->'items') = 31 from r), 'every sale listed with its level');
-select pg_temp.check_((select (j->'left'->>'ignored')::int = 35 and (j->'left'->>'amount')::numeric > 0 from r), '35 nobody messaged, with money left on the table');
-select pg_temp.check_((select (j->>'price_month')::numeric = 100000 from r), 'cost carried for the comparison');
-
--- Too few kept aside: falls back to the evidence level, never a made-up proof.
-delete from public.atrisk_flags where workspace_id = '10000000-0000-0000-0000-0000000000f1' and holdout and conversation_id not in (select pg_temp.u('nv', i) from generate_series(102, 111) i);
-select pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
-select pg_temp.check_((select j->>'method' = 'evidence' and (j->>'headline')::numeric = 800000
-                         from (select public.recovered_sales('10000000-0000-0000-0000-0000000000f1', current_date - 29, current_date) j) x), 'not enough kept aside yet: shows the very-likely sales only');
-reset role;
+select pg_temp.check_((select (j->'tiers'->'very_likely'->>'orders')::int = 1 and (j->'tiers'->'likely'->>'orders')::int = 1
+                          and (j->'tiers'->'on_own'->>'orders')::int = 1 and (j->'tiers'->'ad'->>'orders')::int = 1 from r where k = 'journeys'), 'each sale gets its level');
+select pg_temp.check_((select (j->'recorded'->>'amount')::numeric = 80000 from r where k = 'journeys'), 'sales after follow-up = messaged and paid only');
+select pg_temp.check_((select (j->>'no_message')::int = 1 from r where k = 'journeys'), 'flagged customers nobody messaged are counted, not priced');
+select pg_temp.check_((select j->>'status' = 'learning' and (j->'trial'->'show'->>'n')::int = 0 from r where k = 'journeys'), 'journeys never feed the trial number');
 
 rollback;

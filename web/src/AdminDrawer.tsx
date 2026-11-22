@@ -382,8 +382,9 @@ export function DualhookSetup({ supabase, id, hasDualhook, linked, keySaved, onC
 
 // "Money itaOS brought back" proof (migrations 0068/0069): the share of slipping-away customers kept aside
 // (not shown to the owner) so itaOS can prove what it adds, and how far the proof has come.
-type Holdout = { pct: number; flags: number; by_kind: Record<string, number>; kept_aside_now: number;
-  shown_settled: number; shown_paid: number; hidden_settled: number; hidden_paid: number; last_flag: string | null };
+type Holdout = { version?: string; pct: number; flags: number; by_kind: Record<string, number>; assigned?: number; kept_aside_now: number;
+  shown_settled: number; shown_paid: number; shown_messaged?: number; hidden_settled: number; hidden_paid: number; contaminated?: number;
+  strata?: Record<string, { show: number; hold: number }>; last_flag: string | null };
 const PCTS = [0, 5, 10, 15, 20];
 function ProofTest({ supabase, id, onChanged }: { supabase: SupabaseClient; id: string; onChanged: () => void }) {
   const [h, setH] = useState<Holdout | null>(null);
@@ -418,14 +419,22 @@ function ProofTest({ supabase, id, onChanged }: { supabase: SupabaseClient; id: 
         <div>
           <div className="ia-row"><div><strong>Slipping-away customers logged (120 days)</strong>
             <small className="ia-faint">{Object.entries(h.by_kind).map(([k, n]) => `${k.replace('_', ' ')} ${n}`).join(' · ') || 'none yet'}</small></div><b>{h.flags}</b></div>
+          <div className="ia-row"><span>Customers in the trial ({h.version ?? 'v2'})</span><b>{h.assigned ?? 0}</b></div>
           <div className="ia-row"><span>Kept aside right now</span><b>{h.kept_aside_now}</b></div>
           <div className="ia-row"><span>Shown, settled → paid</span><b>{h.shown_paid}/{h.shown_settled} ({rate(h.shown_paid, h.shown_settled)})</b></div>
           <div className="ia-row"><span>Kept aside, settled → paid</span><b>{h.hidden_paid}/{h.hidden_settled} ({rate(h.hidden_paid, h.hidden_settled)})</b></div>
-          <div className="ia-row"><span>Proof progress</span>
-            <b>{h.hidden_settled >= 30 && h.shown_settled >= 100 ? 'Proven ✓' : `${Math.min(h.hidden_settled, 30)}/30 kept aside · ${Math.min(h.shown_settled, 100)}/100 shown`}</b></div>
+          <div className="ia-row"><span>Owner messaged shown customers</span><b>{h.shown_messaged ?? 0}/{h.shown_settled} ({rate(h.shown_messaged ?? 0, h.shown_settled)})</b></div>
+          <div className="ia-row"><div><strong>Kept aside but messaged anyway</strong><small className="ia-faint">Stays in its group (fair comparison); above ~15% the difference gets washed out.</small></div>
+            <b className={h.hidden_settled > 0 && (h.contaminated ?? 0) / h.hidden_settled > 0.15 ? 'ia-bad' : ''}>{h.contaminated ?? 0}/{h.hidden_settled} ({rate(h.contaminated ?? 0, h.hidden_settled)})</b></div>
+          <div className="ia-row"><span>Enough to compare</span>
+            <b>{h.hidden_settled >= 30 && h.shown_settled >= 100 ? 'Yes — the Home card shows the estimate' : `${Math.min(h.hidden_settled, 30)}/30 kept aside · ${Math.min(h.shown_settled, 100)}/100 shown`}</b></div>
+          {h.strata && Object.keys(h.strata).length > 0 && (
+            <div className="ia-row"><div><strong>Balance by type × temperature</strong>
+              <small className="ia-faint">{Object.entries(h.strata).map(([k, v]) => `${k.replace('_', ' ')} ${v.show}/${v.hold}`).join(' · ')} (shown/kept aside)</small></div></div>
+          )}
         </div>
         {msg && <span className={msg.ok ? 'ia-ok' : 'ia-bad'} role="status">{msg.text}</span>}
-        <p className="ia-faint small">Settled = paid, or their window closed. A change only affects customers flagged from now on. Higher % proves it sooner but hides more customers from the owner; 10% is the usual balance. Off stops the proof: the Home card then shows only the very-likely sales.</p>
+        <p className="ia-faint small">Each customer is assigned once (shown or kept aside), evenly within each flag type × temperature, and compared when their window closes. "Clearly above zero" needs the whole 95% range of the difference above zero. A change only affects customers assigned from now on. Higher % gets an answer sooner but hides more customers from the owner: 10% is the default, 20% while learning on a busy shop. Off stops the comparison; the Home card then shows "sales after your follow-ups", labelled as not proof.</p>
       </>)}
     </section>
   );
