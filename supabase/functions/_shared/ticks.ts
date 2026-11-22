@@ -9,9 +9,9 @@
 //      else the last price the business sent that customer in the last 30 days. No amount → no order.
 //   In the customer's own chat, either form counts only when the customer sent a payment message or
 //   screenshot in the 3 days before the ✅ (so "175,000✅ ndio bei yetu" is not recorded as a sale).
-//   Exception: a bare "price ✅" ("TZS 205,000✅", nothing else) when itaOS saw NO message from the
-//   customer in those 3 days — they paid by phone, in cash or in a chat from before the number was
-//   connected, so your ✅ is the only record. It counts, with a note saying so.
+//   Exception: a bare "price ✅" ("TZS 205,000✅", nothing else) always counts, even with no screenshot —
+//   the customer paid at the office, in cash, or the owner checked the wallet — so your ✅ is the
+//   record. It counts, with a note saying so.
 //
 // Checks so the same money never counts twice:
 //   - one order per ✅ message (its id is kept in the order's notes);
@@ -171,9 +171,13 @@ export async function confirmTicks(db: SupabaseClient, conversationId: string, m
     // in the 3 days before ("175,000✅ ndio bei yetu" is a price, not a payment). Forwarded dispatcher
     // messages that name the customer's number keep working without it (pay on delivery, cash).
     if (!other && ev.note.startsWith("⚠ No payment")) {
-      // A bare "price ✅" with no customer messages at all to check it against: trust the owner.
-      if (t.kind !== "price" || !bareTick(t.body) || sawCustomer(targetMsgs, t.sentAt)) continue;
-      ev.note = "⚠ itaOS saw no messages from the customer before your ✅ (paid by phone, cash or an older chat?), so it was counted on your ✅ alone.";
+      // A bare "price ✅" (nothing else in the message) is the owner saying "I have the money" — they paid
+      // at the office, in cash, or the owner checked the wallet — so it counts even with no screenshot.
+      // Anything with more words around the price ("175,000✅ ndio bei yetu") still needs proof first.
+      if (t.kind !== "price" || !bareTick(t.body)) continue;
+      ev.note = sawCustomer(targetMsgs, t.sentAt)
+        ? "No screenshot from the customer (paid at the office, cash or checked in your wallet?), so it was counted on your ✅ alone."
+        : "⚠ itaOS saw no messages from the customer before your ✅ (paid by phone, cash or an older chat?), so it was counted on your ✅ alone.";
     }
     const amount = t.amount ?? ev.receiptAmount ?? (target ? lastPriceBefore(targetMsgs, t.sentAt) : null);
     if (amount == null) continue;   // nothing says how much: left for the owner to confirm
