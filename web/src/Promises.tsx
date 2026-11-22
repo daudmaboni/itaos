@@ -36,6 +36,15 @@ export function dueBucket(t: Task, now = Date.now()): "overdue" | "today" | "upc
   return d < today ? "overdue" : d === today ? "today" : "upcoming";
 }
 
+/** Google Calendar "add event" link, filled in: no Google login on our side, the owner just presses Save.
+ *  30 minutes at the promise time, with what the customer said and a link back to the chat. */
+export function gcalUrl(o: { title: string; at: string; details: string }) {
+  const start = new Date(o.at), end = new Date(start.getTime() + 30 * 60e3);
+  const z = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const q = new URLSearchParams({ action: "TEMPLATE", text: o.title, dates: `${z(start)}/${z(end)}`, details: o.details, ctz: "Africa/Dar_es_Salaam" });
+  return "https://calendar.google.com/calendar/render?" + q.toString();
+}
+
 export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outcome; ws: Workspace; editor: boolean; onChange: () => void | Promise<void> }) {
   const sw = ws.language === "sw";
   const T = (en: string, s: string) => (sw ? s : en);
@@ -140,6 +149,15 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
           {editor && <div className="pc-picks">
             <button className="pc-pick" disabled={writing} onClick={askKito}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
             <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
+            {at && <a className="pc-pick gcal" target="_blank" rel="noopener noreferrer" title={T("Opens Google Calendar with this reminder filled in. Press Save there.", "Inafungua Google Calendar ikiwa na kikumbusho hiki. Bonyeza Save huko.")}
+              href={gcalUrl({
+                title: `${name} — ${kindLabel(t.kind, sw)} · ${ws.name}`,
+                at,
+                details: [t.promise_text ? `“${t.promise_text}”` : "", r?.kito_summary ?? "", `${T("Open the chat in itaOS", "Fungua chat kwenye itaOS")}: https://itaos.app/#chats/open=${t.conversation_id}`].filter(Boolean).join("\n\n"),
+              })}>
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M12 14v4M10 16h4" /></svg>
+              {T("Add to Google Calendar", "Weka Google Calendar")}
+            </a>}
           </div>}
           {moving && editor && (
             <div className="pc-fields">

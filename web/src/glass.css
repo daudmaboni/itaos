@@ -380,3 +380,5 @@ html.glass-lite :is(.card, .kpi):not(.chats) { -webkit-backdrop-filter: none; ba
   .pc-acts { justify-content: space-between; }
   .pcard .pc-acts:not(.wrap) button.primary { flex: 1; }
 }
+.pcard a.pc-pick { text-decoration: none; }
+.pcard a.pc-pick.gcal svg { color: #1a73e8; flex: none; }
