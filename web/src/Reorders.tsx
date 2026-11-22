@@ -1,11 +1,12 @@
 // Reorders (Step 3): customers who bought 45–120 days ago and haven't bought since. Kito writes a short
-// "how are you getting on / want more?" draft; the owner copies it and sends it from WhatsApp themselves
-// (itaOS never sends). "Sent" records the contact so itaOS can show who replied and who bought again.
+// "how are you getting on / want more?" draft; the owner copies it and sends it from WhatsApp themselves,
+// or taps "Send from itaOS" (the approved reorder template, since these are always past the 24 hours). "Sent" records the contact so itaOS can show who replied and who bought again.
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, ago, money } from "./lib";
 import { KitoLoader } from "./KitoLoader";
 import { avaText, DoneRow } from "./ActionBits";
 import { useKept } from "./keep";
+import { SendNow } from "./SendNow";
 
 type Row = {
   conversation_id: string; contact_name: string | null; last_paid_at: string; products: string | null; amount: number | null;
@@ -84,13 +85,13 @@ function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspace; edit
     setWriting(false);
   }
   const copy = async () => { try { await navigator.clipboard.writeText(d?.text ?? ""); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } };
-  async function record(status: "done" | "dismissed") {
+  async function record(status: "done" | "dismissed", sentText?: string) {
     setDoing(status === "done" ? "sent" : "skip"); setMsg("");
     const now = new Date().toISOString();
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("follow_up_tasks").insert({
       workspace_id: ws.id, conversation_id: r.conversation_id, source: "reorder", status,
-      title: T("Reorder check-in", "Kumkumbusha kununua tena"), draft: d?.text ?? null, draft_source: d ? "kito" : null,
+      title: T("Reorder check-in", "Kumkumbusha kununua tena"), draft: sentText ?? d?.text ?? null, draft_source: sentText && sentText !== d?.text ? "edited" : d ? "kito" : null,
       result: status === "done" ? "called" : "not_interested", completed_at: now, due_at: now, created_by: u.user?.id ?? null,
     });
     setDoing("");
@@ -123,6 +124,7 @@ function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspace; edit
         {editor && <div className="pc-picks">
           <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
           <button className="pc-pick" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
+          <SendNow ws={ws} conversationId={r.conversation_id} purpose="reorder" draft={d?.text} name={r.contact_name} product={r.products} T={T} onSent={(txt) => record("done", txt)} />
         </div>}
         {editor && (
           <div className="pc-acts">

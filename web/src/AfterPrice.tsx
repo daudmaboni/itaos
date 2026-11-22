@@ -1,6 +1,7 @@
 // Went quiet after the price (Actions → After price): customers who got a price, didn't buy and
 // haven't written for a day or more. Kito writes a gentle follow-up; the owner opens WhatsApp with
-// the message filled in and sends it themselves (itaOS never sends). "Sent" records it, so the list
+// the message filled in and sends it themselves, or taps "Send from itaOS" (SendNow: the draft inside
+// WhatsApp's 24 hours, the approved template after). "Sent" records it, so the list
 // can show who replied and who bought afterwards.
 import { useEffect, useMemo, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, L, ago } from "./lib";
@@ -9,6 +10,7 @@ import { KitoLoader } from "./KitoLoader";
 import { avaText, DoneRow } from "./ActionBits";
 import { useKept } from "./keep";
 import { quietAfterPrice, contactedAfterPrice } from "./afterPrice";
+import { SendNow } from "./SendNow";
 
 type Draft = { text: string; why: string; missing: string[] };
 const DAY = 864e5;
@@ -74,13 +76,13 @@ function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: Outcome;
     setWriting(false);
   }
   const copy = async () => { try { await navigator.clipboard.writeText(d?.text ?? ""); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } };
-  async function record(status: "done" | "dismissed") {
+  async function record(status: "done" | "dismissed", sentText?: string) {
     setDoing(status === "done" ? "sent" : "skip"); setMsg("");
     const now = new Date().toISOString();
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("follow_up_tasks").insert({
       workspace_id: ws.id, conversation_id: r.id, source: "after_price", status,
-      title: T("Follow-up after the price", "Ufuatiliaji baada ya bei"), draft: d?.text ?? null, draft_source: d ? "kito" : null,
+      title: T("Follow-up after the price", "Ufuatiliaji baada ya bei"), draft: sentText ?? d?.text ?? null, draft_source: sentText && sentText !== d?.text ? "edited" : d ? "kito" : null,
       result: status === "done" ? "called" : "not_interested", completed_at: now, due_at: now, created_by: u.user?.id ?? null,
     });
     if (error) { setDoing(""); setMsg(/check constraint/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message); return; }
@@ -114,6 +116,7 @@ function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: Outcome;
         {editor && <div className="pc-picks">
           <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a follow-up", "Muombe Kito ujumbe")}</button>
           <button className="pc-pick" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
+          <SendNow ws={ws} conversationId={r.id} purpose="after_price" draft={d?.text} name={r.contact_name} T={T} onSent={(txt) => record("done", txt)} />
           {waHref && <button className="pc-pick" onClick={() => window.open(waHref, "_blank", "noopener")} title={T("Opens the chat with the message filled in. You press send.", "Inafungua chat ikiwa na ujumbe tayari. Wewe unabonyeza tuma.")}>{T("Open in WhatsApp", "Fungua WhatsApp")}</button>}
         </div>}
         {editor && (

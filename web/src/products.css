@@ -111,3 +111,16 @@
   .products .hero .row > .primary { margin-left: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .prod-cover img { transition: none; } }
+
+/* Send from itaOS (SendNow.tsx) and Settings → Messages after 24 hours (Templates.tsx). Thin dividers, no boxes. */
+.sendnow { display: contents; }
+.sendnow .sn-confirm { flex-basis: 100%; display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.sendnow .sn-preview { margin: 0; white-space: pre-wrap; font-size: 14px; quotes: "“" "”"; }
+.sendnow .sn-preview::before { content: open-quote; } .sendnow .sn-preview::after { content: close-quote; }
+.sendnow .err { flex-basis: 100%; }
+.tpl .tpl-slot { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.tpl .tpl-item { display: grid; gap: 6px; }
+.tpl .tpl-body { margin: 0; white-space: pre-wrap; font-size: 14px; }
+.tpl .tpl-edit { display: grid; gap: 8px; }
+.tpl .tpl-edit textarea { width: 100%; max-width: 620px; font-family: inherit; }
+.tpl .chip.bad { color: var(--bad); }

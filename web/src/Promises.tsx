@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, ago, when } from "./lib";
 import { KitoLoader } from "./KitoLoader";
+import { SendNow } from "./SendNow";
 import { toLocalInput, fromLocalInput } from "./Orders";
 
 type Kind = NonNullable<Task["kind"]>;
@@ -151,6 +152,8 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
           {editor && <div className="pc-picks">
             <button className="pc-pick" disabled={writing} onClick={askKito}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
             <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
+            <SendNow ws={ws} conversationId={t.conversation_id} purpose="promise" draft={draft} name={r?.contact_name} T={T}
+              onSent={(txt) => patch("called", { status: "done", result: "called", draft: txt }, T("Sent from your WhatsApp number.", "Imetumwa kutoka namba yako ya WhatsApp."))} />
             {at && <a className="pc-pick gcal" target="_blank" rel="noopener noreferrer" title={T("Opens Google Calendar with this reminder filled in. Press Save there.", "Inafungua Google Calendar ikiwa na kikumbusho hiki. Bonyeza Save huko.")}
               href={gcalUrl({
                 title: `${name} — ${kindLabel(t.kind, sw)} · ${ws.name}`,
@@ -178,7 +181,7 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
           )}
         </div>
       )}
-      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
+      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa|Sent from|Imetumwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
     </div>
   );
 }
