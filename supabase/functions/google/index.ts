@@ -66,7 +66,7 @@ async function tokenCall(params: Record<string, string>) {
 type Link = {
   workspace_id: string; email: string | null; token_secret_id: string | null; status: string; tasks_on: boolean; tasklist_id: string | null;
   tasks_synced: number; contacts_on: boolean; contacts_days: number; contact_group: string | null; contacts_synced: number;
-  contacts_skipped: number; contacts_full: boolean; contacts_checked_at: string | null;
+  contacts_skipped: number; contacts_full: boolean; contacts_checked_at: string | null; contacts_google_total: number | null;
 };
 
 const back = (q: string) => Response.redirect(`${APP}/app?google=${q}#connect`, 303);
@@ -208,7 +208,8 @@ async function syncOne(db: ReturnType<typeof admin>, ws: string, what: { tasks: 
   if (what.tasks && link.tasks_on) {
     try { out.tasks = await syncTasks(db, link, token, name, sw); } catch (e) { lastError = "Tasks: " + String((e as Error).message).slice(0, 250); }
   }
-  if (what.contacts && link.contacts_on && !link.contacts_full) {
+  // A full Google account is still re-checked once a day, so it resumes if the owner makes room.
+  if (what.contacts && link.contacts_on) {
     try { out.contacts = await syncContacts(db, link, token, name); } catch (e) { lastError = (lastError ? lastError + " · " : "") + "Contacts: " + String((e as Error).message).slice(0, 250); }
   }
   await db.from("google_links").update({ last_sync_at: new Date().toISOString(), last_error: lastError, updated_at: new Date().toISOString() }).eq("workspace_id", ws);
@@ -298,8 +299,9 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
   }
 
   // 2. Once a day: read the owner's Google contacts, so phones they already have are skipped, and count them.
-  let total = 0;
+  let total = link.contacts_google_total ?? 0;
   const stale = !link.contacts_checked_at || Date.now() - Date.parse(link.contacts_checked_at) > 24 * 3600e3;
+  if (link.contacts_full && !stale) return { created: 0, full: true, google_total: total };
   if (stale) {
     const have = new Set<string>();
     let page = "";
@@ -321,12 +323,12 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
       if ((todo ?? []).length < 1000) break;
     }
     const full = total >= GOOGLE_CAP;
-    await db.from("google_links").update({ contacts_checked_at: new Date().toISOString(), contacts_skipped: link.contacts_skipped + skipped, contacts_full: full }).eq("workspace_id", ws);
-    if (full) return { created: 0, skipped, full: true };
+    await db.from("google_links").update({ contacts_checked_at: new Date().toISOString(), contacts_skipped: link.contacts_skipped + skipped, contacts_full: full, contacts_google_total: total }).eq("workspace_id", ws);
+    if (full) return { created: 0, skipped, full: true, google_total: total };
   }
 
   // 3. Up to 200 new contacts per run (Google's batch size), buyers first.
-  const room = GOOGLE_CAP - Math.max(total, link.contacts_synced);
+  const room = GOOGLE_CAP - total;
   const { data: todo, error } = await db.rpc("svc_google_contacts_todo", { p_ws: ws, p_days: link.contacts_days, p_limit: Math.max(0, Math.min(200, room)) });
   if (error) throw new Error(error.message);
   if (!todo?.length) return { created: 0 };
@@ -344,6 +346,7 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
   (todo as any[]).forEach((c, i) => { const rn = made[i]?.person?.resourceName; if (rn) { ids.push(c.id); res.push(rn); } });
   if (ids.length) await db.rpc("svc_mark_google_contacts", { p_ids: ids, p_res: res });
   const synced = link.contacts_synced + ids.length;
-  await db.from("google_links").update({ contacts_synced: synced, contacts_full: Math.max(total, synced) >= GOOGLE_CAP }).eq("workspace_id", ws);
+  total += ids.length;
+  await db.from("google_links").update({ contacts_synced: synced, contacts_google_total: total, contacts_full: total >= GOOGLE_CAP }).eq("workspace_id", ws);
   return { created: ids.length };
 }

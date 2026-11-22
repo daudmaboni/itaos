@@ -471,7 +471,8 @@ function SalesToMeta({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => 
 /** Google (Contacts + Tasks) for this business: one Google account, two switches. The sign-in happens on
  *  Google's page and comes back to #connect with ?google=ok|cancelled|partial|norefresh|error. */
 type GLink = { email: string | null; status: string; last_error: string | null; last_sync_at: string | null; connected_at: string;
-  tasks_on: boolean; tasks_synced: number; contacts_on: boolean; contacts_days: number; contacts_synced: number; contacts_skipped: number; contacts_full: boolean };
+  tasks_on: boolean; tasks_synced: number; contacts_on: boolean; contacts_days: number; contacts_synced: number; contacts_skipped: number; contacts_full: boolean; contacts_google_total: number | null };
+const fmtN = (n: number) => n.toLocaleString("en-US");
 function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => string }) {
   const [ready, setReady] = useState<boolean | null>(null);
   const [link, setLink] = useState<GLink | null | undefined>(undefined);
@@ -489,7 +490,7 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
   });
   const manage = canManage(ws);
   const load = () => {
-    supabase.from("google_links").select("email,status,last_error,last_sync_at,connected_at,tasks_on,tasks_synced,contacts_on,contacts_days,contacts_synced,contacts_skipped,contacts_full")
+    supabase.from("google_links").select("email,status,last_error,last_sync_at,connected_at,tasks_on,tasks_synced,contacts_on,contacts_days,contacts_synced,contacts_skipped,contacts_full,contacts_google_total")
       .eq("workspace_id", ws.id).maybeSingle().then(({ data }) => setLink((data as GLink) ?? null));
     supabase.rpc("google_contacts_waiting", { p_ws: ws.id }).then(({ data }) => setWaiting(typeof data === "number" ? data : null));
   };
@@ -554,7 +555,6 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
           <div className="row between" style={{ gap: 10, flexWrap: "wrap" }}>
             <span><span className={"status-dot " + (ok ? "on" : "err")} /> <b>{link.email ?? T("Google account", "Akaunti ya Google")}</b>
               <span className="small muted">{link.last_sync_at ? T(` · synced ${ago(link.last_sync_at)}`, ` · imesawazishwa ${ago(link.last_sync_at)}`) : T(" · waiting for the first sync", " · inasubiri usawazishaji wa kwanza")}</span></span>
-            {manage && !expired && <button className="small" disabled={!!busy} onClick={syncNow}>{spin("sync")}{T("Sync now", "Sawazisha sasa")}</button>}
           </div>
           {expired && <div className="finding bad small"><b>{T("Google sign-in expired.", "Muunganisho wa Google umeisha.")}</b> {T("Nothing is being added to Google until you reconnect.", "Hakuna kinachoongezwa Google mpaka uunganishe tena.")} {manage && ready && <button className="small primary" disabled={!!busy} onClick={connect} style={{ marginLeft: 6 }}>{spin("connect")}{T("Reconnect", "Unganisha tena")}</button>}</div>}
           {!expired && link.last_error && <p className="small err" style={{ margin: 0 }}>{link.last_error}</p>}
@@ -572,7 +572,13 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
               <b>{T("Save contacts to Google", "Hifadhi majina Google")}</b>
               <span className="small muted">{T(`Saved as "Name · ${ws.name.split(/\s+/)[0]} · Region" under the label itaOS. Numbers already in your Google contacts are left as they are.`, `Yanahifadhiwa kama "Jina · ${ws.name.split(/\s+/)[0]} · Mkoa" chini ya lebo itaOS. Namba zilizopo tayari kwenye Google zinaachwa kama zilivyo.`)}</span>
               {link.contacts_on && <span className="small">{T(`${link.contacts_synced} saved`, `${link.contacts_synced} yamehifadhiwa`)}{link.contacts_skipped ? T(` · ${link.contacts_skipped} already in Google`, ` · ${link.contacts_skipped} yalikuwepo Google`) : ""}{waiting ? T(` · ${waiting} waiting (about 2,400 an hour)`, ` · ${waiting} yanasubiri (karibu 2,400 kwa saa)`) : ""}</span>}
-              {link.contacts_full && <span className="small err">{T("Google's limit of 25,000 contacts is reached, so itaOS stopped adding. Remove some contacts in Google to make room.", "Kikomo cha Google cha majina 25,000 kimefikiwa, itaOS imeacha kuongeza. Futa baadhi ya majina Google kupata nafasi.")}</span>}
+              {link.contacts_on && link.contacts_full && (
+                <div className="finding warn small gfull">
+                  <b>{T(`${link.email ?? "This Google account"} is full`, `${link.email ?? "Akaunti hii ya Google"} imejaa`)}</b>
+                  <span>{T(`It already has ${link.contacts_google_total ? fmtN(link.contacts_google_total) : "about 25,000"} contacts, and Google allows 25,000 per account, so itaOS can't add more.${waiting ? ` ${waiting} buyer${waiting === 1 ? "" : "s"} still need${waiting === 1 ? "s" : ""} saving.` : ""}`, `Tayari ina majina ${link.contacts_google_total ? fmtN(link.contacts_google_total) : "karibu 25,000"}, na Google inaruhusu 25,000 kwa akaunti, kwa hiyo itaOS haiwezi kuongeza.${waiting ? ` Wanunuzi ${waiting} bado hawajahifadhiwa.` : ""}`)}</span>
+                  <span>{T("Fix it by either: deleting old contacts you don't need in Google Contacts (itaOS checks again every day and carries on), or disconnecting and connecting a different Google account that has room, e.g. a new Gmail just for the business.", "Rekebisha kwa: kufuta majina ya zamani usiyoyahitaji kwenye Google Contacts (itaOS inaangalia tena kila siku na kuendelea), au kutenganisha na kuunganisha akaunti nyingine ya Google yenye nafasi, mfano Gmail mpya ya biashara.")}</span>
+                </div>
+              )}
               {link.contacts_on && manage && (
                 <label className="small muted gwho">{T("Who to save", "Wahifadhiwe nani")}{" "}
                   <select value={link.contacts_days} disabled={!!busy} onChange={(e) => save({ contacts_days: Number(e.target.value) }, "days")}>
@@ -586,7 +592,12 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
             {sw(link.contacts_on, () => save({ contacts_on: !link.contacts_on }, "contacts"), T("Save contacts to Google", "Hifadhi majina Google"), "contacts")}
           </div>
 
-          {manage && <div><button className="linkish small" disabled={!!busy} onClick={disconnect}>{spin("disconnect")}{T("Disconnect Google", "Tenganisha Google")}</button></div>}
+          {manage && (
+            <div className="gacts">
+              {!expired && <button className="small" disabled={!!busy} onClick={syncNow}>{spin("sync")}{busy === "sync" ? T("Syncing…", "Inasawazisha…") : T("Sync now", "Sawazisha sasa")}</button>}
+              <button className="linkish small" disabled={!!busy} onClick={disconnect}>{spin("disconnect")}{T("Disconnect Google", "Tenganisha Google")}</button>
+            </div>
+          )}
         </div>
       )}
     </section>
