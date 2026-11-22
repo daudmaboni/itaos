@@ -132,7 +132,9 @@ Deno.serve(async (req) => {
         const said = t.promise_text ? ` · “${String(t.promise_text).slice(0, 90)}”` : "";
         rung += await deliver(db, subs, {
           title: (t.kind ? (sw ? "Ahadi imefika: " : "Promise due: ") : (sw ? "Kazi imefika: " : "Task due: ") ) + who,
-          body: `${t.title}${said}`, url: "/app#actions", tag: "task-" + t.id,
+          // A promise opens its own card, where Kito writes the message to send (Promises.tsx).
+          body: `${t.title}${said}${t.kind ? (sw ? " · Gusa: Kito ataandika ujumbe" : " · Tap: Kito writes the message") : ""}`,
+          url: t.kind ? `/app#actions/tab=promises&task=${t.id}` : "/app#actions", tag: "task-" + t.id,
         });
       }
       await db.from("follow_up_tasks").update({ notified_at: now.toISOString() }).eq("id", t.id).is("notified_at", null);

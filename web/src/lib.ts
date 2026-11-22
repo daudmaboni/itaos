@@ -64,6 +64,8 @@ export type Task = {
   // Ahadi (customer promises Kito found; migration 0046)
   kind?: "pay" | "call" | "collect" | "come_back" | "other" | null; promise_text?: string | null; when_text?: string | null;
   promise_at?: string | null; needs_date?: boolean; result?: "paid" | "called" | "no_answer" | "postponed" | "not_interested" | "other" | null;
+  // 0072: closed by itaOS because a payment showed up in the chat; when the owner asked for a day
+  auto_closed?: "receipt" | "customer_said_paid" | "owner_confirmed" | null; asked_at?: string | null;
 };
 
 export type AdPerf = {

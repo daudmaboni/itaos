@@ -2,13 +2,32 @@
 // Kito only PROPOSES; the owner confirms the day (or picks one) or dismisses. Confirmed promises ring the
 // phone when due (push-send, migration 0046). itaOS never messages the customer: drafts are copied and
 // sent by the owner from WhatsApp. A recorded paid order closes the chat's promises automatically.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, ago, when } from "./lib";
 import { KitoLoader } from "./KitoLoader";
 import { SendNow } from "./SendNow";
 import { toLocalInput, fromLocalInput } from "./Orders";
 
 type Kind = NonNullable<Task["kind"]>;
+/** Kept vs broken per customer (promise_record, migration 0072). */
+export type Record_ = { kept: number; broken: number; days: number; contacts: { contact_id: string; conversation_ids: string[]; kept: number; broken: number; name: string }[] };
+
+function firstName(s: string | null | undefined) {
+  const head = String(s ?? "").split(/[·|•,(]/)[0].trim();
+  const w = head.split(/\s+/).find((x) => /^[\p{L}'’]{2,}$/u.test(x));
+  return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : null;
+}
+/** The question for a customer who gave no clear time: asks for a day and an hour, so their answer becomes a reminder. */
+export function askDayText(kind: Task["kind"], name: string | null | undefined, sw: boolean) {
+  const n = firstName(name);
+  const hi = sw ? (n ? `Habari ${n}` : "Habari") : (n ? `Hi ${n}` : "Hi");
+  switch (kind) {
+    case "pay": return sw ? `${hi}, asante sana 🙏 Utaweza kulipia lini ili nikuandalie mzigo wako? Niambie siku na saa.` : `${hi}, thank you 🙏 When will you be able to pay, so I can get your order ready? Just tell me the day and time.`;
+    case "call": return sw ? `${hi}, nikupigie lini? Niambie siku na saa inayokufaa.` : `${hi}, when should I call you? Tell me a day and time that suits you.`;
+    case "collect": return sw ? `${hi}, utapita siku gani ili tukuandalie mzigo? Niambie siku na saa.` : `${hi}, which day will you come by, so we can have it ready? Tell me the day and time.`;
+    default: return sw ? `${hi}, tukutafute lini tena? Niambie siku na saa inayokufaa.` : `${hi}, when should we get back to you? Tell me a day and time that suits you.`;
+  }
+}
 const KINDS: Kind[] = ["pay", "call", "collect", "come_back", "other"];
 const DAY = 864e5;
 
@@ -46,7 +65,9 @@ export function gcalUrl(o: { title: string; at: string; details: string }) {
   return "https://calendar.google.com/calendar/render?" + q.toString();
 }
 
-export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outcome; ws: Workspace; editor: boolean; onChange: () => void | Promise<void> }) {
+export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Task; r?: Outcome; ws: Workspace; editor: boolean; onChange: () => void | Promise<void>;
+  /** Opened from the "promise due" notification: scroll here and have Kito write the message. */ focus?: boolean;
+  /** This customer's promise record */ rec?: { kept: number; broken: number } }) {
   const sw = ws.language === "sw";
   const T = (en: string, s: string) => (sw ? s : en);
   const proposed = t.status === "proposed";
@@ -60,6 +81,16 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
   const [draft, setDraft] = useState(t.draft ?? "");
   const [writing, setWriting] = useState(false);
   useEffect(() => { setDue(at ? toLocalInput(at) : ""); setKind(t.kind ?? "other"); setDraft(t.draft ?? ""); }, [t.id, at, t.kind, t.draft]);
+  const [ask, setAsk] = useState(false);          // "No clear time": the question asking for a day
+  const [askText, setAskText] = useState("");
+  const el = useRef<HTMLDivElement>(null);
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!focus || focused.current) return;
+    focused.current = true;
+    el.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!proposed && editor && !t.draft) void askKito();
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = r?.contact_name ?? T("Customer", "Mteja");
   const quick = (d: string) => setDue(`${d}T${kind === "call" ? "10:00" : "09:00"}`);
@@ -100,7 +131,7 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
   ];
   const dueDay = due.slice(0, 10);
   return (
-    <div className={"pcard" + (proposed ? " proposed" : "") + (bucket === "overdue" && !proposed ? " overdue" : "") + (busy ? " busy" : "")}>
+    <div ref={el} className={"pcard" + (proposed ? " proposed" : "") + (bucket === "overdue" && !proposed ? " overdue" : "") + (busy ? " busy" : "") + (focus ? " focus" : "")}>
       <div className="pc-head">
         <span className="pc-ava" aria-hidden>{initials}</span>
         <div className="pc-who">
@@ -112,6 +143,8 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
           {!proposed && at && <span className={"chip " + (bucket === "overdue" ? "bad" : bucket === "today" ? "ok" : "")}>{bucket === "overdue" ? T("overdue · ", "imepita · ") : bucket === "today" ? T("today · ", "leo · ") : ""}{when(at)}</span>}
           {t.result === "no_answer" && <span className="chip">{T("no answer last time", "hakupokea mara iliyopita")}</span>}
           {t.result === "postponed" && <span className="chip">{T("postponed", "ameahirisha")}</span>}
+          {rec && rec.kept + rec.broken > 0 && <span className={"chip " + (rec.broken >= 2 && rec.broken > rec.kept ? "bad" : rec.kept > 0 && rec.broken === 0 ? "ok" : "")} title={T("This customer's promises in the last 90 days", "Ahadi za mteja huyu siku 90 zilizopita")}>{T(`kept ${rec.kept} · broke ${rec.broken}`, `ametimiza ${rec.kept} · amevunja ${rec.broken}`)}</span>}
+          {proposed && t.asked_at && <span className="chip">{T("asked for a day ", "umemuuliza siku ")}{ago(t.asked_at)}</span>}
         </div>
       </div>
 
@@ -139,6 +172,19 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
               <input className="pc-date" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} aria-label={T("Day and time", "Siku na saa")} />
               <select className="pc-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} aria-label={T("Type", "Aina")}>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k, sw)}</option>)}</select>
             </div>
+            {t.needs_date && (ask ? (
+              <div className="pc-ask">
+                <div className="draft-label">{T("Ask them for a day — their answer sets the reminder by itself", "Muulize siku — jibu lake litaweka kikumbusho chenyewe")}</div>
+                <textarea value={askText} onChange={(e) => setAskText(e.target.value)} />
+                <div className="pc-picks">
+                  <button className="pc-pick" disabled={!askText} onClick={async () => { try { await navigator.clipboard.writeText(askText); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); await supabase.from("follow_up_tasks").update({ asked_at: new Date().toISOString() }).eq("id", t.id).eq("workspace_id", ws.id); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } }}>{T("Copy", "Nakili")}</button>
+                  <SendNow ws={ws} conversationId={t.conversation_id} purpose="promise" draft={askText} name={r?.contact_name} T={T}
+                    onSent={() => { setAsk(false); patch("ask", { asked_at: new Date().toISOString() }, T("Sent. When they answer with a day, the reminder is set by itself.", "Imetumwa. Akijibu na siku, kikumbusho kitajiweka chenyewe.")); }} />
+                </div>
+              </div>
+            ) : (
+              <button className="pc-pick" type="button" onClick={() => { setAskText(askDayText(t.kind, r?.contact_name, sw)); setAsk(true); }}>{T("Ask them for a day", "Muulize siku")}</button>
+            ))}
             <div className="pc-acts">
               <button className="linkish small" disabled={busy} onClick={() => patch("dismiss", { status: "dismissed" })}>{spin("dismiss")}{T("Not a promise", "Si ahadi")}</button>
               <button className="primary" disabled={busy} aria-busy={doing === "remind"} onClick={confirm}>{spin("remind")}{doing === "remind" ? T("Saving…", "Inahifadhi…") : T("Remind me", "Nikumbushe")}</button>
@@ -181,7 +227,7 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
           )}
         </div>
       )}
-      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa|Sent from|Imetumwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
+      {msg && <div className={"pc-msg small " + (/Copied|Imenakiliwa|Sent|Imetumwa/.test(msg) ? "ok" : "err")}>{msg}</div>}
     </div>
   );
 }
@@ -189,6 +235,19 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
 export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task[]; rows: Outcome[]; ws: Workspace; editor: boolean; onChange: () => void | Promise<void> }) {
   const sw = ws.language === "sw";
   const T = (en: string, s: string) => (sw ? s : en);
+  // Opened from a "promise due" notification: #actions/tab=promises&task=<id>
+  const focusOf = () => /[&/?]task=([0-9a-f-]{36})/.exec(location.hash)?.[1] ?? null;
+  const [focusId, setFocusId] = useState<string | null>(focusOf);
+  useEffect(() => { const f = () => setFocusId(focusOf()); window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f); }, []);
+  // Kept vs broken (migration 0072)
+  const [rec, setRec] = useState<Record_ | null>(null);
+  useEffect(() => {
+    let live = true;
+    supabase.rpc("promise_record", { p_ws: ws.id, p_days: 90 }).then(({ data }) => { if (live && data) setRec(data as Record_); });
+    return () => { live = false; };
+  }, [ws.id, tasks.length]);
+  const recOf = (conv: string) => rec?.contacts.find((c) => c.conversation_ids.includes(conv));
+  const breakers = (rec?.contacts ?? []).filter((c) => c.broken >= 2);
   const mine = tasks.filter((t) => t.source === "kito_promise");
   const proposed = mine.filter((t) => t.status === "proposed").sort((a, b) => Date.parse(b.promise_at ?? b.created_at) - Date.parse(a.promise_at ?? a.created_at));
   const live = mine.filter((t) => t.status === "open" || t.status === "snoozed");
@@ -199,8 +258,19 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
     [T("Due today", "Leo"), by("today")],
     [T("Coming up", "Zijazo"), by("upcoming")],
   ];
-  const card = (t: Task) => <PromiseCard key={t.id} t={t} r={rows.find((x) => x.id === t.conversation_id)} ws={ws} editor={editor} onChange={onChange} />;
+  const card = (t: Task) => <PromiseCard key={t.id} t={t} r={rows.find((x) => x.id === t.conversation_id)} ws={ws} editor={editor} onChange={onChange} focus={t.id === focusId} rec={recOf(t.conversation_id)} />;
   const [tab, setTab] = useState<"clear" | "unclear">(() => (location.hash.includes("promises=unclear") ? "unclear" : "clear"));
+  useEffect(() => { const f = tasks.find((t) => t.id === focusId); if (f) setTab(f.status === "proposed" ? "unclear" : "clear"); }, [focusId, tasks]);
+  // Closed by itaOS because a payment showed up in the chat, in the last 7 days: shown so the owner can reopen a wrong one.
+  const autoClosed = mine.filter((t) => t.status === "done" && t.auto_closed && t.completed_at && Date.now() - Date.parse(t.completed_at) < 7 * DAY);
+  const [reopening, setReopening] = useState<string | null>(null);
+  const how = (a: Task["auto_closed"]) => a === "receipt" ? T("payment screenshot / M-Pesa message", "picha ya malipo / ujumbe wa M-Pesa") : a === "customer_said_paid" ? T("customer said they paid", "mteja alisema amelipa") : T("you confirmed payment in the chat", "ulithibitisha malipo kwenye chat");
+  async function reopen(t: Task) {
+    setReopening(t.id);
+    await supabase.from("follow_up_tasks").update({ status: "open", result: null, auto_closed: null, completed_at: null }).eq("id", t.id).eq("workspace_id", ws.id);
+    setReopening(null); await onChange();
+    callFn("google", { action: "sync", workspace_id: ws.id, only: "tasks" }).catch(() => {});
+  }
   return (
     <>
       <div className="seg" role="tablist" aria-label={T("Promises", "Ahadi")}>
@@ -211,9 +281,30 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
         <section className="card flat">
           <div><h2>{T("Promises with a clear time", "Ahadi zenye muda wazi")} ({live.length})</h2>
             <span className="small muted">{T("itaOS set these reminders by itself and sent them to your Google Tasks. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": that time. A day without an hour (\"kesho\", \"Jumanne wiki ijayo\"): between 9 and 12 in the morning.", "itaOS imeweka vikumbusho hivi yenyewe na kuvituma kwenye Google Tasks yako. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": muda huo. Siku bila saa (\"kesho\", \"Jumanne wiki ijayo\"): kati ya saa 3 asubuhi na saa 6 mchana.")}</span></div>
+          {rec && rec.kept + rec.broken > 0 && (
+            <div className="prec">
+              <span><b>{rec.kept}</b> {T("kept", "zimetimizwa")} · <b>{rec.broken}</b> {T("broken", "zimevunjwa")} <span className="muted small">({Math.round((rec.kept / (rec.kept + rec.broken)) * 100)}% {T("kept, last 90 days", "zimetimizwa, siku 90")})</span></span>
+              {breakers.length > 0 && <span className="small">{T("Broke 2+ promises:", "Wamevunja ahadi 2+:")} {breakers.slice(0, 8).map((b, i) => <a key={b.contact_id} href={"#chats/open=" + b.conversation_ids[0]}>{i ? ", " : ""}{b.name} ({b.broken})</a>)}</span>}
+            </div>
+          )}
           {live.length === 0 ? <div className="empty">{T("No reminders yet. When a customer names a time or a day, it shows here by itself.", "Hakuna vikumbusho bado. Mteja akitaja muda au siku, itaonekana hapa yenyewe.")}</div> : groups.map(([label, list]) => list.length > 0 && (
             <div key={label}><h3>{label} ({list.length})</h3><div className="pgrid">{list.map(card)}</div></div>
           ))}
+          {autoClosed.length > 0 && (
+            <div className="pclosed">
+              <h3>{T("Closed by itaOS: looks paid", "Zimefungwa na itaOS: zinaonekana zimelipwa")} ({autoClosed.length})</h3>
+              <span className="small muted">{T("A payment showed up in the chat after the promise, so the reminder was cancelled (Google Tasks too). Wrong? Reopen it.", "Malipo yalionekana kwenye chat baada ya ahadi, kwa hiyo kikumbusho kimefutwa (na Google Tasks). Si sahihi? Kifungue tena.")}</span>
+              {autoClosed.map((t) => {
+                const r = rows.find((x) => x.id === t.conversation_id);
+                return (
+                  <div className="prow" key={t.id}>
+                    <a href={"#chats/open=" + t.conversation_id}><b>{r?.contact_name ?? T("Customer", "Mteja")}</b> <span className="small muted">· {how(t.auto_closed)} · {ago(t.completed_at)}</span></a>
+                    {editor && <button className="pc-pick" disabled={reopening === t.id} onClick={() => reopen(t)}>{reopening === t.id ? T("Reopening…", "Inafungua…") : T("Not paid — reopen", "Hajalipa — fungua tena")}</button>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       ) : (
         <section className="card flat">
