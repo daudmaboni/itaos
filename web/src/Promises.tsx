@@ -121,7 +121,7 @@ export function PromiseCard({ t, r, ws, editor, onChange }: { t: Task; r?: Outco
         </div>
       )}
       {r?.kito_summary && <p className="pc-sum">{r.kito_summary}</p>}
-      <a className="pc-open small" href={"#chats/open=" + t.conversation_id}>{T("Open chat", "Fungua chat")} →</a>
+      <a className="pc-open small" href={"#chats/ids=" + t.conversation_id}>{T("Open chat", "Fungua chat")} →</a>
 
       {proposed ? (
         editor ? (
