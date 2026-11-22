@@ -83,7 +83,16 @@ export function ruleDate(whenText: string, saidDay: string): string | null {
     if (last === base) last = Date.UTC(+m[1], +m[2] + 1, 0); // said on the last day: next month's end
     return ymd(last);
   }
-  if (/wiki\s+ijayo|next week/.test(w)) return plus(7);
+  const hitsW = WEEKDAYS.filter(([re]) => re.test(w));
+  if (/wiki\s+ijayo|next week/.test(w)) {
+    if (hitsW.length === 1) {
+      // "Jumanne wiki ijayo" / "next Tuesday week": that weekday in the week after this one (weeks start Monday)
+      const dow = new Date(base).getUTCDay() || 7;           // Mon=1 … Sun=7
+      const target = hitsW[0][1] || 7;
+      return plus(8 - dow + target - 1);
+    }
+    return plus(7);
+  }
   if (/keshokutwa|kesho\s*kutwa|day after tomorrow/.test(w)) return plus(2);
   if (/\bkesho\b|\btomorrow\b/.test(w)) return plus(1);
   const hits = WEEKDAYS.filter(([re]) => re.test(w));
@@ -109,6 +118,134 @@ export function ruleDate(whenText: string, saidDay: string): string | null {
     return null;
   }
   return null;
+}
+
+// ---------------- Times: "baada ya saa moja", "lisaa limoja", "saa 11 jioni", "17:00", "5pm", "in 2 hours" ----------------
+const NUMW: [RegExp, number][] = [
+  [/^kumi\s+na\s+(li)?moj\w*/, 11], [/^kumi\s+na\s+mbil\w*/, 12], [/^kumi\b/, 10],
+  [/^(li)?moj\w*/, 1], [/^(m)?bil\w*|^mawili\b/, 2], [/^tatu\b|^matatu\b/, 3], [/^nne\b|^manne\b/, 4], [/^tano\b|^matano\b/, 5],
+  [/^sita\b/, 6], [/^saba\b/, 7], [/^nane\b/, 8], [/^tisa\b/, 9],
+  [/^ishirini\b/, 20], [/^thelathini\b/, 30], [/^arobaini\b/, 40], [/^hamsini\b/, 50],
+  [/^(one|an?)\b/, 1], [/^two\b/, 2], [/^three\b/, 3], [/^four\b/, 4], [/^five\b/, 5], [/^six\b/, 6], [/^ten\b/, 10], [/^fifteen\b/, 15], [/^twenty\b/, 20], [/^thirty\b/, 30], [/^forty\b/, 40],
+];
+/** A number written as digits or a Swahili/English word at the start of s. */
+function numAt(s: string): number | null {
+  const d = /^(\d{1,3})\b/.exec(s);
+  if (d) return +d[1];
+  for (const [re, n] of NUMW) if (re.test(s)) return n;
+  return null;
+}
+
+/** Minutes from when it was said, for "after an hour" kinds of phrases; null when there is none. */
+export function ruleOffset(whenText: string): number | null {
+  const w = " " + whenText.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}:.]+/gu, " ") + " ";
+  // English: in/after 2 hours, in 30 mins, in an hour, in half an hour
+  let m = /\b(?:in|after|within)\s+half\s+an?\s+hour/.exec(w);
+  if (m) return 30;
+  m = /\b(?:in|after)\s+(\S+)\s*(hours?|hrs?|h|minutes?|mins?)\b/.exec(w);
+  if (m) { const n = numAt(m[1]); if (n != null) return /^h/.test(m[2]) ? n * 60 : n; }
+  m = /\b(\d{1,2})\s*(hrs?|hours?)\b/.exec(w);
+  if (m && /\b(in|after|baada)\b/.test(w)) return +m[1] * 60;
+  // Swahili durations: nusu saa, robo saa, lisaa limoja, masaa mawili, baada ya saa moja, dakika 30
+  if (/\bnusu\s+(li)?saa\b/.test(w)) return 30;
+  if (/\brobo\s+(li)?saa\b/.test(w)) return 15;
+  m = /\b(?:li)saa\s+(\S+(?:\s+na\s+\S+)?)/.exec(w) ?? /\bmasaa\s+(\S+(?:\s+na\s+\S+)?)/.exec(w);
+  if (m) { const n = numAt(m[1]); return (n ?? 1) * 60; }
+  m = /\b(?:baada|bada|baad|bad)\s+(?:ya\s+)?(?:li)?saa\s+(\S+(?:\s+na\s+\S+)?)/.exec(w);
+  if (m) { const n = numAt(m[1]); if (n != null && n <= 12) return n * 60; }
+  if (!/\bsaa\s+\S+\s+na\s+(?:dakika|dk)/.test(w)) {
+    m = /\b(?:dakika|dk|dak|dakka)\s+(\S+)/.exec(w) ?? /\b(\d{1,3})\s*(?:dakika|dk|dak)\b/.exec(w);
+    if (m) { const n = numAt(m[1]); if (n != null && n > 0 && n <= 600) return n; }
+  }
+  return null;
+}
+
+/** "HH:MM" (24 h, business time) named in the phrase, or null. Swahili hours count from 7 in the morning. */
+export function ruleClock(whenText: string): string | null {
+  const w = " " + whenText.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}:.]+/gu, " ") + " ";
+  const hm = (h: number, mi = 0) => (h >= 0 && h <= 23 && mi >= 0 && mi <= 59 ? `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}` : null);
+  const part = /\b(asubuhi|alfajiri)\b/.test(w) ? "am" : /\bmchana\b/.test(w) ? "noon" : /\bjioni\b/.test(w) ? "eve" : /\busiku\b/.test(w) ? "night" : null;
+  let m = /\b(\d{1,2})\s*(am|pm)\b/.exec(w) ?? /\b(\d{1,2})[:.](\d{2})\s*(am|pm)\b/.exec(w);
+  if (m) {
+    const h = +m[1], mi = m[3] ? +m[2] : 0, ap = (m[3] ?? m[2]);
+    if (h < 1 || h > 12) return null;
+    return hm(ap === "pm" ? (h % 12) + 12 : h % 12, mi);
+  }
+  m = /\b(\d{1,2})[:.](\d{2})\b/.exec(w);
+  if (m && !/\bsaa\b/.test(w.slice(0, m.index))) {
+    const h = +m[1];
+    if (h >= 13 || h === 0) return hm(h, +m[2]);
+    return hm(h <= 7 ? h + 12 : h, +m[2]);               // 5:30 → 17:30; 9:30 → 09:30 (business hours)
+  }
+  m = /\bsaa\s+(\S+(?:\s+na\s+(?:moj\w*|mbil\w*))?)(?:[:.](\d{2}))?(?:\s+(na\s+nusu|na\s+robo|kasoro\s+robo|na\s+dakika\s+\S+|na\s+dk\s+\S+))?/.exec(w);
+  if (m) {
+    const n = numAt(m[1]);
+    if (n == null || n < 1) return null;
+    let mi = m[2] ? +m[2] : 0;
+    const extra = m[3] ?? "";
+    if (/nusu/.test(extra)) mi = 30; else if (/na\s+robo/.test(extra)) mi = 15;
+    else if (/kasoro/.test(extra)) mi = -15; else { const dm = /(?:dakika|dk)\s+(\S+)/.exec(extra); if (dm) mi = numAt(dm[1]) ?? 0; }
+    let h: number;
+    if (n >= 13 && n <= 23) h = n;                         // "saa 17" written the Western way
+    else if (n > 12) return null;
+    else {
+      const h12 = (n + 6) % 12;                            // saa 1 → 7, saa 6 → 0 (12), saa 7 → 1
+      if (part === "am") h = h12 === 0 ? 12 : h12;
+      else if (part === "noon") h = h12 === 0 ? 12 : h12 < 6 ? h12 + 12 : h12;
+      else if (part === "eve") h = h12 + 12;
+      else if (part === "night") h = h12 >= 7 ? h12 + 12 : h12;
+      else h = h12 === 0 ? 12 : h12 < 7 ? h12 + 12 : h12;  // no word: daytime, saa 1–6 = 7–12, saa 7–12 = 13–18
+      if (h >= 24) h -= 12;
+    }
+    if (mi < 0) { h = (h + 23) % 24; mi += 60; }
+    return hm(h, mi);
+  }
+  m = /\b(?:at|by|around)\s+(\d{1,2})\b/.exec(w);
+  if (m) { const h = +m[1]; if (h >= 13 && h <= 23) return hm(h); if (h >= 1 && h <= 12) return hm(h <= 7 ? h + 12 : h); }
+  return null;
+}
+
+/** When no hour was said: one of 09:00, 10:00, 11:00 or 12:00, spread evenly so reminders don't all ring at once. */
+export function morningSlot(key: string): string {
+  return ["09:00", "10:00", "11:00", "12:00"][parseInt(hash(key), 36) % 4];
+}
+
+/**
+ * The reminder time itaOS can set by itself, from fixed rules only (never Kito's guesses), or null when the
+ * customer gave no clear time ("nitakujulisha", "nikipata mshahara", "baadae").
+ *  - "after an hour", "dakika 30", "in 2 hours": that long after the message.
+ *  - a day ("kesho", "Jumanne wiki ijayo", "tar 3") with an hour ("saa 4", "17:00"): that day at that hour.
+ *  - a day without an hour: that day, 09:00–12:00.
+ *  - an hour without a day ("saa 11 jioni", "at 5pm"): the next time that hour comes after the message.
+ *  - today without an hour, said after the morning: two hours after the message (by 20:00, else tomorrow morning).
+ */
+export function ruleDue(whenText: string | null | undefined, promiseAt: string | number, key: string, tz = "Africa/Dar_es_Salaam"): string | null {
+  const said = typeof promiseAt === "number" ? promiseAt : Date.parse(promiseAt);
+  if (!whenText || !whenText.trim() || !Number.isFinite(said)) return null;
+  const off = ruleOffset(whenText);
+  if (off != null) return new Date(said + off * 60e3).toISOString();
+  const stamp = localStamp(said, tz);                     // "Fri 2026-11-20 14:05"
+  const saidDay = stamp.slice(4, 14), saidHm = stamp.slice(15, 20);
+  const day = ruleDate(whenText, saidDay);
+  const clock = ruleClock(whenText);
+  const w = whenText.toLowerCase();
+  const todayWord = /\b(jioni|usiku|mchana|asubuhi|tonight|this evening|this afternoon)\b/.test(w);
+  if (!day && !clock && !todayWord) return null;
+  const at = (d: string, hhmm: string) => zonedToUtc(d, hhmm, tz);
+  const nextDay = (d: string) => new Date(Date.parse(d + "T00:00:00Z") + 864e5).toISOString().slice(0, 10);
+  if (clock) {
+    if (day) return at(day, clock);
+    // an hour alone: today if still ahead, otherwise tomorrow
+    return clock > saidHm ? at(saidDay, clock) : at(nextDay(saidDay), clock);
+  }
+  const d = day ?? saidDay;
+  const slot = morningSlot(key);
+  if (d !== saidDay || slot > saidHm) return at(d, slot);
+  // today, the morning slot already gone: two hours after it was said, by 20:00; otherwise tomorrow morning
+  const later = said + 2 * 3600e3;
+  const laterHm = localStamp(later, tz).slice(15, 20);
+  if (localStamp(later, tz).slice(4, 14) === saidDay && laterHm <= "20:00") return new Date(later).toISOString();
+  return at(nextDay(saidDay), slot);
 }
 
 /** The customer message the quote came from: the latest one that contains it. */
@@ -148,13 +285,15 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
   const promiseAt = Date.parse(said.sent_at);
   if (!Number.isFinite(promiseAt) || now - promiseAt > MAX_PROMISE_AGE_DAYS * 864e5) return null;
 
+  const key = src?.id ? `m:${src.id}:${kind}` : `q:${hash(norm(quote))}:${kind}`;
   let due: string | null = null;
   const whenText = String(raw.when_text ?? "");
-  const saidDay = localStamp(promiseAt, tz).slice(4, 14);
-  const ruled = ruleDate(whenText, saidDay);
-  const date = ruled ?? (typeof raw.due_date === "string" ? raw.due_date.trim() : "");
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const tm = typeof raw.due_time === "string" && /^\d{1,2}:\d{2}$/.test(raw.due_time.trim()) ? raw.due_time.trim() : (kind === "call" ? "10:00" : "09:00");
+  // Fixed rules first (a clear time: itaOS sets the reminder itself); Kito's own date only as a suggestion.
+  const ruled = ruleDue(whenText, promiseAt, key, tz);
+  const date = typeof raw.due_date === "string" ? raw.due_date.trim() : "";
+  if (ruled) due = ruled;
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const tm = typeof raw.due_time === "string" && /^\d{1,2}:\d{2}$/.test(raw.due_time.trim()) ? raw.due_time.trim() : morningSlot(key);
     due = zonedToUtc(date, tm, tz);
     // Nonsense dates (before the promise, or months away) become "pick a date".
     if (due) {
@@ -164,7 +303,6 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
   }
   if (due && now - Date.parse(due) > MAX_OVERDUE_DAYS * 864e5) return null;
 
-  const key = src?.id ? `m:${src.id}:${kind}` : `q:${hash(norm(quote))}:${kind}`;
   return {
     kind,
     promise_text: quote,
@@ -172,21 +310,16 @@ export function planPromise(raw: RawPromise, msgs: Msg[], opts: { tz?: string; n
     promise_key: key,
     promise_at: new Date(promiseAt).toISOString(),
     due_at: due,
-    clear: !!ruled && !!due, // only fixed rules count: Kito's own date guesses still need a yes
+    clear: !!ruled && due === ruled, // only fixed rules count: Kito's own date guesses still need a yes
   };
 }
 
 /**
- * For a promise saved earlier and still waiting for the owner: the due time itaOS can set by itself,
- * or null when the day was not said plainly. Keeps the hour already read (Kito's or the default).
+ * For a promise saved earlier and still waiting for the owner: the time itaOS can set by itself (same rules as
+ * new promises), or null when the customer gave no clear time.
  */
-export function clearDue(whenText: string | null, promiseAt: string, savedDue: string | null, kind: string, tz = "Africa/Dar_es_Salaam"): string | null {
-  const said = Date.parse(promiseAt);
-  if (!whenText || !Number.isFinite(said)) return null;
-  const day = ruleDate(whenText, localStamp(said, tz).slice(4, 14));
-  if (!day) return null;
-  const hour = savedDue ? localStamp(savedDue, tz).slice(15, 20) : (kind === "call" ? "10:00" : "09:00");
-  return zonedToUtc(day, hour, tz);
+export function clearDue(whenText: string | null, promiseAt: string, key: string, tz = "Africa/Dar_es_Salaam"): string | null {
+  return ruleDue(whenText, promiseAt, key, tz);
 }
 
 export function promiseTitle(kind: PromiseKind, lang: string) {

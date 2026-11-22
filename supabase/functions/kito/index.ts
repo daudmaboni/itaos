@@ -302,8 +302,9 @@ type WsInfo = { language: string; currency: string; paid: string[]; delivered: s
 
 /**
  * Ahadi: save the customer's still-open promise as a task.
- * A clear day ("tar 3", "kesho", "Ijumaa" — read by a fixed rule, not guessed) becomes a reminder straight
- * away (status open). Anything vaguer, or a day Kito had to work out itself, is PROPOSED for the owner.
+ * A clear time — "baada ya saa moja", "saa 11 jioni", "kesho", "Jumanne wiki ijayo", "tar 3" (read by fixed rules,
+ * not guessed; a day without an hour gets 09:00–12:00) — becomes a reminder straight away (status open), which
+ * also goes to the owner's Google Tasks. Anything vaguer, or a day Kito worked out itself, is PROPOSED for the owner.
  * Never for buyers, non-customers, chats with a recorded paid order, or old promises. The same promise
  * never makes two tasks (unique conversation_id + promise_key; a dismissed one is not proposed again).
  * A newer promise replaces an older Kito promise still waiting or open.
@@ -317,7 +318,8 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
   const { data: seen } = await db.from("follow_up_tasks").select("id").eq("conversation_id", c.id).eq("promise_key", plan.promise_key).limit(1);
   if (seen?.length) return; // already saved, confirmed or dismissed: leave the owner's choice alone
 
-  let auto = plan.clear && !!plan.due_at && Date.parse(plan.due_at) > Date.now();
+  // A clear time becomes a reminder straight away, even if it has just passed (it shows as overdue).
+  let auto = plan.clear && !!plan.due_at;
   if (auto) {
     // One open task per chat: a clear new promise replaces an older Kito promise, but never the owner's
     // own task or another kind of follow-up. Those stay, and this one waits for the owner instead.
@@ -344,14 +346,14 @@ async function savePromise(db: ReturnType<typeof admin>, c: { id: string; worksp
  */
 async function openClearPromises(db: ReturnType<typeof admin>, cache: Map<string, WsInfo>) {
   const { data: rows } = await db.from("follow_up_tasks")
-    .select("id,workspace_id,conversation_id,kind,when_text,promise_at,due_at")
+    .select("id,workspace_id,conversation_id,kind,when_text,promise_at,due_at,promise_key")
     .eq("source", "kito_promise").eq("status", "proposed").not("when_text", "is", null).not("promise_at", "is", null)
     .order("promise_at", { ascending: false }).limit(300);
   let opened = 0;
   for (const t of rows ?? []) {
     const info = await wsInfoFor(db, cache, t.workspace_id);
-    const due = clearDue(t.when_text, t.promise_at, t.due_at, t.kind ?? "other", info.tz);
-    if (!due || Date.parse(due) <= Date.now()) continue;
+    const due = clearDue(t.when_text, t.promise_at, t.promise_key ?? t.id, info.tz);
+    if (!due || Date.now() - Date.parse(due) > 7 * 864e5) continue;
     const { data: other } = await db.from("follow_up_tasks").select("id,source")
       .eq("conversation_id", t.conversation_id).in("status", ["open", "snoozed"]).neq("id", t.id);
     if (other?.some((o: any) => o.source !== "kito_promise")) continue;

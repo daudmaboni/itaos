@@ -190,8 +190,8 @@ Deno.serve(async (req) => {
 async function syncOne(db: ReturnType<typeof admin>, ws: string, what: { tasks: boolean; contacts: boolean }) {
   const { data: link } = await db.from("google_links").select("*").eq("workspace_id", ws).maybeSingle<Link>();
   if (!link || link.status !== "active" || !link.token_secret_id) return { ok: false, skipped: "not connected" };
-  const { data: w } = await db.from("workspaces").select("name,language").eq("id", ws).single();
-  const name = String(w?.name ?? "itaOS"), sw = w?.language === "sw";
+  const { data: w } = await db.from("workspaces").select("name,language,timezone").eq("id", ws).single();
+  const name = String(w?.name ?? "itaOS"), sw = w?.language === "sw", tz = String(w?.timezone || "Africa/Dar_es_Salaam");
 
   let token: string;
   try {
@@ -209,7 +209,7 @@ async function syncOne(db: ReturnType<typeof admin>, ws: string, what: { tasks: 
   const out: Record<string, unknown> = {};
   let lastError: string | null = null;
   if (what.tasks && link.tasks_on) {
-    try { out.tasks = await syncTasks(db, link, token, name, sw); } catch (e) { lastError = "Tasks: " + String((e as Error).message).slice(0, 250); }
+    try { out.tasks = await syncTasks(db, link, token, name, sw, tz); } catch (e) { lastError = "Tasks: " + String((e as Error).message).slice(0, 250); }
   }
   // A full Google account is still re-checked once a day, so it resumes if the owner makes room.
   if (what.contacts && link.contacts_on) {
@@ -226,8 +226,13 @@ const KIND: Record<string, [string, string]> = {
 /** Google Tasks keeps the day only: the promise's East Africa date at midnight UTC. */
 const eatDay = (iso: string) => new Date(new Date(iso).getTime() + 3 * 3600e3).toISOString().slice(0, 10) + "T00:00:00.000Z";
 
-async function syncTasks(db: ReturnType<typeof admin>, link: Link, token: string, wsName: string, sw: boolean) {
+async function syncTasks(db: ReturnType<typeof admin>, link: Link, token: string, wsName: string, sw: boolean, tz = "Africa/Dar_es_Salaam") {
   const ws = link.workspace_id;
+  // Customers kept aside to measure what itaOS adds (migration 0070) get no reminder anywhere, Google included.
+  const { data: kept } = await db.rpc("svc_atrisk_hidden", { p_ws: ws });
+  const aside = new Set(((kept ?? []) as { conversation_id: string }[]).map((x) => x.conversation_id));
+  // Google Tasks keeps only the date, so the hour goes in the title.
+  const hhmm = (iso: string) => { try { return new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso)); } catch { return ""; } };
   let list = link.tasklist_id;
   const makeList = async () => {
     const l = await gfetch(`${TASKS}/users/@me/lists`, token, { method: "POST", body: JSON.stringify({ title: `itaOS · ${wsName}` }) });
@@ -244,6 +249,7 @@ async function syncTasks(db: ReturnType<typeof admin>, link: Link, token: string
   const todo = (rows ?? []).filter((r: any) => {
     if (r.google_synced_at && Date.parse(r.google_synced_at) >= Date.parse(r.updated_at)) return false;
     const live = r.status === "open" || r.status === "snoozed";
+    if (live && aside.has(r.conversation_id) && !r.google_task_id) return false;
     return live ? !!(r.status === "snoozed" && r.snoozed_until ? r.snoozed_until : r.due_at) : !!r.google_task_id;
   }).slice(0, 40);
 
@@ -257,7 +263,7 @@ async function syncTasks(db: ReturnType<typeof admin>, link: Link, token: string
       const who = c?.full_name || c?.name || (sw ? "Mteja" : "Customer");
       const k = KIND[r.kind ?? "other"] ?? KIND.other;
       const task = {
-        title: `${who} — ${sw ? k[1] : k[0]}`,
+        title: `${who} — ${sw ? k[1] : k[0]}${due && hhmm(due) ? ` · ${sw ? "saa" : "at"} ${hhmm(due)}` : ""}`,
         notes: [r.promise_text ? `“${r.promise_text}”` : "", r.conversations?.kito_summary ?? "", `${sw ? "Fungua chat kwenye itaOS" : "Open the chat in itaOS"}: ${APP}/#chats/open=${r.conversation_id}`].filter(Boolean).join("\n\n").slice(0, 8000),
         due: eatDay(due), status: "needsAction",
       };

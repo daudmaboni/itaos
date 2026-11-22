@@ -200,20 +200,29 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
     [T("Coming up", "Zijazo"), by("upcoming")],
   ];
   const card = (t: Task) => <PromiseCard key={t.id} t={t} r={rows.find((x) => x.id === t.conversation_id)} ws={ws} editor={editor} onChange={onChange} />;
+  const [tab, setTab] = useState<"clear" | "unclear">(() => (location.hash.includes("promises=unclear") ? "unclear" : "clear"));
   return (
     <>
-      <section className="card flat">
-        <div><h2>{T("Kito found these promises", "Kito amepata ahadi hizi")} ({proposed.length})</h2>
-          <span className="small muted">{T("When a customer names the day plainly (\"tar 3\", \"kesho\", \"Ijumaa\"), itaOS sets the reminder by itself. These ones were less clear: confirm the day, or dismiss it.", "Mteja akitaja siku waziwazi (\"tar 3\", \"kesho\", \"Ijumaa\"), itaOS inaweka kikumbusho yenyewe. Hizi hazikuwa wazi: thibitisha siku, au iondoe.")}</span></div>
-        {proposed.length === 0 ? <div className="empty">{T("Nothing new. Kito checks every chat that gets a new message.", "Hakuna mpya. Kito anaangalia kila chat inayopata ujumbe mpya.")}</div>
-          : <div className="pgrid">{proposed.map(card)}</div>}
-      </section>
-      <section className="card flat">
-        <div><h2>{T("Your reminders", "Vikumbusho vyako")} ({live.length})</h2></div>
-        {live.length === 0 ? <div className="empty">{T("No confirmed promises yet.", "Hakuna ahadi zilizothibitishwa bado.")}</div> : groups.map(([label, list]) => list.length > 0 && (
-          <div key={label}><h3>{label} ({list.length})</h3><div className="pgrid">{list.map(card)}</div></div>
-        ))}
-      </section>
+      <div className="seg" role="tablist" aria-label={T("Promises", "Ahadi")}>
+        <button role="tab" aria-selected={tab === "clear"} className={tab === "clear" ? "on" : ""} onClick={() => setTab("clear")}>{T("Clear time", "Muda wazi")} ({live.length})</button>
+        <button role="tab" aria-selected={tab === "unclear"} className={tab === "unclear" ? "on" : ""} onClick={() => setTab("unclear")}>{T("No clear time", "Muda haujulikani")} ({proposed.length})</button>
+      </div>
+      {tab === "clear" ? (
+        <section className="card flat">
+          <div><h2>{T("Promises with a clear time", "Ahadi zenye muda wazi")} ({live.length})</h2>
+            <span className="small muted">{T("itaOS set these reminders by itself and sent them to your Google Tasks. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": that time. A day without an hour (\"kesho\", \"Jumanne wiki ijayo\"): between 9 and 12 in the morning.", "itaOS imeweka vikumbusho hivi yenyewe na kuvituma kwenye Google Tasks yako. \"Baada ya saa moja\", \"saa 11 jioni\", \"17:00\": muda huo. Siku bila saa (\"kesho\", \"Jumanne wiki ijayo\"): kati ya saa 3 asubuhi na saa 6 mchana.")}</span></div>
+          {live.length === 0 ? <div className="empty">{T("No reminders yet. When a customer names a time or a day, it shows here by itself.", "Hakuna vikumbusho bado. Mteja akitaja muda au siku, itaonekana hapa yenyewe.")}</div> : groups.map(([label, list]) => list.length > 0 && (
+            <div key={label}><h3>{label} ({list.length})</h3><div className="pgrid">{list.map(card)}</div></div>
+          ))}
+        </section>
+      ) : (
+        <section className="card flat">
+          <div><h2>{T("Promises with no clear time", "Ahadi zisizo na muda wazi")} ({proposed.length})</h2>
+            <span className="small muted">{T("The customer didn't say when (\"nitakujulisha\", \"nikipata mshahara\", \"baadae\"). Pick a day to get a reminder, or dismiss it.", "Mteja hakusema lini (\"nitakujulisha\", \"nikipata mshahara\", \"baadae\"). Chagua siku upate kikumbusho, au iondoe.")}</span></div>
+          {proposed.length === 0 ? <div className="empty">{T("Nothing here. Kito checks every chat that gets a new message.", "Hakuna kitu hapa. Kito anaangalia kila chat inayopata ujumbe mpya.")}</div>
+            : <div className="pgrid">{proposed.map(card)}</div>}
+        </section>
+      )}
     </>
   );
 }
