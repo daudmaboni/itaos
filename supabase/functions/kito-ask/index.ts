@@ -96,7 +96,7 @@ Business rules you must respect:
    If nothing matches, say so and include no delete block.
 
 final_answer:
-- "answer": reply in the SAME LANGUAGE as the owner's question (natural Tanzanian Kiswahili, English, or the mix they used). Direct and short: lead with the answer, then 2–5 short points. Only quote numbers that appear in your query results.
+- "answer": reply in the SAME LANGUAGE as the owner's question (natural Tanzanian Kiswahili, English, or the mix they used). Direct and short: lead with the answer, then 2–5 short points. Only quote numbers that appear in your query results. Layout for a phone: one or two short sentences first, then a blank line, then each point on its own "- " line (one idea per point, at most ~2 lines), then a blank line before any closing sentence. Never pack several facts into one long paragraph.
 - "blocks": show the evidence the owner can act on:
    • kind "chats": a list of chats to open. Prefer query_ref (the index of a run_sql result that has a chat_id column — the app takes every chat_id from it); or give chat_ids. Add a short reason per chat in "why" when useful.
    • kind "ads": ads to look at. query_ref of a result with an ad_id column, or ad_ids.

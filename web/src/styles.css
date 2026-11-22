@@ -301,8 +301,10 @@ a.btn { display: inline-block; text-decoration: none; }
 @keyframes kito-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(290%); } }
 @media (prefers-reduced-motion: reduce) { .kito-spin, .kito-bar span, .kito-steps li.on i { animation-duration: 2.4s; } }
 .kito-answer { gap: 16px; }
-.kito-prose p { margin: 0 0 8px; } .kito-prose p:last-child { margin-bottom: 0; }
-.kito-prose ul { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 4px; }
+.kito-prose { line-height: 1.6; }
+.kito-prose p { margin: 0 0 12px; } .kito-prose > :last-child { margin-bottom: 0; }
+.kito-prose :is(ul, ol) { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 10px; }
+.kito-prose li { padding-left: 2px; } .kito-prose li::marker { color: var(--muted); }
 .kito-block { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
 .kito-chats { display: grid; gap: 8px; }
 .kito-chat { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--raised); }

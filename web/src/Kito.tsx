@@ -264,19 +264,28 @@ function AnswerCard({ a, ws, onAsk, stale, staff }: { a: Answer; ws: Workspace; 
   );
 }
 
-/** Minimal formatting: paragraphs, "- " bullets and **bold**. No HTML from the AI is ever rendered. */
+/** Minimal formatting: paragraphs, "- " / "1." bullets and **bold**. No HTML from the AI is ever rendered.
+ *  Airy on purpose (22 Nov 2026): every plain line is its own paragraph, a run of bullet lines is a list
+ *  even when it follows a sentence without a blank line, and each point gets room to breathe. */
 function Prose({ text }: { text: string }) {
   const bold = (s: string) => s.split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith("**") && p.endsWith("**") ? <b key={i}>{p.slice(2, -2)}</b> : <span key={i}>{p}</span>));
-  const blocks = text.split(/\n{2,}/);
+  const BUL = /^\s*([-•*]|\d+[.)])\s+/;
+  const parts: ({ kind: "p"; text: string } | { kind: "ul" | "ol"; items: string[] })[] = [];
+  for (const raw of text.split("\n")) {
+    const l = raw.trim();
+    if (!l) continue;
+    if (BUL.test(l)) {
+      const kind = /^\d/.test(l) ? "ol" : "ul";
+      const last = parts[parts.length - 1];
+      const item = l.replace(BUL, "");
+      if (last && last.kind === kind) last.items.push(item); else parts.push({ kind, items: [item] });
+    } else parts.push({ kind: "p", text: l });
+  }
   return (
     <div className="kito-prose">
-      {blocks.map((blk, i) => {
-        const lines = blk.split("\n").filter((l) => l.trim());
-        if (lines.length && lines.every((l) => /^\s*([-•*]|\d+[.)])\s+/.test(l))) {
-          return <ul key={i}>{lines.map((l, j) => <li key={j}>{bold(l.replace(/^\s*([-•*]|\d+[.)])\s+/, ""))}</li>)}</ul>;
-        }
-        return <p key={i}>{lines.map((l, j) => <span key={j}>{j > 0 && <br />}{bold(l)}</span>)}</p>;
-      })}
+      {parts.map((pt, i) => pt.kind === "p" ? <p key={i}>{bold(pt.text)}</p>
+        : pt.kind === "ol" ? <ol key={i}>{pt.items.map((t, j) => <li key={j}>{bold(t)}</li>)}</ol>
+        : <ul key={i}>{pt.items.map((t, j) => <li key={j}>{bold(t)}</li>)}</ul>)}
     </div>
   );
 }
