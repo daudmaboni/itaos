@@ -138,6 +138,18 @@ export function OrderList({ ws, conversationId, onChange }: { ws: Workspace; con
     await update(o, { items: sendItems, product: itemsLabel(sendItems), fulfillment_status: "shipped", ...(o.cost == null && c != null ? { cost: c } : {}) } as Partial<Order>);
     setSending(null); setSendItems([]);
   }
+  /** Print: if products are picked but not saved yet, save them on the order first so the receipt lists them. */
+  async function printReceipt(o: Order) {
+    const saved = ((o as any).items as Item[] | null) ?? [];
+    if (editor && sending === o.id && sendItems.length && !saved.length) {
+      setBusy(o.id); setErr("");
+      const { error } = await supabase.from("orders").update({ items: sendItems, product: itemsLabel(sendItems) }).eq("id", o.id).eq("workspace_id", ws.id);
+      setBusy("");
+      if (error) return setErr(error.message);
+      setTick((t) => t + 1);
+    }
+    setPrintId(o.id);
+  }
   useEffect(() => {
     supabase.from("orders").select("*").eq("workspace_id", ws.id).eq("conversation_id", conversationId).order("occurred_at", { ascending: false })
       .then(({ data, error }) => { if (error) setErr(error.message); setOrders((data as Order[]) ?? []); });
@@ -183,7 +195,7 @@ export function OrderList({ ws, conversationId, onChange }: { ws: Workspace; con
             : <span className="small warnt">📦 {T("Paid, not sent yet.", "Amelipa, bado hajatumiwa.")} {products && products.some((p) => p.active)
                 ? <button className="small" disabled={busy === o.id} onClick={() => { setSending(o.id); setSendItems(((o as any).items as Item[] | null) ?? []); }}>{T("Pick products sent", "Chagua bidhaa zilizotumwa")}</button>
                 : <button className="small" disabled={busy === o.id} onClick={() => update(o, { fulfillment_status: "shipped" })}>{T("Mark sent", "Weka imetumwa")}</button>}</span>)}
-          {o.status === "paid" && o.receipt_no && <div><button className="small primary" onClick={() => setPrintId(o.id)}>{T("Print receipt", "Chapisha risiti")} · {o.receipt_no}</button></div>}
+          {o.status === "paid" && o.receipt_no && <div><button className="small primary" disabled={busy === o.id} onClick={() => printReceipt(o)}>{T("Print receipt", "Chapisha risiti")} · {o.receipt_no}</button></div>}
           {editor && (
             <div className="row" style={{ gap: 6 }}>
               {o.status !== "paid" && <button className="small" disabled={busy === o.id} onClick={() => update(o, { status: "paid", paid_at: new Date().toISOString() })}>{T("Mark paid", "Weka imelipwa")}</button>}

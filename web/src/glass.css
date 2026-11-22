@@ -438,3 +438,9 @@ button.gsw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .gmeter-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .gmeter.near { color: var(--warn, #b7791f); }
 .gmeter.near .gmeter-bar i { background: var(--warn, #d98a0b); }
+
+/* The customer sheet and the product picker: no live blur on buttons. The sheet is solid, so the blur
+   shows nothing there, and dozens of blurred buttons inside a sliding, scrolling sheet make Android Chrome
+   stop painting the text while you tap products (only the buttons stayed on screen). Same for weak phones. */
+:where(html:not(.hp-page)) :is(.wa-side, .pp) :is(button, .btn) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.glass-lite :is(button, .btn, nav.subtabs a, .seg) { -webkit-backdrop-filter: none; backdrop-filter: none; }
