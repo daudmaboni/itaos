@@ -143,6 +143,8 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
               <p className="ia-faint small">Suspended pauses the business app for everyone in it and blocks replies from itaOS. WhatsApp messages keep arriving, so nothing is lost.</p>
             </section>
 
+            <ProofTest supabase={supabase} id={id} onChanged={onChanged} />
+
             <section className="ia-dsec">
               <h3>WhatsApp messages, last 14 days</h3>
               <div className="ia-dbars" role="img" aria-label={`${totalIn} received and ${totalOut} sent in 14 days`}>
@@ -375,5 +377,56 @@ export function DualhookSetup({ supabase, id, hasDualhook, linked, keySaved, onC
       )}
       {msg && <small className={msg.ok ? '' : 'ia-bad'}>{msg.text}</small>}
     </div>
+  );
+}
+
+// "Money itaOS brought back" proof (migrations 0068/0069): the share of slipping-away customers kept aside
+// (not shown to the owner) so itaOS can prove what it adds, and how far the proof has come.
+type Holdout = { pct: number; flags: number; by_kind: Record<string, number>; kept_aside_now: number;
+  shown_settled: number; shown_paid: number; hidden_settled: number; hidden_paid: number; last_flag: string | null };
+const PCTS = [0, 5, 10, 15, 20];
+function ProofTest({ supabase, id, onChanged }: { supabase: SupabaseClient; id: string; onChanged: () => void }) {
+  const [h, setH] = useState<Holdout | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let gone = false;
+    supabase.rpc('admin_holdout', { p_ws: id }).then(({ data, error }) => { if (!gone) { if (error) setErr(error.message); else { setErr(''); setH(data as Holdout); } } });
+    return () => { gone = true; };
+  }, [supabase, id, tick]);
+  async function set(p: number) {
+    if (!h || p === h.pct) return;
+    setBusy(true); setMsg(null);
+    const { error } = await supabase.rpc('admin_set_holdout', { p_ws: id, p_pct: p });
+    setBusy(false);
+    if (error) setMsg({ ok: false, text: `Not changed: ${error.message}` });
+    else { setMsg({ ok: true, text: p === 0 ? 'Test switched off. Nobody new is kept aside.' : `Now keeping about ${p}% aside.` }); setTick((t) => t + 1); onChanged(); }
+  }
+  const rate = (k: number, n: number) => (n > 0 ? `${Math.round((k / n) * 100)}%` : '–');
+  return (
+    <section className="ia-dsec">
+      <h3>Proof test: customers kept aside</h3>
+      {err && <p className="ia-bad small">{err}</p>}
+      {!h && !err && <div className="skeleton" style={{ minHeight: 80 }} />}
+      {h && (<>
+        <div className="ia-field"><span>Share kept aside (not shown to the owner)</span>
+          <div className="ia-seg full" role="radiogroup" aria-label="Share kept aside">
+            {PCTS.map((p) => <button key={p} role="radio" aria-checked={h.pct === p} className={h.pct === p ? 'on' : ''} disabled={busy} onClick={() => set(p)}>{p === 0 ? 'Off' : `${p}%`}</button>)}
+          </div></div>
+        <div>
+          <div className="ia-row"><div><strong>Slipping-away customers logged (120 days)</strong>
+            <small className="ia-faint">{Object.entries(h.by_kind).map(([k, n]) => `${k.replace('_', ' ')} ${n}`).join(' · ') || 'none yet'}</small></div><b>{h.flags}</b></div>
+          <div className="ia-row"><span>Kept aside right now</span><b>{h.kept_aside_now}</b></div>
+          <div className="ia-row"><span>Shown, settled → paid</span><b>{h.shown_paid}/{h.shown_settled} ({rate(h.shown_paid, h.shown_settled)})</b></div>
+          <div className="ia-row"><span>Kept aside, settled → paid</span><b>{h.hidden_paid}/{h.hidden_settled} ({rate(h.hidden_paid, h.hidden_settled)})</b></div>
+          <div className="ia-row"><span>Proof progress</span>
+            <b>{h.hidden_settled >= 30 && h.shown_settled >= 100 ? 'Proven ✓' : `${Math.min(h.hidden_settled, 30)}/30 kept aside · ${Math.min(h.shown_settled, 100)}/100 shown`}</b></div>
+        </div>
+        {msg && <span className={msg.ok ? 'ia-ok' : 'ia-bad'} role="status">{msg.text}</span>}
+        <p className="ia-faint small">Settled = paid, or their window closed. A change only affects customers flagged from now on. Higher % proves it sooner but hides more customers from the owner; 10% is the usual balance. Off stops the proof: the Home card then shows only the very-likely sales.</p>
+      </>)}
+    </section>
   );
 }

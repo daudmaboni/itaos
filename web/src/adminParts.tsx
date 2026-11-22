@@ -144,7 +144,7 @@ export function useRpc<T>(supabase: SupabaseClient, fn: string, args: Record<str
 }
 
 export const ACTION: Record<string, string> = {
-  set_state: 'Changed account settings', set_ai_limit: 'Changed a business AI limit', dualhook_create_webhook: 'Made a Dualhook webhook URL', dualhook_rotate_webhook: 'Replaced a Dualhook webhook URL', dualhook_set_key: 'Saved a Dualhook API key', dualhook_fetch_images: 'Fetched missed images and voice notes', requeue_events: 'Retried failed WhatsApp events', set_send: 'Changed replying from itaOS',
+  set_state: 'Changed account settings', set_ai_limit: 'Changed a business AI limit', dualhook_create_webhook: 'Made a Dualhook webhook URL', dualhook_rotate_webhook: 'Replaced a Dualhook webhook URL', dualhook_set_key: 'Saved a Dualhook API key', dualhook_fetch_images: 'Fetched missed images and voice notes', requeue_events: 'Retried failed WhatsApp events', set_send: 'Changed replying from itaOS', set_send_block: 'Changed replying from itaOS (staff lock)', set_holdout: 'Changed the proof test share',
   delete_workspace: 'Deleted a business', add_staff: 'Added a staff member', remove_staff: 'Removed a staff member',
   set_api_price: 'Changed an AI model price', set_api_budget: 'Changed the AI budget', add_task: 'Added a staff follow-up',
   task_done: 'Completed a staff follow-up', task_reopened: 'Reopened a staff follow-up',
@@ -161,6 +161,8 @@ export function describe(action: string, d: any): string {
   }
   if (action === 'requeue_events') return `${d?.requeued ?? 0} sent back to the queue`;
   if (action === 'set_send') return d?.after ? 'switched on' : 'switched off';
+  if (action === 'set_send_block') return d?.after ? 'allowed' : 'locked off';
+  if (action === 'set_holdout') return `${d?.before ?? '?'}% → ${d?.after ?? '?'}%`;
   if (action === 'delete_workspace') return `${d?.name ?? 'business'}: ${fmt(d?.chats ?? 0)} chats, ${fmt(d?.messages ?? 0)} messages, ${fmt(d?.orders ?? 0)} orders removed`;
   if (action === 'add_staff' || action === 'remove_staff') return d?.email ?? '';
   if (action === 'set_api_price') return `${d?.model}: $${d?.after?.input} in / $${d?.after?.output} out per million tokens`;
