@@ -241,7 +241,7 @@ export default function App() {
       {view === "payments" && <PaymentGuard ws={ws} />}
       {view === "ads" && <Dashboard ws={ws} onWs={setWs} page="ads" />}
       {view === "why" && <Dashboard ws={ws} onWs={setWs} page="why" />}
-      {view === "leaks" && <div className="stack" style={{ display: "grid", gap: 16 }}><a className="small muted" href="#dashboard" style={{ textDecoration: "none" }}>← {ws.language === "sw" ? "Dashibodi" : "Dashboard"}</a><LeakGuard ws={ws} /></div>}
+      {view === "leaks" && <LeakGuard ws={ws} />}
       {view === "buyers" && <Buyers ws={ws} />}
       {view === "chats" && <Chats ws={ws} />}
       {view === "products" && <Products key={ws.id} ws={ws} />}

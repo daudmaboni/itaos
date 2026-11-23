@@ -129,22 +129,21 @@ export default function Actions({ ws }: { ws: Workspace }) {
       <div className="hero">
         <div style={{ display: "grid", gap: 4 }}>
           <h2>{T("Actions", "Vitendo")}</h2>
-          <div className="sub"><span>{queue.length} {T("chats need attention", "chats zinahitaji hatua")}</span><span>{open.length} {T("open tasks", "kazi wazi")}</span><span>{T("follow-up rule", "kanuni")}: {ws.follow_up_hours} h <a href="#settings/rules" className="small">{T("change", "badilisha")}</a></span></div>
+          <div className="sub"><span>{T(`${queue.length} need you · ${open.length} ${open.length === 1 ? "task" : "tasks"}`, `${queue.length} wanakuhitaji · kazi ${open.length}`)}</span></div>
         </div>
-        <div className="seg" role="group" aria-label="View">
+        <div className="seg act-tabs" role="group" aria-label="View">
           <button className={tab === "today" ? "on" : ""} onClick={() => setTab("today")}>{T("Today", "Leo")}</button>
           <button className={tab === "attention" ? "on" : ""} onClick={() => setTab("attention")}>{T("Payments & deliveries", "Malipo na usafirishaji")}</button>
-          <button className={tab === "promises" ? "on" : ""} onClick={() => setTab("promises")}>{T("Promises", "Ahadi")}{promiseCount ? ` (${promiseCount})` : ""}</button>
-          <button className={tab === "after_price" ? "on" : ""} onClick={() => setTab("after_price")}>{T("After price", "Baada ya bei")}{quietCount ? ` (${quietCount})` : ""}</button>
-          <button className={tab === "reorders" ? "on" : ""} onClick={() => setTab("reorders")}>{T("Reorders", "Nunua tena")}{reorderCount ? ` (${reorderCount})` : ""}</button>
-          <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>{T("Queue", "Foleni")} ({queue.length})</button>
-          <button className={tab === "tasks" ? "on" : ""} onClick={() => setTab("tasks")}>{T("Tasks", "Kazi")} ({open.length + snoozed.length})</button>
+          <button className={tab === "promises" ? "on" : ""} onClick={() => setTab("promises")}>{T("Promises", "Ahadi")}{promiseCount ? <em>{promiseCount}</em> : null}</button>
+          <button className={tab === "after_price" ? "on" : ""} onClick={() => setTab("after_price")}>{T("After price", "Baada ya bei")}{quietCount ? <em>{quietCount}</em> : null}</button>
+          <button className={tab === "reorders" ? "on" : ""} onClick={() => setTab("reorders")}>{T("Reorders", "Nunua tena")}{reorderCount ? <em>{reorderCount}</em> : null}</button>
+          <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>{T("Queue", "Foleni")}{queue.length ? <em>{queue.length}</em> : null}</button>
+          <button className={tab === "tasks" ? "on" : ""} onClick={() => setTab("tasks")}>{T("Tasks", "Kazi")}{open.length + snoozed.length ? <em>{open.length + snoozed.length}</em> : null}</button>
           <button className={tab === "done" ? "on" : ""} onClick={() => setTab("done")}>{T("Done", "Zilizokamilika")}</button>
         </div>
       </div>
       {err && <p className="err">{err}</p>}
       {!editor && <p className="small muted">{T("You have a viewer role: you can see the queue but not change tasks.", "Una nafasi ya kutazama tu: unaweza kuona foleni lakini si kubadilisha kazi.")}</p>}
-      <p className="small muted page-note"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>{T("Nothing is sent without you. Ask Kito for a draft, edit it, then copy it to WhatsApp or tap Send from itaOS (an approved WhatsApp template after 24 hours).", "Hakuna kinachotumwa bila wewe. Muombe Kito rasimu, ihariri, kisha inakili WhatsApp au bonyeza Tuma kutoka itaOS (kiolezo kilichoidhinishwa na WhatsApp baada ya saa 24).")}</p>
 
       {tab === "attention" && <Attention ws={ws} embedded />}
       {tab === "today" && <TodayList ws={ws} rows={rowsAP} tasks={tasks} promises={promises} queue={queue} hiddenReorder={hideReorder} editor={editor} onChange={refresh} onTake={createTask} />}
@@ -154,7 +153,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
 
       {tab === "queue" && (
         <section className="card flat">
-          <div><h2>{T("Needs a reply or a follow-up", "Inahitaji jibu au ufuatiliaji")}</h2><span className="small muted">{T(`Customer waiting for a reply, or a warm chat with no message from you for ${ws.follow_up_hours} hours. Buyers, lost chats and handled chats are excluded.`, `Mteja anasubiri jibu, au chat yenye nia bila ujumbe wako kwa saa ${ws.follow_up_hours}. Wanunuzi, waliopotea na zilizoshughulikiwa hazimo.`)}</span></div>
+          <div><h2>{T("Needs a reply or a follow-up", "Inahitaji jibu au ufuatiliaji")}</h2><span className="small muted">{T(`Waiting for your reply, or warm and quiet for ${ws.follow_up_hours} h.`, `Wanasubiri jibu, au wenye nia na kimya kwa saa ${ws.follow_up_hours}.`)}</span></div>
           {queue.length === 0 ? <div className="empty">{T("Nothing waiting. Nice.", "Hakuna anayesubiri. Safi.")}</div> : (
             <div className="pgrid">{queue.map((q) => <QueueCard key={q.r.id} q={q} ws={ws} editor={editor} onTake={createTask} />)}</div>
           )}
@@ -186,6 +185,15 @@ export default function Actions({ ws }: { ws: Workspace }) {
           })}
         </section>
       )}
+
+      <details className="act-how">
+        <summary className="small muted">{T("How Actions works", "Vitendo vinavyofanya kazi")}</summary>
+        <div className="small muted">
+          <p>{T("Nothing is sent without you. Ask Kito for a draft, edit it, then copy it to WhatsApp or tap Send from itaOS (an approved WhatsApp template after 24 hours).", "Hakuna kinachotumwa bila wewe. Muombe Kito rasimu, ihariri, kisha inakili WhatsApp au bonyeza Tuma kutoka itaOS (kiolezo kilichoidhinishwa na WhatsApp baada ya saa 24).")}</p>
+          <p>{T("Today lists everyone worth contacting now, each customer once: payments to check, customers waiting for a reply, promises that are due, chats that went quiet after the price, and past buyers due to buy again.", "Leo inaorodhesha kila anayefaa kuwasiliana naye sasa, kila mteja mara moja: malipo ya kukagua, wanaosubiri jibu, ahadi zilizofika, waliokaa kimya baada ya bei, na wanunuzi wa zamani wanaofaa kununua tena.")}</p>
+          <p>{T(`A warm chat counts as due for a follow-up after ${ws.follow_up_hours} hours without a message from you.`, `Chat yenye nia inahitaji ufuatiliaji baada ya saa ${ws.follow_up_hours} bila ujumbe wako.`)} <a href="#settings/rules">{T("Change", "Badilisha")}</a></p>
+        </div>
+      </details>
     </div>
   );
 }

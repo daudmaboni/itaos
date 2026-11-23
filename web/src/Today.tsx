@@ -82,16 +82,16 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
   return (
     <>
       <section className="card flat">
-        <div className="row between" style={{ alignItems: "flex-start" }}>
-          <div>
-            <h2>{T("Today", "Leo")} ({items.length})</h2>
-            <span className="small muted">{T("Everyone worth contacting now, best first, each customer once: payments to check, waiting for a reply, promises that are due, quiet after the price, and past buyers due to buy again.",
-              "Kila mtu anayefaa kuwasiliana naye sasa, bora kwanza, kila mteja mara moja: malipo ya kukagua, wanaosubiri jibu, ahadi zilizofika, kimya baada ya bei, na wanunuzi wa zamani wanaofaa kununua tena.")}</span>
-          </div>
+        <div className="today-head">
+          <h2>{T("Today", "Leo")} <span className="today-n">{items.length}</span></h2>
+          <span className="small muted">{T("Who to contact now, best first.", "Wa kuwasiliana nao sasa, bora kwanza.")}</span>
           {progress.done > 0 && (
-            <span className="small today-prog" title={T("What happened after your follow-ups. Not proof itaOS caused it: see Money itaOS brought back on Home.", "Kilichotokea baada ya ufuatiliaji wako. Si uthibitisho kwamba itaOS ilisababisha: angalia Pesa itaOS imerudisha kwenye Home.")}>
-              {T(`Last 7 days: ${progress.done} followed up · ${progress.replied} replied · ${progress.bought} bought`, `Siku 7: ${progress.done} umewafuatilia · ${progress.replied} wamejibu · ${progress.bought} wamenunua`)}
-            </span>
+            <div className="today-prog" title={T("What happened after your follow-ups in the last 7 days. Not proof itaOS caused it: see Money itaOS brought back on Home.", "Kilichotokea baada ya ufuatiliaji wako siku 7 zilizopita. Si uthibitisho kwamba itaOS ilisababisha: angalia Pesa itaOS imerudisha kwenye Home.")}>
+              <span className="tp-k">{T("Last 7 days", "Siku 7")}</span>
+              <span><b>{progress.done}</b> {T("followed up", "umewafuatilia")}</span>
+              <span><b>{progress.replied}</b> {T("replied", "wamejibu")}</span>
+              <span className="good"><b>{progress.bought}</b> {T("bought", "wamenunua")}</span>
+            </div>
           )}
         </div>
         {items.length === 0
@@ -99,7 +99,7 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
           : <div className="pgrid">{items.map((i) => (
             <div className="today-item" key={i.kind + i.id}>
               <span className={"today-why " + i.kind}>{label[i.kind]}</span>
-              {i.kind === "reply" && <QueueCard q={i.q} ws={ws} editor={editor} onTake={onTake} />}
+              {i.kind === "reply" && <QueueCard q={i.q} ws={ws} editor={editor} onTake={onTake} showReason={false} />}
               {i.kind === "promise" && <PromiseCard t={i.t} r={rows.find((x) => x.id === i.t.conversation_id)} ws={ws} editor={editor} onChange={refresh} />}
               {i.kind === "after_price" && <QuietCard r={i.r} quietDays={Math.max(1, Math.floor(i.quietFor / DAY))} phone={phoneOf(phones[i.r.contact_id])} ws={ws} editor={editor} T={T} onDone={refresh} />}
               {i.kind === "reorder" && <ReorderCard r={i.x} ws={ws} editor={editor} T={T} onDone={() => { void refresh(); }} />}
@@ -112,30 +112,32 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
 }
 
 /** The queue card (customer waiting / follow-up due), shared by Today and the Queue tab. */
-export function QueueCard({ q, ws, editor, onTake }: { q: QueueItem; ws: Workspace; editor: boolean; onTake: (r: Outcome, reason: string) => void }) {
+export function QueueCard({ q, ws, editor, onTake, showReason = true }: { q: QueueItem; ws: Workspace; editor: boolean; onTake: (r: Outcome, reason: string) => void; /** Today already says why above the card */ showReason?: boolean }) {
   const lang = ws.language;
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   const { r, reason, temp } = q;
   const name = r.contact_name ?? T("Customer", "Mteja");
+  const blocker = r.kito_blocker && r.kito_blocker !== "none" ? (L[lang].blocker[r.kito_blocker] ?? r.kito_blocker) : null;
+  // Calm card (23 Nov 2026): who + when, one chip, two lines of what happened, the next step in a soft box,
+  // and one row with Open chat and Take it. The stage label and the reason live in the chat, not here.
   return (
-    <div className="pcard">
+    <div className="pcard pq">
       <div className="pc-head">
         <span className="pc-ava" aria-hidden>{avaText(name)}</span>
         <div className="pc-who">
           <b title={name}>{name}</b>
-          <span className="small muted">{T("Last message", "Ujumbe wa mwisho")} {ago(r.last_message_at)}{r.last_dir === "in" ? T(" · from customer", " · kutoka mteja") : T(" · from you", " · kutoka kwako")}</span>
+          <span className="small muted">{ago(r.last_message_at)}{r.last_dir === "in" ? T(" · they wrote last", " · ameandika mwisho") : T(" · you wrote last", " · uliandika mwisho")}</span>
         </div>
-        <div className="pc-chips">
-          <span className={"chip " + (reason === "reply" ? "bad" : "")}>{reason === "reply" ? T("Customer is waiting", "Mteja anasubiri") : T("Follow-up due", "Ufuatiliaji umefika")}</span>
-          {temp && <span className={"temp " + temp + (r.kito_temp ? "" : " guess")}>{L[lang].temp[temp as "hot"]}</span>}
-          {(r.kito_label ?? r.label) && <span className="chip">{L[lang].label[(r.kito_label ?? r.label)!]}</span>}
-        </div>
+        {showReason && reason === "reply" ? <span className="chip bad">{T("Waiting", "Anasubiri")}</span>
+          : showReason ? <span className="chip">{T("Follow up", "Fuatilia")}</span>
+          : temp ? <span className={"temp " + temp + (r.kito_temp ? "" : " guess")}>{L[lang].temp[temp as "hot"]}</span> : null}
       </div>
       {r.kito_summary ? <p className="pc-sum">{r.kito_summary}</p> : <p className="pc-sum muted">{T("Kito has not read this chat yet.", "Kito bado hajasoma chat hii.")}</p>}
-      {r.kito_next && <div className="small muted">→ {r.kito_next}</div>}
-      {r.kito_blocker && r.kito_blocker !== "none" && <div className="small muted">{T("Blocker", "Kikwazo")}: {L[lang].blocker[r.kito_blocker] ?? r.kito_blocker}</div>}
-      <a className="pc-open small" href={"#chats/ids=" + r.id}>{T("Open chat", "Fungua chat")} →</a>
-      {editor ? <div className="pc-foot"><div className="pc-acts"><button className="primary" onClick={() => onTake(r, reason)}>{T("Take it", "Chukua")}</button></div></div> : <div style={{ height: 6 }} />}
+      {r.kito_next && <div className="pc-next"><b>{T("Next", "Fanya")}</b><span>{r.kito_next}{blocker && <em> · {blocker}</em>}</span></div>}
+      <div className="pc-row">
+        <a className="pc-open small" href={"#chats/ids=" + r.id}>{T("Open chat", "Fungua chat")} →</a>
+        {editor && <button className="pc-take" onClick={() => onTake(r, reason)}>{T("Take it", "Chukua")}</button>}
+      </div>
     </div>
   );
 }

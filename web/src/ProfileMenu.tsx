@@ -87,6 +87,14 @@ export default function ProfileMenu({ ws, staff, language, onLanguage }: {
     return () => document.documentElement.classList.remove("pm-open");
   }, [open]);
   const go = (hash: string) => { setOpen(false); location.hash = hash; };
+  // Where "N things need you" goes: the page that holds those things, not the dashboard.
+  // A fake-looking payment → Payment checks; a broken connection → Connections; customers waiting,
+  // overdue promises and payments to look at → Actions (the to-do list).
+  const ringTo = !ringIn ? "#actions"
+    : ringIn.payRed > 0 ? "#payments"
+    : ringIn.broken > 0 ? "#connect"
+    : ringIn.waiting + ringIn.overdue > 0 ? "#actions"
+    : ringIn.payAmber > 0 ? "#payments" : "#actions";
 
   const name = me?.name || me?.email.split("@")[0] || T("You", "Wewe");
   const ringLabel = ring.tone === "red" ? T("Something needs you now", "Kuna jambo linalokuhitaji sasa")
@@ -113,7 +121,7 @@ export default function ProfileMenu({ ws, staff, language, onLanguage }: {
             <span><b>{name}</b><small>{me?.email}</small><small>{ws.name}</small></span>
           </div>
           {ring.tone !== "none" && (
-            <a role="menuitem" href="#dashboard" className={"pm-status t-" + ring.tone} onClick={(e) => { e.preventDefault(); go("#dashboard"); }}>
+            <a role="menuitem" href={ringTo} className={"pm-status t-" + ring.tone} onClick={(e) => { e.preventDefault(); go(ringTo); }}>
               <i aria-hidden />{ringLabel}{ring.tone !== "green" && <span aria-hidden> ›</span>}
             </a>
           )}
