@@ -93,3 +93,29 @@ a.g-sumcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .guard .g-status.bad { background: var(--bad-soft); color: var(--bad); }
 .guard .g-back { display: inline-block; margin-bottom: 6px; color: var(--muted); text-decoration: none; }
 @media (max-width: 520px) { .guard .g-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Dashboard home (HomeOverview.tsx): "Do this now" and four tiles that open their pages */
+.dash-pair:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.dash-pair:empty { display: none; }
+.donow h2 { margin: 0 0 8px; }
+.donow .dn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.donow .dn-list a { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; background: var(--raised); color: inherit; text-decoration: none; line-height: 1.4; transition: transform .15s; }
+.donow .dn-list a:active { transform: scale(.99); }
+.donow .dn-list a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.donow .dn-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--info, var(--muted)); }
+.donow .dn-bad .dn-dot { background: var(--bad); } .donow .dn-warn .dn-dot { background: var(--warn); }
+.donow .dn-bad a { background: var(--bad-soft); }
+.donow .dn-cta { font-weight: 600; font-size: 13px; white-space: nowrap; color: var(--accent-text, var(--accent)); }
+.donow .dn-clear { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--good-soft); color: var(--good); }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tiles .tile { display: grid; align-content: start; gap: 3px; padding: 16px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; position: relative; transition: border-color .2s, transform .15s; }
+.tiles .tile::after { content: "›"; position: absolute; top: 12px; right: 14px; font-size: 22px; line-height: 1; color: var(--muted); }
+.tiles .tile:hover { border-color: var(--line-2, var(--line)); }
+.tiles .tile:active { transform: scale(.98); }
+.tiles .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tiles .tl-k { font-size: 13px; font-weight: 600; color: var(--muted); padding-right: 18px; }
+.tiles .tl-v { font-size: 26px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+.tiles .tl-s { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.tiles .tl-note { color: var(--ink); margin-top: 4px; }
+.tiles .tile.bad .tl-v { color: var(--bad); } .tiles .tile.warn .tl-v { color: var(--warn); }
+@media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

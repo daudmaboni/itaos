@@ -15,6 +15,7 @@ import Report from "./Report";
 import Actions from "./Actions";
 import Receipts from "./Receipts";
 import PaymentGuard from "./PaymentGuard";
+import LeakGuard from "./LeakGuard";
 import Buyers from "./Buyers";
 import Kito from "./Kito";
 import Attention from "./Attention";
@@ -25,8 +26,8 @@ import { hidePreloader } from "./preloader";
 import { depth, onLayer, leaveLayers, afterBack, pushEntry, replaceEntry, useBackLayer } from "./backStack";
 import { useIsPlatformAdmin } from "./adminAccess";
 
-type View = "dashboard" | "kito" | "attention" | "report" | "actions" | "receipts" | "payments" | "buyers" | "chats" | "products" | "connect" | "settings";
-const VIEWS: View[] = ["dashboard", "kito", "attention", "report", "actions", "receipts", "payments", "buyers", "chats", "products", "connect", "settings"];
+type View = "dashboard" | "kito" | "attention" | "report" | "actions" | "receipts" | "payments" | "ads" | "why" | "leaks" | "buyers" | "chats" | "products" | "connect" | "settings";
+const VIEWS: View[] = ["dashboard", "kito", "attention", "report", "actions", "receipts", "payments", "ads", "why", "leaks", "buyers", "chats", "products", "connect", "settings"];
 const viewFromHash = (): View => {
   const h = location.hash.replace("#", "").split("/")[0];
   return (VIEWS as string[]).includes(h) ? (h as View) : "dashboard";
@@ -222,6 +223,9 @@ export default function App() {
       {view === "actions" && <Actions ws={ws} />}
       {view === "receipts" && <Receipts ws={ws} />}
       {view === "payments" && <PaymentGuard ws={ws} />}
+      {view === "ads" && <Dashboard ws={ws} onWs={setWs} page="ads" />}
+      {view === "why" && <Dashboard ws={ws} onWs={setWs} page="why" />}
+      {view === "leaks" && <div className="stack" style={{ display: "grid", gap: 16 }}><a className="small muted" href="#dashboard" style={{ textDecoration: "none" }}>← {ws.language === "sw" ? "Dashibodi" : "Dashboard"}</a><LeakGuard ws={ws} /></div>}
       {view === "buyers" && <Buyers ws={ws} />}
       {view === "chats" && <Chats ws={ws} />}
       {view === "products" && <Products key={ws.id} ws={ws} />}
@@ -402,6 +406,9 @@ function moreItems(sw: boolean): [View, string, string, JSX.Element][] {
     ["actions", L("Actions", "Vitendo"), L("Promises and tasks", "Ahadi na kazi"), <Ico d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" />],
     ["buyers", L("Buyers", "Wateja walionunua"), L("Names, phones and locations of everyone who paid", "Majina, simu na mahali pa waliolipa"), <Ico d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM22 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8" />],
     ["receipts", L("Find a payment", "Tafuta malipo"), L("Receipt no. or transaction code", "Kumbukumbu Na. au muamala"), <Ico d="M4 3h16v18l-3-2-3 2-2-2-2 2-3-2-3 2V3ZM8 8h8M8 12h8M8 16h5" />],
+    ["ads", L("Ads", "Matangazo"), L("Which ad brings paying customers", "Tangazo lipi linaleta wanaolipa"), <Ico d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1ZM15 9a3 3 0 0 1 0 6M18 6a7 7 0 0 1 0 12" />],
+    ["why", L("Why people didn't buy", "Kwa nini hawakununua"), L("Reasons and what to fix", "Sababu na cha kurekebisha"), <Ico d="M12 17h.01M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" />],
+    ["leaks", L("Staff leak guard", "Kinga ya uvujaji"), L("Money that may not reach you", "Pesa ambazo huenda hazikufikii"), <Ico d="M12 2.7S6 9.5 6 14a6 6 0 0 0 12 0c0-4.5-6-11.3-6-11.3Z" />],
     ["payments", L("Payment checks", "Ukaguzi wa malipo"), L("Fake or wrong payment screenshots", "Picha za malipo feki au zenye kasoro"), <Ico d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3zM9 12l2 2 4-4" />],
     ["products", L("My products", "Bidhaa zangu"), L("Prices, photos, what sells", "Bei, picha, zinazouzwa"), <Ico d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" />],
     ["connect", L("Connections", "Miunganisho"), L("Ads and WhatsApp", "Matangazo, WhatsApp"), <Ico d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />],

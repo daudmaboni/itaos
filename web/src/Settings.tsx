@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
+import Dashboard from "./Dashboard";
 import Templates from "./Templates";
 import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle } from "./MoneyHero";
 import type { HeroStyle } from "./MoneyHero";
@@ -39,7 +40,7 @@ export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; 
         {TABS.map(([k, en, sw]) => <a key={k} href={"#settings/" + k} className={tab === k ? "on" : ""} onClick={(e) => { e.preventDefault(); setTab(k); }}>{T(en, sw)}</a>)}
       </nav>
       {!canManage(ws) && tab !== "profile" && tab !== "account" && tab !== "appearance" && tab !== "app" && <p className="small muted">{T("Only an owner or admin can change these settings.", "Mmiliki au msimamizi tu anaweza kubadilisha mipangilio hii.")}</p>}
-      {tab === "business" && <Business ws={ws} onWs={onWs} T={T} />}
+      {tab === "business" && <><Business ws={ws} onWs={onWs} T={T} /><Dashboard ws={ws} onWs={onWs} page="data" /></>}
       {tab === "profile" && <Profile ws={ws} T={T} />}
       {tab === "appearance" && <Appearance ws={ws} onWs={onWs} theme={theme} onTheme={onTheme} T={T} />}
       {tab === "rules" && <><PaymentsCurrency ws={ws} onWs={onWs} T={T} /><Rates ws={ws} onWs={onWs} T={T} /><ChatRules ws={ws} onWs={onWs} T={T} /><NameWords ws={ws} T={T} /><ReceiptLook ws={ws} onWs={onWs} T={T} /><Replying ws={ws} onWs={onWs} T={T} /><Templates ws={ws} T={T} /></>}
