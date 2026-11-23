@@ -77,7 +77,7 @@ export function featureRows(f: FeatureUse, now = Date.now()): FRow[] {
     { key: "fakes", group: "Guards", label: "Fake payment guard",
       state: f.screenshots_30d === 0 ? "off" : f.pay_receivers === 0 || f.payments_to_check > 0 ? "warn" : "ok",
       text: `${s(f.screenshots_30d, "payment screenshot")} in 30 days · ${n(f.payments_to_check)} to check · ${s(f.fakes_caught, "fake")} caught${f.pay_receivers ? "" : " · payment numbers not set"}`,
-      hint: f.pay_receivers === 0 && f.screenshots_30d > 0 ? "Ask them to add their Lipa namba on Receipts so 'paid to someone else' works." : f.payments_to_check > 0 ? "Screenshots are waiting for a decision on Receipts." : undefined },
+      hint: f.pay_receivers === 0 && f.screenshots_30d > 0 ? "Ask them to add their Lipa namba on Payment checks so 'paid to someone else' works." : f.payments_to_check > 0 ? "Screenshots are waiting for a decision on Payment checks." : undefined },
     { key: "team", group: "Guards", label: "Team and staff leak guard",
       state: f.team >= 2 ? (f.assigned_30d > 0 ? "ok" : "warn") : "off",
       text: `${s(f.team, "person", "people")} · ${s(f.assigned_30d, "chat")} assigned in 30 days`,

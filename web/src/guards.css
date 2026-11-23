@@ -76,3 +76,20 @@
 .wa-pane > .pay-flag { max-height: 38vh; overflow: auto; }
 .today-why.payment { color: var(--bad); }
 .guard .g-top b { white-space: normal; overflow-wrap: anywhere; }
+
+/* Overview card (Dashboard, Receipts): counts only, the whole card opens #payments */
+a.g-sumcard { display: grid; gap: 12px; color: inherit; text-decoration: none; cursor: pointer; transition: border-color .2s, transform .2s; }
+a.g-sumcard:hover { border-color: var(--line-2, var(--line)); }
+a.g-sumcard:active { transform: scale(.995); }
+a.g-sumcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.guard .g-open { font-size: 26px; line-height: 1; color: var(--muted); padding: 2px 4px; }
+.guard .g-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.guard .g-stats span { display: grid; gap: 2px; min-width: 0; }
+.guard .g-stats b { font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guard .g-stats small { color: var(--muted); font-size: 12px; }
+.guard .g-stats .bad b { color: var(--bad); } .guard .g-stats .warn b { color: var(--warn); } .guard .g-stats .ok b { color: var(--good); }
+.guard .g-status { margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--good-soft); color: var(--good); }
+.guard .g-status.warn { background: var(--warn-soft); color: var(--warn); }
+.guard .g-status.bad { background: var(--bad-soft); color: var(--bad); }
+.guard .g-back { display: inline-block; margin-bottom: 6px; color: var(--muted); text-decoration: none; }
+@media (max-width: 520px) { .guard .g-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

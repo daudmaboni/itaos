@@ -2,7 +2,8 @@
 // Every payment screenshot Kito read is checked against: the same code in another chat, the business's own
 // payment numbers, the owner's pasted M-Pesa statement, the agreed amount, the date on it, and signs of editing.
 // The owner decides each one: "Money came in" or "Fake". Fakes add up to money saved.
-//   default export  the full card (Receipts page; compact on the Dashboard)
+//   default export  the full list (its own page, #payments)
+//   PaymentSummary  the overview card on the Dashboard and Receipts: counts only, opens the page
 //   PayFlagBanner   the strip at the top of a chat with an unchecked suspicious screenshot
 //   PayCheckCard    one screenshot to check (also used in Actions → Today)
 import { useEffect, useMemo, useState } from "react";
@@ -12,9 +13,9 @@ import { flagText, flagShort, receiverSuggestions, type PayItem, type PayRes } f
 
 const needsUpdate = (m: string) => /does not exist|schema cache|could not find/i.test(m);
 
-export default function PaymentGuard({ ws, compact = false }: { ws: Workspace; compact?: boolean }) {
+export default function PaymentGuard({ ws }: { ws: Workspace }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
-  const days = compact ? 30 : 90;
+  const days = 90;
   const [r, setR] = useKept<PayRes | null>(`paycheck:${ws.id}:${days}`, null);
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
@@ -39,13 +40,14 @@ export default function PaymentGuard({ ws, compact = false }: { ws: Workspace; c
   const cur = ws.currency;
   const open = r.items.filter((i) => !i.verdict);
   const done = r.items.filter((i) => i.verdict);
-  const show = compact ? open.slice(0, 3) : all ? [...open, ...done] : open;
+  const show = all ? [...open, ...done] : open;
   const noRecv = (r.receivers ?? []).length === 0;
 
   return (
     <section className="card guard" id="payment-guard">
       <div className="g-head">
         <div>
+          <a className="small g-back" href="#dashboard">← {T("Dashboard", "Dashibodi")}</a>
           <h2>{title}</h2>
           <span className="small muted">{T(`Every payment screenshot from the last ${days} days, checked before you send the product.`,
             `Kila picha ya malipo ya siku ${days} zilizopita, imekaguliwa kabla hujatuma mzigo.`)}</span>
@@ -57,26 +59,67 @@ export default function PaymentGuard({ ws, compact = false }: { ws: Workspace; c
             {r.fakes > 0 && <span className="g-pill ok">{T(`${fmt(r.fakes)} ${r.fakes === 1 ? "fake" : "fakes"} caught · ${money(r.fakes_amount, cur)} kept`, `Feki ${fmt(r.fakes)} zimekamatwa · ${money(r.fakes_amount, cur)} zimeokolewa`)}</span>}
           </div>
         </div>
-        {compact && <a className="btn small" href="#receipts">{T("See all", "Ona zote")}</a>}
       </div>
 
-      {(noRecv || editRecv || !compact) && (
+      {(
         <Receivers ws={ws} r={r} editor={editor} open={noRecv || editRecv} onToggle={() => setEditRecv((x) => !x)} onSaved={() => setTick((x) => x + 1)} T={T} />
       )}
-      {!r.statement?.to && !compact && (
-        <p className="small muted" style={{ margin: "10px 0 0" }}>{T("Tip: paste your M-Pesa messages in “Check your M-Pesa” below. Then itaOS also flags any screenshot whose payment never reached you.",
-          "Kidokezo: bandika jumbe zako za M-Pesa kwenye “Kagua M-Pesa yako” hapa chini. Kisha itaOS itaonyesha pia picha yoyote ambayo malipo yake hayakukufikia.")}</p>)}
+      {!r.statement?.to && (
+        <p className="small muted" style={{ margin: "10px 0 0" }}>{T("Tip: paste your M-Pesa messages in ", "Kidokezo: bandika jumbe zako za M-Pesa kwenye ")}<a href="#receipts">{T("Receipts → Check your M-Pesa", "Risiti → Kagua M-Pesa yako")}</a>{T(". Then itaOS also flags any screenshot whose payment never reached you.", ". Kisha itaOS itaonyesha pia picha yoyote ambayo malipo yake hayakukufikia.")}</p>)}
 
+      {show.length === 0 && <p className="empty" style={{ marginTop: 12 }}>{T("Nothing to check. New payment screenshots are checked as they arrive.", "Hakuna cha kukagua. Picha mpya za malipo zinakaguliwa zinapoingia.")}</p>}
       {show.length > 0 && (
         <div className="g-list">
           {show.map((it) => <PayCheckCard key={it.message_id} it={it} ws={ws} editor={editor} onDone={() => setTick((x) => x + 1)} flat />)}
         </div>
       )}
-      {!compact && done.length > 0 && (
+      {done.length > 0 && (
         <button className="small g-more" onClick={() => setAll((x) => !x)}>{all ? T("Hide decided ones", "Ficha zilizoamuliwa") : T(`Show ${done.length} you already decided`, `Onyesha ${done.length} ulizokwisha amua`)}</button>
       )}
-      {compact && open.length > 3 && <a className="small g-more" href="#receipts" style={{ display: "inline-block" }}>{T(`${open.length - 3} more on Receipts →`, `${open.length - 3} zaidi kwenye Risiti →`)}</a>}
     </section>
+  );
+}
+
+/** Dashboard / Receipts: the overview only. Tapping it opens the Payment checks page. */
+export function PaymentSummary({ ws }: { ws: Workspace }) {
+  const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
+  const [r, setR] = useKept<PayRes | null>(`paycheck:${ws.id}:30`, null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let live = true;
+    supabase.rpc("payment_checks", { p_ws: ws.id, p_days: 30 }).then(({ data, error }) => {
+      if (!live) return;
+      if (error) setErr(needsUpdate(error.message) ? T("This needs the latest itaOS update.", "Hii inahitaji sasisho jipya.") : error.message);
+      else { setErr(""); setR(data as PayRes); }
+    });
+    return () => { live = false; };
+  }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const title = T("Fake payment guard", "Kinga ya malipo feki");
+  if (err) return <section className="card guard"><h2>{title}</h2><p className="err small">{err}</p></section>;
+  if (!r) return <section className="card guard" aria-busy="true"><div className="skeleton" style={{ minHeight: 90 }} /></section>;
+  const noRecv = (r.receivers ?? []).length === 0;
+  const status = r.to_check_red > 0
+    ? T(`${fmt(r.to_check_red)} ${r.to_check_red === 1 ? "payment looks" : "payments look"} wrong. Check before sending anything.`, `Malipo ${fmt(r.to_check_red)} yanaonekana si sahihi. Kagua kabla ya kutuma chochote.`)
+    : r.to_check > 0 ? T(`${fmt(r.to_check)} ${r.to_check === 1 ? "screenshot needs" : "screenshots need"} a quick look.`, `Picha ${fmt(r.to_check)} zinahitaji kuangaliwa.`)
+    : T("Every payment screenshot looks fine.", "Picha zote za malipo zinaonekana sawa.");
+  return (
+    <a className="card guard g-sumcard" href="#payments" aria-label={T("Open payment checks", "Fungua ukaguzi wa malipo")}>
+      <div className="g-head">
+        <div>
+          <h2>{title}</h2>
+          <span className="small muted">{T("Payment screenshots from the last 30 days", "Picha za malipo za siku 30 zilizopita")}</span>
+        </div>
+        <span className="g-open" aria-hidden>›</span>
+      </div>
+      <div className="g-stats">
+        <span><b>{fmt(r.checked)}</b><small>{T("checked", "zimekaguliwa")}</small></span>
+        <span className={r.to_check_red ? "bad" : r.to_check ? "warn" : "ok"}><b>{fmt(r.to_check)}</b><small>{T("to look at", "za kuangalia")}</small></span>
+        <span className={r.fakes ? "ok" : ""}><b>{fmt(r.fakes)}</b><small>{T(r.fakes === 1 ? "fake caught" : "fakes caught", "feki zimekamatwa")}</small></span>
+        <span><b>{money(r.fakes_amount, ws.currency)}</b><small>{T("kept", "zimeokolewa")}</small></span>
+      </div>
+      <p className={"g-status small" + (r.to_check_red ? " bad" : r.to_check ? " warn" : "")}>{status}</p>
+      {noRecv && <p className="small muted" style={{ margin: 0 }}>{T("Add your payment numbers on the page so itaOS can spot money paid to someone else.", "Ongeza namba zako za malipo kwenye ukurasa ili itaOS ione pesa zilizolipwa kwa mtu mwingine.")}</p>}
+    </a>
   );
 }
 

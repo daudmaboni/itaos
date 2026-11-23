@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase, Workspace, money, orderNet, localDay } from "./lib";
 import ReceiptPrint from "./ReceiptPrint";
 import WalletCheck from "./WalletCheck";
-import PaymentGuard from "./PaymentGuard";
+import { PaymentSummary } from "./PaymentGuard";
 import DateRange from "./DateRange";
 import { RangeSel, resolveRange, addDays, presetLabel } from "./ranges";
 import { fromLocalInput } from "./Orders";
@@ -183,7 +183,7 @@ export default function Receipts({ ws }: { ws: Workspace }) {
           ))}
         </section>
       )}
-      <PaymentGuard ws={ws} />
+      <PaymentSummary ws={ws} />
       <WalletCheck ws={ws} />
     </div>
   );

@@ -66,7 +66,7 @@ export default function LeakGuard({ ws }: { ws: Workspace }) {
       </div>
 
       {!r.receivers_set && (
-        <p className="small" style={{ margin: "10px 0 0" }}>{T("Add your payment numbers on ", "Ongeza namba zako za malipo kwenye ")}<a href="#receipts">{T("Receipts → Fake payment guard", "Risiti → Kinga ya malipo feki")}</a>{T(". Then itaOS can also spot messages that ask customers to pay into another number.", ". Kisha itaOS itaweza pia kuona jumbe zinazoomba wateja walipe namba nyingine.")}</p>
+        <p className="small" style={{ margin: "10px 0 0" }}>{T("Add your payment numbers on ", "Ongeza namba zako za malipo kwenye ")}<a href="#payments">{T("Payment checks", "Ukaguzi wa malipo")}</a>{T(". Then itaOS can also spot messages that ask customers to pay into another number.", ". Kisha itaOS itaweza pia kuona jumbe zinazoomba wateja walipe namba nyingine.")}</p>
       )}
 
       {nums.length > 0 && (
@@ -107,7 +107,7 @@ export default function LeakGuard({ ws }: { ws: Workspace }) {
               <div className="g-item" key={p.paid_to}>
                 <div className="g-top"><b>{p.paid_to}</b><span className="g-amt">{M(p.amount)}</span></div>
                 <span className="small muted">{T(`${fmt(p.n)} ${p.n === 1 ? "screenshot" : "screenshots"} · last ${ago(p.last_at)}. If this is yours, add it to your payment numbers.`, `Picha ${fmt(p.n)} · mwisho ${ago(p.last_at)}. Kama ni yako, iongeze kwenye namba zako za malipo.`)}</span>
-                <div className="g-acts"><a href={"#chats/ids=" + p.conv_ids.join(",")}>{T("Open the chats", "Fungua chats")} →</a><a href="#receipts">{T("Payment numbers", "Namba za malipo")} →</a></div>
+                <div className="g-acts"><a href={"#chats/ids=" + p.conv_ids.join(",")}>{T("Open the chats", "Fungua chats")} →</a><a href="#payments">{T("Payment numbers", "Namba za malipo")} →</a></div>
               </div>
             ))}
           </div>
