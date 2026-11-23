@@ -306,9 +306,9 @@ async function ensureGroup(db: ReturnType<typeof admin>, ws: string, token: stri
   return rn as string;
 }
 
-/** A buyer's saved name ends with ✅ ("Black Songwe · Kayani ✅" → "Black Songwe · Kayani✅"); a lead's never does. */
+/** A buyer's saved name ends with ✅ ("Black Songwe Kayani✅"); a lead's never does. The old " · " separators go. */
 export function withTick(name: string, buyer: boolean) {
-  const bare = name.replace(/\s*✅+\s*$/u, "");
+  const bare = name.replace(/\s*·\s*/gu, " ").replace(/\s*✅+\s*$/u, "").trim();
   return buyer ? bare + "✅" : bare;
 }
 
@@ -392,7 +392,7 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
   const short = wsName.split(/\s+/)[0] || wsName;
   const people = (todo as any[]).map((c) => ({
     contactPerson: {
-      names: [{ givenName: withTick([c.full_name || c.name || "Customer", short, c.region].filter(Boolean).join(" · ").slice(0, 199), !!c.buyer) }],
+      names: [{ givenName: withTick([c.full_name || c.name || "Customer", short, c.region].filter(Boolean).join(" ").slice(0, 199), !!c.buyer) }],
       phoneNumbers: [{ value: "+" + String(c.wa_id).replace(/\D/g, ""), type: "mobile" }],
       memberships: [
         { contactGroupMembership: { contactGroupResourceName: group } },
