@@ -45,7 +45,7 @@ export function ReorderList({ ws, editor, onCount, hidden }: { ws: Workspace; ed
     <>
       <section className="card flat">
         <div><h2>{T("Bring past buyers back", "Warudishe wanunuzi wa zamani")} ({todo.length})</h2>
-          <span className="small muted">{T("Customers whose last purchase was 45–120 days ago and who haven't bought since. Ask Kito for a message, send it from WhatsApp, then tap Sent.", "Wateja walionunua mara ya mwisho siku 45–120 zilizopita na hawajanunua tena. Muombe Kito ujumbe, utume kutoka WhatsApp, kisha bonyeza Nimetuma.")}</span></div>
+          <span className="small muted">{T("Last bought 45–120 days ago and not since.", "Walinunua siku 45–120 zilizopita, hawajanunua tena.")}</span></div>
         {err && <p className="err">{err}</p>}
         {todo.length === 0 ? <div className="empty">{T("Nobody to contact right now. Customers appear here 45 days after they buy.", "Hakuna wa kuwasiliana sasa. Wateja wanaonekana hapa siku 45 baada ya kununua.")}</div>
           : <div className="pgrid">{todo.map((r) => <ReorderCard key={r.conversation_id} r={r} ws={ws} editor={editor} T={T} onDone={() => setTick((t) => t + 1)} />)}</div>}

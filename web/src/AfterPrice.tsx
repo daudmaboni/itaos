@@ -36,8 +36,7 @@ export function AfterPriceList({ rows, tasks, ws, editor, onChange }: { rows: Ou
     <>
       <section className="card flat">
         <div><h2>{T("Went quiet after the price", "Wamenyamaza baada ya bei")} ({todo.length})</h2>
-          <span className="small muted">{T("Customers who got your price, haven't bought and haven't written for a day or more (last 14 days). Hot ones first. Ask Kito for a follow-up, send it from WhatsApp, then tap Sent.",
-            "Wateja waliopata bei yako, hawajanunua na hawajaandika kwa siku moja au zaidi (siku 14 zilizopita). Wa moto kwanza. Muombe Kito ujumbe wa kufuatilia, utume kutoka WhatsApp, kisha bonyeza Nimetuma.")}</span></div>
+          <span className="small muted">{T("Got your price, didn't buy, quiet a day or more (last 14 days). Hot first.", "Walipata bei, hawakununua, kimya siku 1 au zaidi (siku 14 zilizopita). Wa moto kwanza.")}</span></div>
         {todo.length === 0
           ? <div className="empty">{T("Nobody waiting on a follow-up. Customers appear here a day after they go quiet on your price.", "Hakuna anayesubiri kufuatiliwa. Wateja wanaonekana hapa siku moja baada ya kunyamaza kwenye bei yako.")}</div>
           : <div className="pgrid">{todo.map(({ r, quietFor }) => <QuietCard key={r.id} r={r} quietDays={Math.max(1, Math.floor(quietFor / DAY))} phone={phoneOf(phones[r.contact_id])} ws={ws} editor={editor} T={T} onDone={onChange} />)}</div>}
