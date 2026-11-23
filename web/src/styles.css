@@ -1754,3 +1754,31 @@ a.by-row{color:inherit;text-decoration:none}
   .pl-rtotal b { font-size: 17px; }
   .pl-legend { display: grid; gap: 4px; }
 }
+
+/* ── Money card on computers (23 Nov 2026): bigger type, no empty middle, straight receipt ── */
+.mh-split.one .mh-legend { justify-content: flex-start; }
+@media (min-width: 900px) {
+  .mh-card { padding: 24px 28px; gap: 16px; }
+  .mh-k { font-size: 15px; }
+  .mh-v { font-size: 46px; }
+  .mh-v.sm { font-size: 30px; }
+  .mh-s { font-size: 14.5px; }
+  .mh-d { font-size: 13.5px; padding: 3px 10px; }
+  .mh-legend { font-size: 14.5px; }
+  .mh-bar { height: 10px; }
+  .mh-badge { font-size: 14px; padding: 7px 13px; }
+  .mh-joined > .mh-card.green + .mh-badge { margin: -17px 28px -17px 0; }
+  .pl-right b { font-size: 44px; }
+  .pl-legend { font-size: 14.5px; }
+  /* receipt look: number + split on the left, receipt on the right, so nothing floats in the middle */
+  .mh-card:has(> .pl-rc) { grid-template-columns: minmax(0, 1fr) 360px; column-gap: 32px; align-items: stretch; }
+  .mh-card > .pl-rc { display: contents; }
+  .mh-card > .pl-rc > .mh-num { grid-column: 1; grid-row: 1; align-self: start; }
+  .mh-card > .pl-rc > .pl-receipt { grid-column: 2; grid-row: 1 / span 2; width: 100%; transform: none; align-self: center; }
+  .mh-card:has(> .pl-rc) > .mh-split { grid-column: 1; grid-row: 2; align-self: end; }
+  .pl-receipt { padding: 18px 20px; gap: 8px; }
+  .pl-rh { font-size: 12px; }
+  .pl-rl, .pl-rtotal { font-size: 15px; }
+  .pl-rtotal b { font-size: 24px; }
+}
+@media (min-width: 1100px) { body { font-size: 15.5px; } }

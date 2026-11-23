@@ -71,6 +71,14 @@ function Delta({ d, good }: { d: number | null; good: boolean | null }) {
 
 function Split({ s, T }: { s: HeroData["split"]; T: T }) {
   if (!s || s.ads + s.other <= 0) return null;
+  // All from one side: a full bar with an empty end looks like a slider, so say it in words instead.
+  if (s.ads <= 0 || s.other <= 0) return (
+    <div className="mh-split one">
+      <div className="mh-legend"><span>{s.other <= 0
+        ? <>{T("All", "Yote")} <b>{s.adsText}</b> {T("came from ads", "imetoka kwenye matangazo")}</>
+        : <><b>{s.otherText}</b> {T("came in without ads", "imeingia bila matangazo")}</>}</span></div>
+    </div>
+  );
   return (
     <div className="mh-split">
       <div className="mh-bar" aria-hidden><span style={{ flex: Math.max(s.ads, 0) || 0.0001 }} /><span style={{ flex: Math.max(s.other, 0) || 0.0001 }} /></div>
