@@ -855,9 +855,11 @@ html, body { overscroll-behavior-x: none; }
 .kpi-click:hover, .kpi-click.on { border-color: var(--accent); }
 .kpi-click .kt::after { content: " ▸"; color: var(--muted); }
 .paid-list { gap: 12px; }
-.paid-rows { display: grid; gap: 10px; }
-.paid-row { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); }
-.paid-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+/* align-content/items: start, so one sale on a tall phone screen keeps its natural height instead of
+   stretching to fill the page (tags turned into tall empty pills, 23 Nov 2026). */
+.paid-rows { display: grid; gap: 10px; align-content: start; }
+.paid-row { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); align-content: start; }
+.paid-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; align-content: flex-start; }
 .paid-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 14px; }
 
 /* ===== Chats inbox, three panels (chat list · conversation · customer) — calm, one surface, brand yellow for "you are here" ===== */
