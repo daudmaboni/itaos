@@ -1823,3 +1823,16 @@ html:has(.ps.drag) { user-select: none; -webkit-user-select: none; }
   nav.tabs.glass-tabs .navdot { width: 8px; height: 8px; border-radius: 50%; background: #F7C948; flex: none; }
   nav.tabs.glass-tabs [data-tab].lensed .navdot { background: #D98A00; }
 }
+
+/* ── Top bar on narrower computer windows (23 Nov 2026): shrink step by step so the nav never runs over the logo ── */
+@media (min-width: 761px) and (max-width: 1240px) {
+  .topbar .pm-who, .topbar .pm-chev { display: none; }          /* profile: picture only */
+  .topbar .pm-pill { padding: 0; border: 0; background: none; }
+}
+@media (min-width: 761px) and (max-width: 1080px) {
+  .topbar .brand-text { display: none; }                         /* logo only */
+}
+@media (min-width: 761px) and (max-width: 940px) {
+  nav.tabs.glass-tabs .tab-ico { display: none; }
+  nav.tabs.glass-tabs [data-tab] { padding: 9px 13px; font-size: 14.5px; gap: 6px; }
+}
