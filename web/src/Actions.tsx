@@ -1,6 +1,7 @@
 // Action Centre: the follow-up queue. Surfaces chats that need a reply or a follow-up, lets
 // staff assign / snooze / complete / dismiss tasks, and asks Kito for a DRAFT that a human reviews and
 // sends (copy to WhatsApp, or Send from itaOS). The Today tab (Today.tsx) merges all lists into one.
+import { showUndo } from "./undo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Attention from "./Attention";
 import { enterCards, enterRows, usePageEnter, select } from "./motion";
@@ -212,9 +213,15 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
 
   async function patch(p: Partial<Task>, okMsg?: string) {
     setBusy(true); setErr("");
+    const before = { status: t.status, snoozed_until: t.snoozed_until ?? null } as Partial<Task>;
     const { error } = await supabase.from("follow_up_tasks").update(p).eq("id", t.id).eq("workspace_id", ws.id);
     setBusy(false);
-    if (error) setErr(error.message); else { if (okMsg) setErr(okMsg); onChange(); }
+    if (error) { setErr(error.message); return; }
+    if (okMsg) setErr(okMsg);
+    onChange();
+    // Closing or snoozing takes the card away: a slip can be undone.
+    const said = p.status === "dismissed" ? T("Dismissed", "Imeondolewa") : p.status === "done" ? T("Marked done", "Imekamilika") : p.status === "snoozed" ? T("Snoozed", "Imeahirishwa") : null;
+    if (said) showUndo(`${r?.contact_name ?? t.title}: ${said}`, async () => { await supabase.from("follow_up_tasks").update(before).eq("id", t.id).eq("workspace_id", ws.id); onChange(); }, T("Undo", "Rudisha"));
   }
   async function askKito() {
     setBusy(true); setAsking(true); setErr(""); setKito(null);

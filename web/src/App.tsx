@@ -1,4 +1,5 @@
 import { useNavBadges, chatsBadge, actionsBadge, NavBadge, Badges } from "./badges";
+import { UndoToast } from "./undo";
 import { AppTip } from "./PhoneApp";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { REFRESH_EVT } from "./pullRefresh";
@@ -231,6 +232,7 @@ export default function App() {
       </header>
       <Island ws={ws} />
       <BottomNav view={view} sw={ws.language === "sw"} badges={badges} />
+      <UndoToast />
       <PageView view={view} refreshN={refreshN}><Fragment key={refreshN}>
       {view === "dashboard" && <><AppTip sw={ws.language === "sw"} /><Dashboard ws={ws} onWs={setWs} /></>}
       {view === "kito" && <Kito ws={ws} staff={isPlatformAdmin} />}

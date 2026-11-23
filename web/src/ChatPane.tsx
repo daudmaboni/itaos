@@ -718,7 +718,8 @@ export function MediaView({ m, ws, T }: { m: Msg; ws: Workspace; T: Tr }) {
             <a className="small" href={url} target="_blank" rel="noopener noreferrer">{T("Open / download", "Fungua / pakua")}</a></span>
         : isPdf
         ? <a href={url} target="_blank" rel="noopener noreferrer">📄 {T("Open PDF", "Fungua PDF")}</a>
-        : <img src={url} alt={m.direction === "in" ? T("Image from customer", "Picha kutoka kwa mteja") : T("Image you sent", "Picha uliyotuma")} onClick={() => setBig(true)} style={{ cursor: "zoom-in" }} />)}
+        : <img src={url} alt={m.direction === "in" ? T("Image from customer", "Picha kutoka kwa mteja") : T("Image you sent", "Picha uliyotuma")} onClick={() => setBig(true)} style={{ cursor: "zoom-in" }}
+            className="mv-img fade-in" onLoad={(e) => e.currentTarget.classList.add("loaded")} />)}
       {big && url && <ImageViewer src={url} alt={m.direction === "in" ? T("Image from customer", "Picha kutoka kwa mteja") : T("Image you sent", "Picha uliyotuma")} sw={ws.language === "sw"} onClose={() => setBig(false)} />}
       {caption && <span>{caption}</span>}
       {heard && <span className="mv-heard"><b>{T("Voice note says:", "Sauti inasema:")}</b> {heard}</span>}

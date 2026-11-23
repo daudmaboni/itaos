@@ -92,7 +92,8 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const T: Tr = (en, sw) => (lang === "sw" ? sw : en);
   const refresh = () => setTick((t) => t + 1);
   const [quiet, setQuiet] = useState(false);   // live refresh: update in place, no "Loading…"
-  const [refreshing, setRefreshing] = useState(false);   // a list is on screen and a fresh one is loading: thin line under the top bar
+  const [refreshing, setRefreshing] = useState(false);
+  const [held, setHeld] = useState<Outcome[] | null>(null);   // newer list waiting while you read further down   // a list is on screen and a fresh one is loading: thin line under the top bar
   const [live, setLive] = useState(false);
 
   // Live: new WhatsApp messages, Kito's labels and recorded sales appear without reloading.
@@ -144,6 +145,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
       if (mem) { setRows(mem.rows); setPhones(mem.phones); setPaidOn(mem.paidOn); setBoughtInRange(mem.boughtInRange); setLoading(false); shownKey.current = viewKey; }
       else setLoading(true);
     }
+    const liveUpdate = quiet && shownKey.current === viewKey;   // a live refresh of the list already on screen
     const blank = !quiet && shownKey.current !== viewKey && !views.get(viewKey);
     setRefreshing(!blank && !quiet);   // live updates stay silent
     setQuiet(false); setErr("");
@@ -252,7 +254,20 @@ export default function Chats({ ws }: { ws: Workspace }) {
       const { data: cts } = contactIds.length ? await supabase.from("contacts").select("id,wa_id").eq("workspace_id", ws.id).in("id", contactIds) : { data: [] };
       if (!cur) return;
       setPhones(Object.fromEntries((cts ?? []).map((x: any) => [x.id, x.wa_id])));
-      setRows(list);
+      // Don't push the list around while someone is reading it (Glide: "load new things below, and offer them
+      // instead of pushing"). Scrolled down + a live update: existing cards update in place and keep their order;
+      // chats that are new to the list wait behind a "N new" pill at the top.
+      const listEl = document.querySelector<HTMLElement>(".chats .cc-list");
+      const reading = liveUpdate && (window.scrollY > 160 || (listEl?.scrollTop ?? 0) > 160);
+      if (reading) {
+        setRows((prev) => {
+          const fresh = new Map(list.map((x) => [x.id, x]));
+          const have = new Set(prev.map((x) => x.id));
+          const extra = list.filter((x) => !have.has(x.id));
+          setHeld(extra.length ? list : null);
+          return prev.filter((x) => fresh.has(x.id)).map((x) => fresh.get(x.id)!);
+        });
+      } else { setHeld(null); setRows(list); }
       if (filter === "ids" && list.length && list.length <= 3) setOpenId((cur) => { if (!cur) autoOpened.current = list[0].id; return cur ?? list[0].id; });
       setAdNames(Object.fromEntries((a.data ?? []).map((x: any) => [x.ad_id, x.name])));
       setTasks(Object.fromEntries(((t.data ?? []) as Task[]).map((task) => [task.conversation_id, task])));
@@ -477,6 +492,15 @@ export default function Chats({ ws }: { ws: Workspace }) {
         : rows.length === 0 ? <div className="empty">{err ? T("Couldn't load the chats. Try again in a moment.", "Imeshindwa kupakia chat. Jaribu tena baada ya muda.") : emptyText}</div> : (
         <div className={"inbox frame" + (openRow ? " has-pane" : " no-pane")}>
         <div className="cc-list">
+          {held && (() => {
+            const have = new Set(rows.map((x) => x.id));
+            const n = held.filter((x) => !have.has(x.id)).length;
+            return n > 0 ? <button type="button" className="cc-held" onClick={() => {
+              setRows(held); setHeld(null);
+              const l = document.querySelector<HTMLElement>(".chats .cc-list"); if (l && l.scrollTop > 0) l.scrollTo({ top: 0, behavior: "smooth" });
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}>↑ {n === 1 ? T("1 new chat", "Chat 1 mpya") : T(`${n} new chats`, `Chat ${n} mpya`)}</button> : null;
+          })()}
           {rows.map((r, i) => {
             // Newest first, grouped by when they last wrote (the follow-up list is sorted by priority instead).
             // On Bought they are grouped by the day they paid.

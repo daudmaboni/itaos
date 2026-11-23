@@ -2,6 +2,7 @@
 // Kito only PROPOSES; the owner confirms the day (or picks one) or dismisses. Confirmed promises ring the
 // phone when due (push-send, migration 0046). itaOS never messages the customer: drafts are copied and
 // sent by the owner from WhatsApp. A recorded paid order closes the chat's promises automatically.
+import { showUndo } from "./undo";
 import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, ago, when } from "./lib";
 import { KitoLoader } from "./KitoLoader";
@@ -111,7 +112,16 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
     // If this business has Google connected, push the change to Google Tasks now (the 5-minute job is the backup).
     callFn("google", { action: "sync", workspace_id: ws.id, only: "tasks" }).catch(() => {});
   }
-  const patch = (which: string, p: Partial<Task>, ok?: string) => run(which, supabase.from("follow_up_tasks").update(p).eq("id", t.id).eq("workspace_id", ws.id), ok);
+  const patch = async (which: string, p: Partial<Task>, ok?: string) => {
+    // Remember how the card was, so a slip can be undone (the toast puts it back).
+    const before: Partial<Task> = { status: t.status, result: (t as any).result ?? null, snoozed_until: t.snoozed_until ?? null, due_at: t.due_at } as Partial<Task>;
+    await run(which, supabase.from("follow_up_tasks").update(p).eq("id", t.id).eq("workspace_id", ws.id), ok);
+    const said: Record<string, string> = { lost: T("Marked not interested", "Imewekwa: hana nia"), dismiss: T("Not a promise — removed", "Si ahadi — imeondolewa"), snooze: T("Moved to tomorrow", "Imehamishiwa kesho"), called: T("Marked as talked to", "Imewekwa: umeongea naye"), move: T("Moved to the new day", "Imehamishiwa siku mpya") };
+    if (said[which]) showUndo(`${r?.contact_name ?? T("Customer", "Mteja")}: ${said[which]}`, async () => {
+      await supabase.from("follow_up_tasks").update(before).eq("id", t.id).eq("workspace_id", ws.id);
+      await onChange();
+    }, T("Undo", "Rudisha"));
+  };
   const confirm = () => {
     if (!due) { setMsg(T("Pick a day first.", "Chagua siku kwanza.")); return; }
     return run("remind", supabase.rpc("confirm_promise", { p_task: t.id, p_due: fromLocalInput(due), p_kind: kind }));

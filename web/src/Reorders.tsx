@@ -1,6 +1,7 @@
 // Reorders (Step 3): customers who bought 45–120 days ago and haven't bought since. Kito writes a short
 // "how are you getting on / want more?" draft; the owner copies it and sends it from WhatsApp themselves,
 // or taps "Send from itaOS" (the approved reorder template, since these are always past the 24 hours). "Sent" records the contact so itaOS can show who replied and who bought again.
+import { showUndo } from "./undo";
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, ago, money } from "./lib";
 import { KitoLoader } from "./KitoLoader";
@@ -90,13 +91,19 @@ export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspac
     setDoing(status === "done" ? "sent" : "skip"); setMsg("");
     const now = new Date().toISOString();
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("follow_up_tasks").insert({
+    const { data: made, error } = await supabase.from("follow_up_tasks").insert({
       workspace_id: ws.id, conversation_id: r.conversation_id, source: "reorder", status,
       title: T("Reorder check-in", "Kumkumbusha kununua tena"), draft: sentText ?? d?.text ?? null, draft_source: sentText && sentText !== d?.text ? "edited" : d ? "kito" : null,
       result: status === "done" ? "called" : "not_interested", completed_at: now, due_at: now, created_by: u.user?.id ?? null,
-    });
+    }).select("id").single();
     setDoing("");
-    if (error) setMsg(error.message); else { setD(null); onDone(); }
+    if (error) { setMsg(error.message); return; }
+    setD(null); onDone();
+    // A slip can be undone: the toast removes the record and the card comes back.
+    if (made?.id) showUndo(status === "done" ? T("Marked as sent", "Imewekwa: umetuma") : T("Hidden: not now", "Imefichwa: si sasa"), async () => {
+      await supabase.from("follow_up_tasks").delete().eq("id", (made as { id: string }).id).eq("workspace_id", ws.id);
+      onDone();
+    }, T("Undo", "Rudisha"));
   }
 
   const name = r.contact_name ?? T("Customer", "Mteja");

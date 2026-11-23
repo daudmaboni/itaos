@@ -247,7 +247,7 @@ function ProductCard({ ws, p, editor, sold, spotted, best, rank, period, canMove
     <div className={"card prod-card" + (p.active ? "" : " off")}>
       {view && <ImageViewer src={view} alt={p.name} sw={ws.language === "sw"} onClose={() => setView(null)} />}
       <div className={"prod-cover" + (cover ? "" : " none")} onClick={() => cover && setView(cover)} role={cover ? "button" : undefined} aria-label={cover ? T(`Photo of ${p.name}`, `Picha ya ${p.name}`) : undefined}>
-        {cover ? <img src={cover} alt={p.name} loading="lazy" /> : p.photos.length ? <span className="prod-ph-empty" /> : (
+        {cover ? <img src={cover} alt={p.name} loading="lazy" className="fade-in" onLoad={(e) => e.currentTarget.classList.add("loaded")} /> : p.photos.length ? <span className="prod-ph-empty" /> : (
           <span className="prod-cover-empty">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" /></svg>
             <span className="small">{T("No photos yet", "Bado hakuna picha")}</span>
@@ -294,7 +294,7 @@ function ProductCard({ ws, p, editor, sold, spotted, best, rank, period, canMove
           <div className="prod-acts">
             <button className="small" onClick={onEdit}>{T("Edit", "Hariri")}</button>
             <button className="small" disabled={busy} onClick={toggle}>{p.active ? T("Hide", "Ficha") : T("Show", "Onyesha")}</button>
-            <button className="small linkish" disabled={busy} onClick={remove}>{T("Delete", "Futa")}</button>
+            <button className="small linkish danger-text" disabled={busy} onClick={remove}>{T("Delete product", "Futa bidhaa")}</button>
             {canMove && (
               <span className="prod-move">
                 <button className="small" disabled={!canMove.up} aria-label={T("Move up", "Panda juu")} title={T("Move up", "Panda juu")} onClick={() => onMove(-1)}>↑</button>

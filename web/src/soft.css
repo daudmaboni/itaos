@@ -286,3 +286,27 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 /* Sales (Buyers · Find a payment · My products): one set of tabs above the three pages */
 .sales-tabs { margin: 0 0 14px; }
 .sales-tabs .seg { width: max-content; max-width: 100%; }
+
+/* Chats: newer chats wait behind this pill while you read further down (no jumping list) */
+.cc-held { position: sticky; top: 8px; z-index: 6; justify-self: center; margin: 0 auto 2px; padding: 8px 16px; border: 0; border-radius: 999px; background: #141a2a; color: #fff; font: 600 13px var(--font); box-shadow: 0 8px 20px -8px #0f1c2a80; cursor: pointer; animation: held-in .35s cubic-bezier(.2,.8,.2,1); }
+:root:not([data-theme="light"]) .cc-held { background: #fff; color: #141a2a; }
+@keyframes held-in { from { opacity: 0; transform: translateY(-8px); } }
+@media (max-width: 899px) { .cc-held { position: fixed; top: calc(76px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); } @keyframes held-in { from { opacity: 0; transform: translate(-50%, -8px); } } }
+
+/* Pictures hold their place and fade in when they arrive (no page jump) */
+img.fade-in { opacity: 0; transition: opacity .35s ease; }
+img.fade-in.loaded { opacity: 1; }
+/* A chat picture keeps a grey box the size of a photo until it arrives, then fades in */
+img.mv-img:not(.loaded) { display: block; width: min(240px, 100%); aspect-ratio: 3 / 4; background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 10px; }
+img.mv-img.fade-in:not(.loaded) { opacity: 1; }
+img.mv-img.loaded { animation: img-in .35s ease; }
+@keyframes img-in { from { opacity: 0; } }
+
+/* Undo toast: a card was taken away, one tap puts it back */
+.undo-toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); padding: 10px 10px 10px 18px; border-radius: 999px; background: #141a2a; color: #fff; font-size: 14px; box-shadow: 0 14px 30px -12px #0f1c2a99; animation: undo-in .3s cubic-bezier(.2,.8,.2,1); }
+.undo-toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.undo-toast button { flex: none; border: 0; border-radius: 999px; padding: 7px 14px; background: #ffffff1f; color: #F7C948; font: 700 13.5px var(--font); box-shadow: none; }
+@keyframes undo-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+@media (min-width: 900px) { .undo-toast { bottom: 28px; } }
+/* Buttons that delete something look different from everything else (red words, never the main button) */
+.danger-text, button.linkish.danger-text { color: var(--bad, #c8372d) !important; }

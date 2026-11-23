@@ -3,6 +3,7 @@
 // the message filled in and sends it themselves, or taps "Send from itaOS" (SendNow: the draft inside
 // WhatsApp's 24 hours, the approved template after). "Sent" records it, so the list
 // can show who replied and who bought afterwards.
+import { showUndo } from "./undo";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, L, ago } from "./lib";
 import { phoneOf } from "./chatParts";
@@ -79,13 +80,18 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
     setDoing(status === "done" ? "sent" : "skip"); setMsg("");
     const now = new Date().toISOString();
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("follow_up_tasks").insert({
+    const { data: made, error } = await supabase.from("follow_up_tasks").insert({
       workspace_id: ws.id, conversation_id: r.id, source: "after_price", status,
       title: T("Follow-up after the price", "Ufuatiliaji baada ya bei"), draft: sentText ?? d?.text ?? null, draft_source: sentText && sentText !== d?.text ? "edited" : d ? "kito" : null,
       result: status === "done" ? "called" : "not_interested", completed_at: now, due_at: now, created_by: u.user?.id ?? null,
-    });
+    }).select("id").single();
     if (error) { setDoing(""); setMsg(/check constraint/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message); return; }
     setD(null); await onDone(); setDoing("");
+    // A slip can be undone: the toast removes the record and the card comes back.
+    if (made?.id) showUndo(status === "done" ? T("Marked as sent", "Imewekwa: umetuma") : T("Hidden: not now", "Imefichwa: si sasa"), async () => {
+      await supabase.from("follow_up_tasks").delete().eq("id", (made as { id: string }).id).eq("workspace_id", ws.id);
+      await onDone();
+    }, T("Undo", "Rudisha"));
   }
   const waHref = phone ? `https://wa.me/${phone}${d?.text ? "?text=" + encodeURIComponent(d.text) : ""}` : null;
 

@@ -2,6 +2,7 @@
 // Overdue follow-ups, payments detected but not confirmed, deliveries, failed syncs/imports and
 // what is assigned to you. Data from needs_attention (0033) + webhook_health. Payment signals stay
 // signals: confirming one happens in the chat, where the owner checks the money first.
+import { showUndo } from "./undo";
 import { useEffect, useState } from "react";
 import { useKept } from "./keep";
 import { enterCards, usePageEnter, select } from "./motion";
@@ -66,7 +67,13 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
     if (error) setErr(error.message); else refresh();
   }
   const updateOrder = (id: string, patch: Record<string, unknown>) => run("o" + id, () => supabase.from("orders").update(patch).eq("id", id).eq("workspace_id", ws.id));
-  const updateTask = (id: string, patch: Record<string, unknown>) => run("t" + id, () => supabase.from("follow_up_tasks").update(patch).eq("id", id).eq("workspace_id", ws.id));
+  const updateTask = async (id: string, patch: Record<string, unknown>) => {
+    const t = d?.overdue.find((x) => x.id === id);
+    await run("t" + id, () => supabase.from("follow_up_tasks").update(patch).eq("id", id).eq("workspace_id", ws.id));
+    // The row leaves the list: one tap puts it back.
+    if (t) showUndo(`${t.contact_name ?? t.title}: ${patch.status === "done" ? T("done", "imekamilika") : T("moved to tomorrow", "imehamishiwa kesho")}`,
+      () => run("t" + id, () => supabase.from("follow_up_tasks").update({ status: (t as any).status ?? "open", snoozed_until: (t as any).snoozed_until ?? null, completed_at: null }).eq("id", id).eq("workspace_id", ws.id)), T("Undo", "Rudisha"));
+  };
 
   if (!d && !err) return <div className="skeletons" aria-busy="true"><div className="skeleton" style={{ minHeight: 120 }} /><div className="skeleton" style={{ minHeight: 260 }} /></div>;
 

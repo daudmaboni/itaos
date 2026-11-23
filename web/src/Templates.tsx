@@ -104,7 +104,7 @@ function Slot({ ws, T, purpose, title, where, items, manager, onChange }: { ws: 
       {items.map((t) => (
         <div className="tpl-item" key={t.id}>
           <div className="row between" style={{ gap: 8 }}>{chip(t.status)}
-            {manager && <button className="linkish small" disabled={!!busy} onClick={() => remove(t)}>{busy === "del:" + t.id && <span className="kito-spin sm" aria-hidden />}{T("Delete", "Futa")}</button>}</div>
+            {manager && <button className="linkish small danger-text" disabled={!!busy} onClick={() => remove(t)}>{busy === "del:" + t.id && <span className="kito-spin sm" aria-hidden />}{T("Delete", "Futa")}</button>}</div>
           <p className="tpl-body">{t.body}</p>
           {t.status === "REJECTED" && <span className="small err">{T("WhatsApp's reason: ", "Sababu ya WhatsApp: ")}{t.reason ?? T("not given", "haikutolewa")}. {T("Delete it and write a plainer version (no prices, links or pressure words).", "Ifute uandike toleo rahisi zaidi (bila bei, viungo au maneno ya kulazimisha).")}</span>}
           {t.status === "PENDING" && t.synced_at && <span className="small muted">{T("Sent for review", "Imetumwa kukaguliwa")} {ago(t.synced_at)}</span>}
