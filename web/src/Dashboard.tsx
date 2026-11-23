@@ -126,7 +126,6 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
       <div className="hero">
         <div style={{ display: "grid", gap: 4 }}>
           {page === "home" ? <h2>{greeting(lang, ws.timezone)}</h2> : page === "data" ? null : <>
-            <a className="small muted" href="#dashboard" style={{ textDecoration: "none" }}>← {T("Dashboard", "Dashibodi")}</a>
             <h2>{page === "ads" ? T("Ads", "Matangazo") : T("Why people didn't buy", "Kwa nini watu hawakununua")}</h2></>}
           {(!adsConn.length || adsConn.some((c) => c.last_error)) && (
             <div className="sub"><span><span className="dot off" />{!adsConn.length ? T("Ad account not connected", "Akaunti ya matangazo haijaunganishwa") : T("Last ad sync had an error. See Connections.", "Usawazishaji wa mwisho ulikuwa na hitilafu. Angalia Connections.")}</span></div>

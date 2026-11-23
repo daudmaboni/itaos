@@ -47,7 +47,6 @@ export default function PaymentGuard({ ws }: { ws: Workspace }) {
     <section className="card guard" id="payment-guard">
       <div className="g-head">
         <div>
-          <a className="small g-back" href="#dashboard">← {T("Dashboard", "Dashibodi")}</a>
           <h2>{title}</h2>
           <span className="small muted">{T(`Every payment screenshot from the last ${days} days, checked before you send the product.`,
             `Kila picha ya malipo ya siku ${days} zilizopita, imekaguliwa kabla hujatuma mzigo.`)}</span>
