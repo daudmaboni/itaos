@@ -321,12 +321,8 @@ img.mv-img.loaded { animation: img-in .35s ease; }
 @keyframes sheet-away { to { opacity: 0; transform: scale(.85) translateY(14px); } }
 @keyframes sheet-back-away { to { opacity: 0; } }
 
-/* Phones: the top bar slides away while you scroll down, back as soon as you scroll up */
-@media (max-width: 899px) {
-  .topbar { transition: transform .28s cubic-bezier(.2,.8,.2,1), border-color .25s; will-change: transform; }
-  .topbar.tb-away { transform: translateY(calc(-100% - 2px)); }
-  .cc-held { top: calc(12px + env(safe-area-inset-top)); }
-}
+/* Phones: the "N new chats" pill sits just under the top bar */
+@media (max-width: 899px) { .cc-held { top: calc(76px + env(safe-area-inset-top)); } }
 
 /* Settings search */
 .set-search { position: relative; margin: 2px 0 10px; }

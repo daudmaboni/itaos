@@ -143,23 +143,9 @@ export default function App() {
     return () => { sub.subscription.unsubscribe(); window.removeEventListener("hashchange", onHash); };
   }, []);
 
-  // Give the page back to the reader (Glide): on phones the top bar slides away while you scroll down a page
-  // and comes back the moment you scroll up.
+  // (23 Nov 2026) The top bar used to slide away on scroll down; on phones it fought pull-to-refresh and carried
+  // the open profile menu off screen with it, so it stays put again.
   const topRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    let last = window.scrollY, raf = 0;
-    const run = () => {
-      raf = 0;
-      const y = window.scrollY, el = topRef.current;
-      if (!el) return;
-      if (y < 80 || y < last - 4) el.classList.remove("tb-away");
-      else if (y > last + 6 && window.innerWidth < 900) el.classList.add("tb-away");
-      last = y;
-    };
-    const on = () => { if (!raf) raf = requestAnimationFrame(run); };
-    window.addEventListener("scroll", on, { passive: true });
-    return () => { window.removeEventListener("scroll", on); cancelAnimationFrame(raf); };
-  }, []);
 
   // Chats: load the list quietly in the background a moment after the app opens (only when nothing is saved
   // on the phone yet), so the first tap on Chats shows real chats at once.
