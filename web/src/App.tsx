@@ -8,6 +8,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, Workspace, WS_COLUMNS, Role, PASSWORD_RECOVERY } from "./lib";
 import { AuthScreen, SetNewPassword, initialLang, tr, AuthShell, AuthBrand, AuthField, AuthIcon } from "./Auth";
 import Dashboard from "./Dashboard";
+import ProfileMenu from "./ProfileMenu";
 import Chats from "./Chats";
 import Connect from "./Connect";
 import Settings from "./Settings";
@@ -200,15 +201,10 @@ export default function App() {
           <TopMore view={view} sw={ws.language === "sw"} badges={badges} />
         </GlassTabs>
         <div className="actions">
-          <div className={"seg lang-seg" + ((langPill ?? ws.language) === "en" ? " is-en" : "")} role="group" aria-label="Language">
-            <span className="lang-thumb" aria-hidden="true" />
-            {(["sw", "en"] as const).map((l) => <button key={l} type="button" className={(langPill ?? ws.language) === l ? "on" : ""} aria-pressed={ws.language === l} onClick={() => setLanguage(l)}>{l.toUpperCase()}</button>)}
-          </div>
           <button ref={themeBtn} className="icon" onClick={toggleTheme}
             aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
             title={theme === "light" ? "Light · tap for dark" : "Dark · tap for light"}>{theme === "light" ? "☾" : "☀"}</button>
-          {isPlatformAdmin && <a href="/app/admin" className="icon" aria-label="Pondi admin" title="Pondi admin"><AdminIcon /></a>}
-          <a href="#settings" className={"icon gear" + (view === "settings" ? " on" : "")} aria-label="Settings" title="Settings"><GearIcon /></a>
+          <ProfileMenu ws={ws} staff={!!isPlatformAdmin} language={langPill ?? ws.language} onLanguage={setLanguage} />
         </div>
       </header>
       <Island ws={ws} />

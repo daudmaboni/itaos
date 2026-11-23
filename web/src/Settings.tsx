@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import Dashboard from "./Dashboard";
+import { Avatar, PROFILE_EVT } from "./ProfileMenu";
 import Templates from "./Templates";
 import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle, PROFIT_LOOKS, saveProfitLook, useProfitLook } from "./MoneyHero";
 import type { ProfitLook } from "./MoneyHero";
@@ -535,7 +536,7 @@ function MyProfile({ ws, T }: { ws: Workspace; T: Tr }) {
     <form className="card" onSubmit={save}>
       <div className="row between">
         <div className="row" style={{ gap: 12 }}>
-          <div className="cc-avatar" aria-hidden>{(name || u.email || "?").slice(0, 1).toUpperCase()}</div>
+          <PhotoPicker u={u} name={name} T={T} onChange={setU} />
           <div><h2>{name || T("Your profile", "Wasifu wako")}</h2><span className="small muted">{role[ws.role ?? "viewer"]?.[ws.language === "sw" ? 1 : 0] ?? ws.role} · {ws.name}</span></div>
         </div>
       </div>
@@ -758,6 +759,59 @@ function ProfitPicker({ T }: { T: Tr }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+
+/** Profile photo (23 Nov 2026): shows in the top bar. Squared and shrunk to 256 px on the phone before upload,
+ *  stored in the public "avatars" bucket under the person's own folder, address kept in user_metadata.avatar_url. */
+function PhotoPicker({ u, name, T, onChange }: { u: any; name: string; T: Tr; onChange: (u: any) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  const photo: string | null = u?.user_metadata?.avatar_url || null;
+  async function pick(f: File | undefined) {
+    if (!f) return;
+    setErr("");
+    if (!/^image\//.test(f.type)) { setErr(T("Pick a photo (JPG or PNG).", "Chagua picha (JPG au PNG).")); return; }
+    setBusy(true);
+    try {
+      const bmp = await createImageBitmap(f);
+      const side = Math.min(bmp.width, bmp.height), S = 256;
+      const c = document.createElement("canvas"); c.width = S; c.height = S;
+      c.getContext("2d")!.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, S, S);
+      const blob: Blob = await new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("no image"))), "image/jpeg", 0.85));
+      const path = `${u.id}/avatar-${Date.now()}.jpg`;
+      const up = await supabase.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      if (up.error) throw up.error;
+      const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      const old = photo?.split("/avatars/")[1];
+      const { data, error } = await supabase.auth.updateUser({ data: { avatar_url: url } });
+      if (error) throw error;
+      if (old) void supabase.storage.from("avatars").remove([decodeURIComponent(old)]);
+      onChange(data.user); window.dispatchEvent(new Event(PROFILE_EVT));
+    } catch (e) { setErr(String((e as Error)?.message ?? e)); }
+    setBusy(false);
+    if (input.current) input.current.value = "";
+  }
+  async function remove() {
+    setBusy(true); setErr("");
+    const old = photo?.split("/avatars/")[1];
+    const { data, error } = await supabase.auth.updateUser({ data: { avatar_url: null } });
+    if (error) setErr(error.message);
+    else { if (old) void supabase.storage.from("avatars").remove([decodeURIComponent(old)]); onChange(data.user); window.dispatchEvent(new Event(PROFILE_EVT)); }
+    setBusy(false);
+  }
+  return (
+    <div style={{ display: "grid", justifyItems: "center", gap: 6 }}>
+      <Avatar me={{ name, email: u?.email ?? "", photo }} size={64} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button type="button" className="small" disabled={busy} onClick={() => input.current?.click()}>{busy ? T("Saving…", "Inahifadhi…") : photo ? T("Change photo", "Badilisha picha") : T("Add photo", "Weka picha")}</button>
+        {photo && <button type="button" className="small" disabled={busy} onClick={() => void remove()}>{T("Remove", "Ondoa")}</button>}
+      </div>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0])} aria-label={T("Choose a profile photo", "Chagua picha ya wasifu")} />
+      {err && <span className="err small">{err}</span>}
     </div>
   );
 }
