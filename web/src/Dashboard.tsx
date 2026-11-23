@@ -389,8 +389,9 @@ function SetNumber({ ws, onWs, field, label, unit, placeholder, hint, T }: { ws:
 function greeting(lang: "sw" | "en", tz?: string | null) {
   let h = new Date().getHours();
   try { if (tz) h = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(new Date())); } catch { /* bad tz: keep device hour */ }
-  if (lang === "sw") return h < 5 ? "Habari za usiku" : h < 12 ? "Habari za asubuhi" : h < 16 ? "Habari za mchana" : h < 19 ? "Habari za jioni" : "Habari za usiku";
-  return h < 5 ? "Hello, night owl" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  // Each word starts with a capital letter (23 Nov 2026).
+  if (lang === "sw") return h < 5 ? "Habari Za Usiku" : h < 12 ? "Habari Za Asubuhi" : h < 16 ? "Habari Za Mchana" : h < 19 ? "Habari Za Jioni" : "Habari Za Usiku";
+  return h < 5 ? "Hello, Night Owl" : h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening";
 }
 
 type Run = "on" | "review" | "issue" | "off" | "unknown";
