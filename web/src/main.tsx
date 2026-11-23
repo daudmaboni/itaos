@@ -18,6 +18,7 @@ import { startNoZoom } from "./noZoom";
 import { startChatReturn } from "./chatReturn";
 import { startBackStack } from "./backStack";
 import { startGlassCards } from "./glassCards";
+import { startPageScrollbar } from "./pageScrollbar";
 
 startBackStack(); // first, so every other listener sees numbered history entries
 startPwa();
@@ -25,6 +26,7 @@ startPullRefresh();
 startNoZoom();
 startChatReturn();
 startGlassCards();
+startPageScrollbar();
 
 // "/" is the public homepage; the app lives at "/app".
 // "/r/<code>" is the public page a printed receipt's QR opens.
