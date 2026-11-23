@@ -25,7 +25,8 @@ export function useHeroStyle(): HeroStyle {
 }
 /** Which cards the hero already shows, so the grid under it doesn't repeat them. */
 export function heroCovers(s: HeroStyle) {
-  return { spend: true, revenue: true, roas: s === "A" || s === "E", profit: s === "A" };
+  // Profit sits in the top right of the revenue card in every look (23 Nov 2026), so never as its own card.
+  return { spend: true, revenue: true, roas: s === "A" || s === "E", profit: true };
 }
 
 type T = (en: string, sw: string) => string;
@@ -58,10 +59,19 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen }:
   const revGood = x.revenueD == null ? null : x.revenueD > 0;
   const click = onRevenue ? { role: "button", tabIndex: 0, "aria-expanded": !!revenueOpen, onClick: onRevenue, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRevenue(); } } } : {};
   const rev = (big: boolean) => (
-    <div className="mh-num">
-      <span className="mh-k">{style === "E" ? T("Money in · Revenue", "Pesa iliyoingia · Mapato") : T("Revenue", "Mapato")}</span>
-      <span className="mh-vrow"><b className={big ? "mh-v" : "mh-v sm"}>{x.revenue}</b><Delta d={x.revenueD} good={revGood} /></span>
-      <span className="mh-s">{x.revenueSub}</span>
+    <div className="mh-revrow">
+      <div className="mh-num">
+        <span className="mh-k">{style === "E" ? T("Money in · Revenue", "Pesa iliyoingia · Mapato") : T("Revenue", "Mapato")}</span>
+        <span className="mh-vrow"><b className={big ? "mh-v" : "mh-v sm"}>{x.revenue}</b><Delta d={x.revenueD} good={revGood} /></span>
+        <span className="mh-s">{x.revenueSub}</span>
+      </div>
+      {style !== "A" && (
+        <div className={"mh-profit" + (x.profitNeg ? " neg" : "")} title={T("After ad spend and the cost of what was sold", "Baada ya matangazo na gharama ya bidhaa zilizouzwa")}>
+          <span className="mh-k">{x.profitNeg ? T("Loss", "Hasara") : T("Profit", "Faida")}</span>
+          <b>{x.profit ?? "–"}</b>
+          <span className="mh-s">{x.profitSub ?? T("after ads & costs", "baada ya gharama")}</span>
+        </div>
+      )}
     </div>
   );
   const spend = (big: boolean) => (

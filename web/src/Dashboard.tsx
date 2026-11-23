@@ -142,7 +142,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
       ) : (<>
         {page === "home" && <MoneyHero style={hero} T={T} onRevenue={() => setShowPaid((x) => !x)} revenueOpen={showPaid} data={{
           revenue: money(W(mx.revenue.value), wsCur), revenueD: delta(mx.revenue, prev.revenue),
-          revenueSub: `${mx.ordersPaid.value} ${T("paid orders", "oda zilizolipwa")} · ${periodText(mx.period, lang)}`,
+          revenueSub: `${mx.ordersPaid.value} ${mx.ordersPaid.value === 1 ? T("paid order", "oda iliyolipwa") : T("paid orders", "oda zilizolipwa")} · ${periodText(mx.period, lang)}`,
           spend: money(A(mx.spend.value), adCur), spendD: delta(mx.spend, prev.spend),
           spendSub: `${fmt(mx.platformConversations.value)} ${T("chats (Meta)", "chats (Meta)")}`,
           split: (mx.ordersPaid.value ?? 0) > 0 && mx.revenue.value != null ? { ads: W(mx.adCustomerRevenue.value) ?? 0, other: (W(mx.revenue.value) ?? 0) - (W(mx.adCustomerRevenue.value) ?? 0),
@@ -150,7 +150,10 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
           roas: mx.returnOnAdSpendAllAdCustomers.value == null ? null : mx.returnOnAdSpendAllAdCustomers.value.toFixed(1) + "×",
           profit: mx.contribution.value == null ? null : money(W(mx.contribution.value), wsCur),
           profitNeg: (mx.contribution.value ?? 0) < 0,
-          profitSub: mx.contribution.note === "no paid orders in period" ? T("no paid orders yet", "bado hakuna oda") : undefined,
+          profitSub: mx.contribution.note === "no paid orders in period" ? T("no paid orders yet", "bado hakuna oda")
+            : mx.contribution.note === "needs exchange rate" ? T("needs the exchange rate", "inahitaji kiwango cha kubadilisha")
+            : mx.contribution.note === "needs order costs" ? T("add product costs", "weka gharama za bidhaa")
+            : mx.contribution.note === "estimated" ? T("estimated, after ads & costs", "makadirio, baada ya gharama") : undefined,
         }} />}
         {page !== "data" && <div className={"kpis" + (page === "home" ? " has-hero" : "")}>
           {page === "ads" && <Kpi k={T("Ad spend", "Matumizi ya matangazo")} v={money(A(mx.spend.value), adCur)} n={A(mx.spend.value)} f={(x) => money(x, adCur)} s={`${fmt(mx.platformConversations.value)} ${T("chats (Meta)", "chats (Meta)")}`} d={delta(mx.spend, prev.spend)} src={mx.spend.provenance} title={D("spend")} />}
