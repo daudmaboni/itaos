@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { supabase, Workspace, Order, Outcome, L, amt, money, localDay, orderNet } from "./lib";
 import type { Period } from "./metrics";
 import ReceiptPrint from "./ReceiptPrint";
+import { useBackLayer } from "./backStack";
 
 type Row = { o: Order; c: Outcome | null; phone: string | null };
 
@@ -29,20 +30,18 @@ export default function PaidOrders({ ws, orders, period, adNames, onClose }: {
 
   // Desktop: a popup over the blurred dashboard. Phone: a full-screen page.
   // Esc closes it; on a phone the Back button closes it instead of leaving the dashboard.
+  // Back used to close this list even while a receipt was open on top of it (both vanished at once). The
+  // shared back stack closes only the top popup: the receipt first, then this list.
+  useBackLayer(true, onClose);
   useEffect(() => {
-    history.pushState({ ...(history.state ?? {}), paidList: true }, "");
-    const onPop = () => onClose();
     // Esc while a receipt is open closes only the receipt (it listens for Esc itself).
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.body.classList.contains("rcpt-open")) onClose(); };
-    window.addEventListener("popstate", onPop);
     window.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("popstate", onPop);
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
-      if (history.state?.paidList) history.back();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

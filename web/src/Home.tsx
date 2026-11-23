@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Logo from "./Logo";
 import { hidePreloader } from "./preloader";
 import "./home.css";
+import { useBackLayer } from "./backStack";
 
 /** Public homepage at "/". The app itself lives at "/app". */
 const APP = "/app";
@@ -20,6 +21,7 @@ const pilotLink = (lang: Lang) => `https://wa.me/${PONDI_WA}?text=${encodeURICom
 
 export default function Home() {
   const [menu, setMenu] = useState(false);
+  useBackLayer(menu, () => setMenu(false)); // phone Back closes the menu
   const [lang, setLang] = useState<Lang>(() => {
     try { const v = localStorage.getItem(LANG_KEY); if (v === "sw" || v === "en") return v; } catch { /* storage unavailable */ }
     return "sw";

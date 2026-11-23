@@ -7,6 +7,7 @@ import { palette, readLogo } from "./brand";
 import { supabase, callFn, Workspace, canManage, canEdit, when, moneyInput, moneyText, commaRuns } from "./lib";
 import PhoneApp from "./PhoneApp";
 import { enterCards, enterRows, flash, shake, usePageEnter, select } from "./motion";
+import { useBackLayer, replaceEntry } from "./backStack";
 
 type Tab = "business" | "profile" | "appearance" | "rules" | "app" | "account";
 const TABS: [Tab, string, string][] = [["business", "Business", "Biashara"], ["profile", "Business profile", "Wasifu wa biashara"], ["appearance", "Appearance", "Muonekano"], ["rules", "Rules & rates", "Kanuni na viwango"], ["app", "App & notifications", "App na arifa"], ["account", "My profile", "Wasifu wangu"]];
@@ -19,7 +20,7 @@ export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; 
   const lang = ws.language;
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? "")); }, []);
-  useEffect(() => { history.replaceState(null, "", "#settings/" + tab); }, [tab]);
+  useEffect(() => { replaceEntry("#settings/" + tab); }, [tab]); // keeps the entry's number, so Home → Back still leaves the app
   useEffect(() => { document.querySelector("nav.subtabs a.on")?.scrollIntoView({ block: "nearest", inline: "center" }); }, [tab]);
   const pageRef = usePageEnter<HTMLDivElement>((root) => {
     enterCards(select(root, ":scope > .card"), { stagger: 0.07 });
@@ -109,6 +110,7 @@ function PaymentsCurrency({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace)
     onWs({ ...ws, currency: pick }); setAsk(false);
   }
   function cancel() { setAsk(false); setPick(ws.currency); }
+  useBackLayer(ask, cancel); // phone Back = "No, keep"
   return (
     <section className="card">
       <div><h2>{T("Payments from customers", "Malipo kutoka kwa wateja")}</h2>

@@ -21,6 +21,7 @@ import Island from "./Island";
 import Products from "./Products";
 import Logo, { KitoLogo } from "./Logo";
 import { hidePreloader } from "./preloader";
+import { depth, onLayer, leaveLayers, afterBack, pushEntry, replaceEntry, useBackLayer } from "./backStack";
 import { useIsPlatformAdmin } from "./adminAccess";
 
 type View = "dashboard" | "kito" | "attention" | "report" | "actions" | "receipts" | "buyers" | "chats" | "products" | "connect" | "settings";
@@ -30,18 +31,23 @@ const viewFromHash = (): View => {
   return (VIEWS as string[]).includes(h) ? (h as View) : "dashboard";
 };
 
-/** Phone page change without piling up history (22 Nov 2026). Before, every tap or swipe added a history
- *  entry, so Android's Back button/gesture walked back through every page you'd visited, and the edge
- *  Back gesture could fire on top of a swipe. Now history holds at most [Home, current page]: leaving Home
- *  adds one entry, every other move replaces it, and going back to Home steps back. So Back from any page
- *  goes Home, and Back from Home leaves the app, like a native app. */
-function phoneGo(v: View) {
+/** Phone page change without piling up history (22 Nov 2026; numbered entries 23 Nov 2026, see backStack.ts).
+ *  Leaving Home adds one entry, every other tab/swipe move replaces the current one, and the Home tab steps
+ *  straight back to the first entry. So Back from any page goes Home, and Back from Home leaves the app,
+ *  like a native app, even after following links between pages. An open popup is closed first. */
+export function phoneGo(v: View) {
+  if (onLayer()) { leaveLayers(() => phoneGo(v)); return; }
   const cur = viewFromHash();
   if (v === cur) return;
-  const st = history.state as { itaFromHome?: boolean } | null;
-  if (v === "dashboard" && st?.itaFromHome) { history.back(); return; } // fires hashchange
-  if (cur === "dashboard" && !location.hash.includes("/")) history.pushState({ itaFromHome: true }, "", "#" + v);
-  else history.replaceState(st?.itaFromHome ? { itaFromHome: true } : null, "", "#" + v);
+  const d = depth();
+  if (v === "dashboard" && d > 0) {
+    // fires hashchange; if the app was opened on another page, that first entry becomes Home
+    afterBack(() => { if (viewFromHash() !== "dashboard") { replaceEntry("#dashboard"); window.dispatchEvent(new HashChangeEvent("hashchange")); } });
+    history.go(-d);
+    return;
+  }
+  if (cur === "dashboard" && d === 0) pushEntry("#" + v);
+  else history.replaceState({ itaDepth: d }, "", "#" + v);
   window.dispatchEvent(new HashChangeEvent("hashchange"));
 }
 
@@ -102,7 +108,7 @@ export default function App() {
       // Signing out (or a fresh sign-in) always starts on the dashboard: the page the last person was on
       // (e.g. #settings, where Sign out lives) must not carry over to the next account on this device.
       if (e === "SIGNED_OUT" || (e === "SIGNED_IN" && s && hadSession.current === false)) {
-        if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+        if (location.hash) history.replaceState({ itaDepth: depth() }, "", location.pathname + location.search);
         viewRef.current = "dashboard"; setView("dashboard");
       }
       hadSession.current = !!s;
@@ -521,6 +527,7 @@ export function PageView({ view, children }: { view: View; children: React.React
 /** Phone navigation: four main sections plus "More". Hidden on wider screens, where the top tabs show. */
 export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badges?: Badges }) {
   const [open, setOpen] = useState(false);
+  useBackLayer(open, () => setOpen(false)); // phone Back closes the More sheet
   useEffect(() => {
     const close = () => setOpen(false);
     window.addEventListener("hashchange", close);

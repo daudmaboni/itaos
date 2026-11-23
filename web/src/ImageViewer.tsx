@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBackLayer } from "./backStack";
 
 /**
  * Full-screen photo viewer: the one place in itaOS you can zoom (the rest of the app is locked, see noZoom.ts).
@@ -12,6 +13,7 @@ export function ImageViewer({ src, alt, onClose, sw }: { src: string; alt: strin
   const g = useRef<{ d0: number; s0: number; x0: number; y0: number; px: number; py: number; moved: boolean; lastTap: number }>({ d0: 0, s0: 1, x0: 0, y0: 0, px: 0, py: 0, moved: false, lastTap: 0 });
   const MAX = 5;
   const clamp = (s: number) => Math.min(MAX, Math.max(1, s));
+  useBackLayer(true, onClose); // phone Back closes the photo
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

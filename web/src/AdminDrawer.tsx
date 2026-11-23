@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { DrawerPerformance, DrawerTasks } from './AdminInsights';
 import { daysOnStep, stepAction, type OnboardingRow } from './adminInsights';
 import { Overview, WsStatus, WsRow, Detail, fmt, ago, stamp, plural, money, tileColor, initials, healthOf, viaName, STEPS, EXTRAS, stuckAt, useRpc, ACTION, describe, ORIGIN, ORDER_FROM, ICON } from "./adminParts";
+import { useBackLayer } from "./backStack";
 
 export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }:
   { supabase: SupabaseClient; id: string; row?: WsRow; onb?: OnboardingRow; onClose: () => void; onChanged: () => void; onDeleted: () => void }) {
@@ -33,6 +34,7 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
   const priceNum = price.replace(/[,\s]/g, '') === '' ? null : Number(price.replace(/[,\s]/g, ''));
   const priceBad = priceNum != null && (!isFinite(priceNum) || priceNum < 0);
   const priceDirty = !!priceWas && !priceBad && priceNum !== priceWas.v;
+  useBackLayer(true, onClose); // phone Back closes the drawer
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);

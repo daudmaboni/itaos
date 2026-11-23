@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PRESETS, RangeSel, resolveRange, presetLabel, rangeText, recentRanges, addDays } from "./ranges";
+import { useBackLayer } from "./backStack";
 
 type Lang = "en" | "sw";
 const WD = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], sw: ["Jpi", "Jtt", "Jnn", "Jtn", "Alh", "Iju", "Jmo"] };
@@ -46,6 +47,7 @@ export default function DateRange({ value, onChange, today, tz, lang, start }: {
   };
   const apply = () => { if (anchor) setDraft({ key: "custom", from: anchor, to: anchor }); onChange(anchor ? { key: "custom", from: anchor, to: anchor } : draft); close(); };
 
+  useBackLayer(open, () => close()); // phone Back closes the date picker
   // The picker is a centred dialog: blur and freeze everything behind it.
   useLayoutEffect(() => { if (open) return lockScroll(); }, [open]);
 

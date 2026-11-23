@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib";
 import type { Workspace } from "./lib";
+import { leaveLayers } from "./backStack";
 
 type Note = { id: string; name: string; text: string; count: number };
 type Phase = "hidden" | "pill" | "open" | "leaving";
@@ -120,7 +121,8 @@ export default function Island({ ws }: { ws: Workspace }) {
   if (phase === "hidden" || !note) return null;
 
   const open = () => {
-    location.hash = note.id ? "#chats/open=" + note.id : "#chats";
+    const to = note.id ? "#chats/open=" + note.id : "#chats";
+    leaveLayers(() => { location.hash = to; }); // close any open popup first, so Back doesn't land on it
     dismiss();
   };
 

@@ -481,7 +481,7 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
   const [msg, setMsg] = useState<{ ok?: string; err?: string }>(() => {
     const r = new URLSearchParams(location.search).get("google");
     if (!r) return {};
-    history.replaceState(null, "", location.pathname + location.hash);
+    history.replaceState(history.state, "", location.pathname + location.hash);
     if (r === "ok") return { ok: T("Google connected. Your reminders are being added to Google Tasks.", "Google imeunganishwa. Vikumbusho vyako vinaongezwa Google Tasks.") };
     if (r === "partial") return { err: T("Connected, but some boxes were unticked on Google's page. Disconnect and connect again, and tick all of them.", "Imeunganishwa, lakini baadhi ya visanduku havikuwekwa tiki kwenye ukurasa wa Google. Tenganisha na unganisha tena, weka tiki zote.") };
     if (r === "cancelled") return { err: T("You cancelled on Google's page. Nothing was connected.", "Umeghairi kwenye ukurasa wa Google. Hakuna kilichounganishwa.") };

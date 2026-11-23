@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase, callFn, Workspace, money, canEdit, localDay } from "./lib";
+import { useBackLayer } from "./backStack";
 
 export type Buyer = {
   contact_id: string; wa_name: string | null; full_name: string | null; phone: string | null; alt_phone: string | null;
@@ -204,6 +205,7 @@ function BuyerModal({ b, T, editor, onClose, onSaved }: { b: Buyer; T: (en: stri
   const [closing, setClosing] = useState(false);
   const close = () => { if (closing) return; setClosing(true); window.setTimeout(onClose, 180); };
   const closeRef = useRef(close); closeRef.current = close;
+  useBackLayer(true, () => closeRef.current()); // phone Back closes the buyer card
   const xBtn = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const unlock = lockScroll();

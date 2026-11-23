@@ -15,8 +15,10 @@ import { startPwa } from "./pwa";
 import { startPullRefresh } from "./pullRefresh";
 import { startNoZoom } from "./noZoom";
 import { startChatReturn } from "./chatReturn";
+import { startBackStack } from "./backStack";
 import { startGlassCards } from "./glassCards";
 
+startBackStack(); // first, so every other listener sees numbered history entries
 startPwa();
 startPullRefresh();
 startNoZoom();

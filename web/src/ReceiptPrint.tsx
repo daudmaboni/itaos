@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { supabase, Workspace, Order, orderNet, amt } from "./lib";
 import { palette } from "./brand";
+import { useBackLayer } from "./backStack";
 
 export type ReceiptStyle = "till" | "letterhead" | "stamp" | "tearoff" | "mono" | "reorder" | "bilingual" | "shipping";
 export const RECEIPT_STYLES: { key: ReceiptStyle; n: number; en: string; sw: string; page: string; w: number }[] = [
@@ -126,6 +127,7 @@ export default function ReceiptPrint({ ws, orderId, onClose }: { ws: Workspace; 
     setR({ ...r, link: receiptLink(data as string) });
     flash(T("New link ready — print again", "Link mpya iko tayari — chapisha tena"));
   };
+  useBackLayer(true, onClose); // phone Back closes the receipt (and only the receipt)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);

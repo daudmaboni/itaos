@@ -3,6 +3,7 @@
 // The technical detail (which rule or Kito reading decided the label) is still there, tucked away.
 import { enterRows, usePageEnter, select } from "./motion";
 import { takeChatReturn } from "./chatReturn";
+import { pushEntry, replaceEntry, cameFrom } from "./backStack";
 import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, fmt, when, canEdit, canManage, money, localDay } from "./lib";
 import DateRange from "./DateRange";
@@ -320,7 +321,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
     enterRows(select(root, ".cc"), { delay: 0.1, stagger: 0.04 });
   }, [loading, filter]);
 
-  const pick = (f: Filter) => { setIds(null); setFilter(f); setLimit(PAGE); if (location.hash !== "#chats") history.replaceState(history.state, "", "#chats"); };
+  const pick = (f: Filter) => { setIds(null); setFilter(f); setLimit(PAGE); if (location.hash !== "#chats") replaceEntry("#chats"); };
   const pool = lite.filter((r) => inSource(r, src));
   const count = (f: Filter) => f === "sold" && period && boughtInRange != null ? boughtInRange : counts ? Number(counts[f] ?? 0) : pool.filter((r) => inFilter(r, f)).length;
   const imported = counts ? Number(counts.imported ?? 0) : lite.filter((r) => (r as any).phone_number_id === "import").length;
@@ -349,9 +350,9 @@ export default function Chats({ ws }: { ws: Workspace }) {
     const want = openId ? "#chats/open=" + openId : "#chats";
     if (location.hash === want) return;
     const st = (history.state ?? {}) as { itaChat?: boolean };
-    if (openId && !hashOpen()) history.pushState({ ...st, itaChat: true }, "", want);
+    if (openId && !hashOpen()) pushEntry(want, { itaChat: true });
     else if (!openId && st.itaChat) history.back(); // fires hashchange → list shows
-    else history.replaceState(history.state, "", want);
+    else replaceEntry(want);
   }, [openId]);
   // After a reload the open chat may not be in the first page of the list: fetch it on its own.
   useEffect(() => {
@@ -465,6 +466,10 @@ export default function Chats({ ws }: { ws: Workspace }) {
               if (history.length > 1) history.back(); else location.hash = to;
               return;
             }
+            // Came here by an "Open chat →" link on another page (Buyers, Promises, Reorders …): the arrow goes
+            // back to that page too, the same as the phone's Back gesture.
+            const from = cameFrom();
+            if (from && !from.startsWith("#chats") && hashOpen() === openRow.id) { history.back(); return; }
             setOpenId(null);
           }} startConfirm={openConfirm} />}
         {!openRow && (

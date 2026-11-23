@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { Filters, FilterOptions } from "./data";
 import { activeFilters } from "./data";
+import { useBackLayer } from "./backStack";
 
 const KEY = (page: string) => "itaos-filters-" + page;
 export function useFilters(page: string): [Filters, (f: Filters) => void] {
@@ -16,6 +17,7 @@ export function useFilters(page: string): [Filters, (f: Filters) => void] {
 export function FilterBar({ value, onChange, options, lang }: { value: Filters; onChange: (f: Filters) => void; options: FilterOptions; lang: "sw" | "en" | string }) {
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   const [open, setOpen] = useState(false);
+  useBackLayer(open, () => setOpen(false)); // phone Back closes the Filters sheet
   const ads = value.campaign ? options.ads.filter((a) => a.campaign === value.campaign) : options.ads;
   const on = activeFilters(value);
   const adsOk = value.source !== "organic" && value.source !== "unknown";

@@ -13,6 +13,7 @@ import { Overview, WsRow, Activity, ErrRow, Staff, View, ago, hoursSince, useRpc
 import { CSS } from "./adminStyles";
 import { Today, Businesses, Errors, Audit, StaffPage } from "./AdminPages";
 import { Drawer } from "./AdminDrawer";
+import { useBackLayer, depth } from "./backStack";
 export { healthOf } from "./adminParts";
 /* ================= types ================= */
 const VIEWS: View[] = ['today', 'workspaces', 'performance', 'usage', 'quality', 'errors', 'audit', 'staff'];
@@ -65,6 +66,7 @@ export default function Admin({ supabase, backHref, onSignOut }: { supabase: Sup
   const [openWs, setOpenWs] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [more, setMore] = useState(false);   // phone: the "More" sheet
+  useBackLayer(more, () => setMore(false));
   const refresh = () => setTick((t) => t + 1);
 
   const ov = useRpc<Overview>(supabase, 'admin_overview', undefined, [tick, isAdmin]);
@@ -219,7 +221,7 @@ function Frame({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.add('ia-paged');
       tr.scrollTop = 0;
       if (!still()) tr.animate([{ transform: 'translateX(100%)' }, { transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      try { history.pushState({ iaPage: 1 }, ''); } catch { /* ignore */ }
+      try { history.pushState({ itaDepth: depth() + 1, iaPage: 1 }, ''); } catch { /* ignore */ }
     };
     const closePage = (viaButton: boolean) => {
       const tr = page; if (!tr) return;
@@ -228,7 +230,8 @@ function Frame({ children }: { children: React.ReactNode }) {
       if (still()) done(); else tr.animate([{ transform: 'none' }, { transform: 'translateX(100%)' }], { duration: 240, easing: 'cubic-bezier(.4,0,1,1)' }).onfinish = done;
       if (viaButton) { try { if (history.state?.iaPage) history.back(); } catch { /* ignore */ } }
     };
-    const onPop = () => { if (page) closePage(false); };
+    // Only when the row page's own entry was left (Back from a drawer on top of it keeps the page open).
+    const onPop = () => { if (page && !history.state?.iaPage) closePage(false); };
     window.addEventListener('popstate', onPop);
     root.addEventListener('click', onClick);
     let queued = false;
