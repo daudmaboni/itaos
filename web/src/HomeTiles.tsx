@@ -1,33 +1,46 @@
 // Home tiles in three looks (F business health, B list with meters, I needs you / all good; A is no longer shown).
-// Home opens on Business health and moves to the next look every 20 s with a short fade and slide. It pauses while
-// the owner touches, hovers or focuses it, never rotates with "reduce motion" on, and the dots pick one by hand.
-import { useEffect, useMemo, useRef, useState } from "react";
+// The look stays put while the owner is using the app, including moving between pages. It changes, at random, only
+// when they come back: a fresh open of the app, or returning to it after it was in the background for a while.
+// The dots still pick one by hand.
+import { useEffect, useMemo, useState } from "react";
 import type { Workspace } from "./lib";
 import { buildTiles, pickLook, LOOKS, type Look, type TileInput, type Tiles } from "./homeTiles";
 
-const EVERY = 20000;
+const KEY = "itaos-tiles-look";
+const AWAY = 30000;   // away at least this long counts as coming back
+let current: Look | null = null;   // kept across page changes inside the app
 
-export default function HomeTiles({ ws, input, fixed }: { ws: Workspace; input: TileInput; /** show one look, no rotation (previews) */ fixed?: Look }) {
+function lastSaved(): Look | null {
+  try { const v = localStorage.getItem(KEY) as Look | null; return v && LOOKS.includes(v) ? v : null; } catch { return null; }
+}
+function choose(l: Look) {
+  current = l;
+  try { localStorage.setItem(KEY, l); } catch { /* storage unavailable */ }
+  return l;
+}
+
+export default function HomeTiles({ ws, input, fixed }: { ws: Workspace; input: TileInput; /** show one look (previews) */ fixed?: Look }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
   const t = useMemo(() => buildTiles(input, T), [JSON.stringify(input), ws.language]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [picked, setLook] = useState<Look>(() => pickLook(null));
+  // First time this app session: a new look, different from the one shown on the last visit.
+  const [picked, setLook] = useState<Look>(() => current ?? choose(pickLook(lastSaved())));
   const look = fixed ?? picked;
-  const paused = useRef(0);   // time until which rotation is paused
-  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => {
-    if (reduced || fixed) return;
-    const id = window.setInterval(() => {
-      if (document.hidden || Date.now() < paused.current) return;
-      setLook((cur) => pickLook(cur));
-    }, EVERY);
-    return () => window.clearInterval(id);
-  }, [reduced, fixed]);
-  const hold = (ms: number) => () => { paused.current = Date.now() + ms; };
+    if (fixed) return;
+    let hiddenAt = 0;
+    const f = () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt >= AWAY) setLook((cur) => choose(pickLook(cur)));
+      hiddenAt = 0;
+    };
+    document.addEventListener("visibilitychange", f);
+    return () => document.removeEventListener("visibilitychange", f);
+  }, [fixed]);
 
   return (
-    <div className="ht" onPointerEnter={hold(60000)} onPointerLeave={hold(EVERY / 2)} onTouchStart={hold(30000)} onFocus={hold(60000)}>
-      <div key={look} className={"ht-stage" + (reduced ? "" : " ht-anim")}>
+    <div className="ht">
+      <div key={look} className="ht-stage ht-anim">
         {look === "A" && <LookA t={t} T={T} />}
         {look === "B" && <LookB t={t} T={T} />}
         {look === "F" && <LookF t={t} T={T} />}
@@ -36,7 +49,7 @@ export default function HomeTiles({ ws, input, fixed }: { ws: Workspace; input: 
       <div className="ht-dots" role="group" aria-label={T("Tile style", "Mtindo wa vigae")}>
         {LOOKS.map((l, i) => (
           <button key={l} type="button" className={l === look ? "on" : ""} aria-pressed={l === look} aria-label={T(`Style ${i + 1}`, `Mtindo ${i + 1}`)}
-            onClick={() => { paused.current = Date.now() + 60000; setLook(l); }} />
+            onClick={() => setLook(choose(l))} />
         ))}
       </div>
     </div>

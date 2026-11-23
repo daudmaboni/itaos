@@ -32,7 +32,7 @@ describe("home tiles", () => {
   it("picks another look each time", () => {
     for (let i = 0; i < 20; i++) { const cur = LOOKS[i % LOOKS.length]!; expect(pickLook(cur)).not.toBe(cur); }
     expect(LOOKS).toEqual(["F", "B", "I"]);
-    expect(pickLook(null)).toBe("F");
-    expect(pickLook("I")).toBe("F");
+    expect(LOOKS).toContain(pickLook(null, () => 0.99));
+    expect(LOOKS).toContain(pickLook("A"));
   });
 });

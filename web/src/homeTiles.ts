@@ -2,8 +2,8 @@
 // Staff leak guard — drawn in one of four looks picked from the design canvas (A, B, F, I). Pure, so it's tested.
 
 export type Look = "A" | "B" | "F" | "I";
-/** Home shows three looks, in this order: Business health (F) first, then the list with meters (B), then
- *  Needs you / All good (I). The navy Ads look (A) was dropped on 23 Nov 2026. */
+/** Home shows three looks: Business health (F), the list with meters (B), Needs you / All good (I).
+ *  The navy Ads look (A) was dropped on 23 Nov 2026. */
 export const LOOKS: Look[] = ["F", "B", "I"];
 
 export type TileInput = {
@@ -64,8 +64,8 @@ export function buildTiles(x: TileInput, T: (en: string, sw: string) => string):
   return { ads, why, pay, leak, next };
 }
 
-/** The look after the current one; Home opens on Business health. */
-export function pickLook(cur: Look | null): Look {
-  if (!cur) return LOOKS[0]!;
-  return LOOKS[(LOOKS.indexOf(cur) + 1) % LOOKS.length]!;
+/** A random look other than the one shown last time (any look when there's none). */
+export function pickLook(cur: Look | null, rnd: () => number = Math.random): Look {
+  const pool = cur && LOOKS.includes(cur) ? LOOKS.filter((l) => l !== cur) : LOOKS;
+  return pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))]!;
 }
