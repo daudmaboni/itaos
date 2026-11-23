@@ -138,3 +138,37 @@
 .wa-pane .wa-tk.wa-tk-wait { opacity: .5; }
 .wa-pane .wa-tk.wa-tk-fail, .chats .inbox.frame .wa-pane .wa-msg.out .wa-tk.wa-tk-fail { color: #e5484d; }
 .wa-fail { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; color: #e5484d; }
+
+/* ---- Smooth like WhatsApp (23 Nov 2026) ---- */
+/* Messages sit in one inner box (so photos loading can keep the chat pinned to the bottom). */
+.wa-thread-in { display: flex; flex-direction: column; gap: inherit; flex: 1 0 auto; }
+/* Older messages are added above as you scroll up; the chat keeps your place itself, so the browser mustn't too. */
+.wa-thread { overflow-anchor: none; -webkit-overflow-scrolling: touch; }
+/* Your message the moment you press Send: same bubble, a clock instead of ticks. */
+.wa-msg.pending .wa-bub { opacity: .88; }
+.wa-msg.pending { animation: wa-sent .18s ease-out; }
+@keyframes wa-sent { from { opacity: 0; transform: translateY(6px); } }
+/* Loading a chat you've never opened: three quiet dots, not a sentence. */
+.wa-sys.wa-loading { display: flex; gap: 6px; padding: 12px 16px; }
+.wa-loading span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .35; animation: wa-dot 1s ease-in-out infinite; }
+.wa-loading span:nth-child(2) { animation-delay: .15s; }
+.wa-loading span:nth-child(3) { animation-delay: .3s; }
+@keyframes wa-dot { 40% { opacity: .9; transform: translateY(-3px); } }
+/* Chat list: cards off screen are skipped when drawing and laying out (big lists scroll like short ones). */
+.chats .cc-list > div > .cc, .chats .cc-list > .cc { content-visibility: auto; contain-intrinsic-size: auto 104px; }
+@media (min-width: 900px) { .chats .inbox.frame .cc-list > div > .cc { contain-intrinsic-size: auto 76px; } }
+
+@media (max-width: 899px) {
+  /* Opening a chat pushes it in from the right; closing slides it back out (only transform + opacity: smooth on any phone). */
+  .chats .wa-pane { animation: wa-push .24s cubic-bezier(.2, .8, .2, 1) both; }
+  .chats .wa-pane.wa-leave { animation: wa-pop .2s cubic-bezier(.4, 0, 1, 1) both; pointer-events: none; }
+  @keyframes wa-push { from { transform: translate3d(32%, 0, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes wa-pop { from { transform: none; opacity: 1; } to { transform: translate3d(32%, 0, 0); opacity: 0; } }
+}
+@media (max-width: 760px) {
+  /* Solid top bar on Chats, like WhatsApp: no live blur redrawn under a scrolling list. */
+  html.on-chats .topbar { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--paper); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chats .wa-pane, .chats .wa-pane.wa-leave, .wa-msg.pending { animation: none; }
+}

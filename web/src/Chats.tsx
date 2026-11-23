@@ -12,7 +12,7 @@ import { signalDismissed, fromLocalInput } from "./Orders";
 import { KitoLogo } from "./Logo";
 import { KitoLoader } from "./KitoLoader";
 import { Source, Run, Lite, Tr, timeGroup, waLink, agoT, statusOf, kitoStale, interest, phoneOf, nameOf, fromOf, lostWhy } from "./chatParts";
-import { ChatPane, PartyHint } from "./ChatPane";
+import { ChatPane, PartyHint, prefetchMsgs } from "./ChatPane";
 export { timeGroup, waLink } from "./chatParts";
 
 type Filter = "follow" | "lost" | "open" | "sold" | "signals" | "all" | "not" | "ids";
@@ -47,6 +47,10 @@ type Snap = {
   paidOn: Record<string, string> | null; boughtInRange: number | null;
 };
 let snap: Snap | null = null;
+// Every list you've looked at (tab, source, search, dates), kept while the app is open: switching back to a
+// tab shows it at once and refreshes it quietly, like WhatsApp's tabs, instead of grey placeholders.
+type ViewMem = { rows: Outcome[]; phones: Record<string, string>; paidOn: Record<string, string> | null; boughtInRange: number | null };
+const views = new Map<string, ViewMem>();
 // Kito's automatic catch-up runs once per business while the app is open, not every time Chats opens.
 const autoRan = new Set<string>();
 
@@ -147,7 +151,11 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const viewKey = JSON.stringify([ws.id, filter, ids, src, limit, search, period?.from, period?.to]);
 
   useEffect(() => {
-    if (!quiet && shownKey.current !== viewKey) setLoading(true);
+    if (!quiet && shownKey.current !== viewKey) {
+      const mem = views.get(viewKey);
+      if (mem) { setRows(mem.rows); setPhones(mem.phones); setPaidOn(mem.paidOn); setBoughtInRange(mem.boughtInRange); setLoading(false); shownKey.current = viewKey; }
+      else setLoading(true);
+    }
     setQuiet(false); setErr("");
     let cur = true;
     const byPaid = filter === "sold";
@@ -244,6 +252,8 @@ export default function Chats({ ws }: { ws: Workspace }) {
       setAdNames(Object.fromEntries((a.data ?? []).map((x: any) => [x.ad_id, x.name])));
       setTasks(Object.fromEntries(((t.data ?? []) as Task[]).map((task) => [task.conversation_id, task])));
       setLoading(false); shownKey.current = viewKey;
+      views.set(viewKey, { rows: list, phones: Object.fromEntries((cts ?? []).map((x: any) => [x.id, x.wa_id])), paidOn: byPaid && period ? ((await paidIds) ?? null) : null, boughtInRange: null });
+      if (views.size > 24) views.delete(views.keys().next().value as string);
     });
     return () => { cur = false; };
   }, [ws.id, filter, ids, tick, src, limit, search, period?.from, period?.to]);
@@ -314,11 +324,13 @@ export default function Chats({ ws }: { ws: Workspace }) {
     else { setNote(T(`Deleted ${(data as any).deleted} imported chats.`, `Chat ${(data as any).deleted} zilizoingizwa zimefutwa.`)); setSrc("any"); refresh(); }
   }
 
+  // Solid top bar while on Chats (phone): a blurred bar over a scrolling list redraws on every frame.
+  useEffect(() => { const h = document.documentElement; h.classList.add("on-chats"); return () => h.classList.remove("on-chats"); }, []);
   const animated = useRef(!!cached);   // a list shown from memory doesn't replay the row entrance
   const pageRef = usePageEnter<HTMLElement>((root) => {
     if (loading) return;
     if (animated.current) { animated.current = false; return; }
-    enterRows(select(root, ".cc"), { delay: 0.1, stagger: 0.04 });
+    enterRows(select(root, ".cc").slice(0, 8), { delay: 0.05, stagger: 0.03 }); // only what's on screen; the rest just appear
   }, [loading, filter]);
 
   const pick = (f: Filter) => { setIds(null); setFilter(f); setLimit(PAGE); if (location.hash !== "#chats") replaceEntry("#chats"); };
@@ -333,6 +345,23 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const found = openId ? rows.find((x) => x.id === openId) ?? null : null;
   useEffect(() => { if (found) setOpenSnap(found); }, [found]);
   const openRow = found ?? (openSnap && openSnap.id === openId ? openSnap : null);
+  // Phone: a closed chat slides away (like WhatsApp) instead of vanishing.
+  const lastOpen = useRef<Outcome | null>(null);
+  const leavingRef = useRef<{ row: Outcome; until: number } | null>(null);
+  const [, redraw] = useState(0);
+  if (openRow) { lastOpen.current = openRow; leavingRef.current = null; }
+  else if (lastOpen.current) {
+    if (window.matchMedia("(max-width: 899px)").matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      leavingRef.current = { row: lastOpen.current, until: Date.now() + 220 };
+    lastOpen.current = null;
+  }
+  const leavingRow = !openRow && leavingRef.current && leavingRef.current.until > Date.now() ? leavingRef.current.row : null;
+  useEffect(() => {
+    if (!leavingRow) return;
+    const t = window.setTimeout(() => { leavingRef.current = null; redraw((n) => n + 1); }, 220);
+    return () => window.clearTimeout(t);
+  }, [leavingRow?.id]);
+  const paneRow = openRow ?? leavingRow;
   // The open chat left the list (e.g. you just marked it "not a customer"): reload it so the panel shows the change.
   useEffect(() => {
     if (!openId || found) return;
@@ -458,8 +487,9 @@ export default function Chats({ ws }: { ws: Workspace }) {
             </button>
           )}
         </div>
-        {openRow && <ChatPane key={openRow.id} r={openRow} ws={ws} T={T} adName={openRow.ad_id ? adNames[openRow.ad_id] : undefined} phone={phoneOf(phones[openRow.contact_id])}
-          task={tasks[openRow.id]} onChange={refreshQuiet} onClose={() => {
+        {paneRow && <ChatPane key={paneRow.id} r={paneRow} leaving={!openRow} ws={ws} T={T} adName={paneRow.ad_id ? adNames[paneRow.ad_id] : undefined} phone={phoneOf(phones[paneRow.contact_id])}
+          task={tasks[paneRow.id]} onChange={refreshQuiet} onClose={() => {
+            if (!openRow) return;
             // Came here from Actions / After price / Kito …: go back to that page, not to the Chats list.
             if (backTo.current && (autoOpened.current === openRow.id || (ids && ids.length === 1))) {
               const to = backTo.current; backTo.current = null;
@@ -530,7 +560,7 @@ function Card({ r, ws, T, adName, phone, task, selected, onOpen, onChange }: { r
     : null;
   return (
     <article className={"cc " + st.tone + (selected ? " sel" : "")} aria-current={selected || undefined}>
-      <div className="cc-top" onClick={() => onOpen()} role="button" tabIndex={0}
+      <div className="cc-top" onClick={() => onOpen()} onPointerDown={() => prefetchMsgs(r.id)} role="button" tabIndex={0}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}>
         <div className="cc-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</div>
         <div className="cc-main">

@@ -1,6 +1,6 @@
 // The open chat on the Chats page: messages, reply box, payment confirmation and photos (moved out of Chats.tsx, unchanged).
 import { select } from "./motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, dur, L, when, canEdit, canManage, canSend, money, amt, moneyInput, moneyText } from "./lib";
 import { AssignChat } from "./team";
 import { useProducts, ProductPicker, itemsCost, itemsLabel, productPhotosReady, itemsFromMatches, type Item, type ProductMatch } from "./Products";
@@ -9,6 +9,44 @@ import { KitoLogo } from "./Logo";
 import { ImageViewer } from "./ImageViewer";
 import { KitoLoader } from "./KitoLoader";
 import { Msg, Tr, waLink, agoT, statusOf, kitoStale, PARTY, markNotCustomer, nameOf, fromOf, prettyPhone, hiddenNote, special, whySource, lostWhy, lastPriceSent, interest } from "./chatParts";
+
+/* ---- Smooth like WhatsApp (23 Nov 2026) ----
+   WhatsApp opens a chat from what's already on the phone and only draws the messages on screen. Same here:
+   - every chat you open (or press on) is kept in memory, so opening it again is instant and only the
+     newest messages are fetched;
+   - a chat not yet in memory shows its newest 40 messages first, then the rest arrive;
+   - pressing a card starts loading before the finger lifts (prefetchMsgs);
+   - live updates fetch only the newest messages instead of the whole conversation again. */
+const MSG_SEL = "id,direction,sent_at,body,origin,type,media,status:raw->>status,status_error:raw->status_error";
+const msgCache = new Map<string, Msg[]>();
+const inflight = new Map<string, Promise<Msg[]>>();
+async function fetchMsgs(id: string, n: number): Promise<Msg[]> {
+  const { data } = await supabase.from("messages").select(MSG_SEL).eq("conversation_id", id).order("sent_at", { ascending: false }).limit(n);
+  return ((data as Msg[]) ?? []).reverse();
+}
+const bySent = (a: Msg, b: Msg) => (a.sent_at < b.sent_at ? -1 : a.sent_at > b.sent_at ? 1 : 0);
+/** Put fresh messages into the chat's memory (whole = this is the full conversation, replace it). */
+function remember(id: string, fresh: Msg[], whole: boolean): Msg[] {
+  let out = fresh;
+  if (!whole) {
+    const byId = new Map((msgCache.get(id) ?? []).map((m) => [m.id, m] as const));
+    for (const m of fresh) byId.set(m.id, m);
+    out = [...byId.values()].sort(bySent);
+  }
+  msgCache.delete(id); msgCache.set(id, out);   // newest use last
+  while (msgCache.size > 40) msgCache.delete(msgCache.keys().next().value as string);
+  return out;
+}
+/** Start loading a chat's messages (pressing a card), so it opens with them already there. */
+export function prefetchMsgs(id: string) {
+  if (msgCache.has(id) || inflight.has(id)) return;
+  const p = fetchMsgs(id, 1000).then((l) => remember(id, l, true)).finally(() => inflight.delete(id));
+  inflight.set(id, p);
+}
+// Building a date formatter is slow; one per format and time zone, shared by every message.
+const fmts = new Map<string, Intl.DateTimeFormat>();
+const fmt = (key: string, make: () => Intl.DateTimeFormat) => { let f = fmts.get(key); if (!f) { f = make(); fmts.set(key, f); } return f; };
+const STEP = 60;   // messages drawn at a time; older ones are added as you scroll up
 
 /** Kito thinks this person isn't a customer (e.g. Hassan the bodaboda talks money but doesn't buy). */
 export function PartyHint({ r, T, onChange }: { r: Outcome; T: Tr; onChange: () => void }) {
@@ -30,7 +68,7 @@ export function PartyHint({ r, T, onChange }: { r: Outcome; T: Tr; onChange: () 
 /** The open chat, laid out like WhatsApp: header with ✕, the whole conversation as bubbles grouped by
  *  day, and beside it what to do about this customer (a sheet on smaller screens). itaOS never sends,
  *  so the bottom bar hands over to WhatsApp. */
-export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, startConfirm }: { r: Outcome; ws: Workspace; T: Tr; adName?: string; phone: string | null; task?: Task; onChange: () => void; onClose: () => void; startConfirm?: boolean }) {
+export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, startConfirm, leaving }: { r: Outcome; ws: Workspace; T: Tr; adName?: string; phone: string | null; task?: Task; onChange: () => void; onClose: () => void; startConfirm?: boolean; leaving?: boolean }) {
   const lang = ws.language;
   // While a chat is open the phone's status bar takes the chat header's colour (pwa.ts), like WhatsApp.
   useEffect(() => {
@@ -39,7 +77,9 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
     return () => { if (d.screen === "chat") delete d.screen; };
   }, []);
   const tz = ws.timezone || "Africa/Dar_es_Salaam";
-  const [msgs, setMsgs] = useState<Msg[] | null>(null);
+  const [msgs, setMsgs] = useState<Msg[] | null>(() => msgCache.get(r.id) ?? null);
+  // Your own messages shown the moment you press Send (clock icon), until WhatsApp's copy arrives.
+  const [pending, setPending] = useState<Msg[]>([]);
   const [recording, setRecording] = useState(false);
   const [confirming, setConfirming] = useState(!!startConfirm);
   const [salesKey, setSalesKey] = useState(0);   // bumped after a sale is saved here, so the sales list reloads
@@ -55,6 +95,10 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   useEffect(() => { if (startConfirm && hideSide) setHideSide(false); }, [r.id]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // The customer panel (sales, team, Kito) is drawn just after the chat, so the messages come first. On a
+  // phone it's hidden until asked for anyway.
+  const [sideReady, setSideReady] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setSideReady(true), 260); return () => window.clearTimeout(t); }, []);
   const thread = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const editor = canEdit(ws);
@@ -70,21 +114,34 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   }, []);
   const why = r.kito_temp && !kitoStale(r) ? r.kito_blocker : (r.objections ?? [])[0] ?? null;
 
-  async function loadMsgs() {
-    const { data } = await supabase.from("messages").select("id,direction,sent_at,body,origin,type,media,status:raw->>status,status_error:raw->status_error").eq("conversation_id", r.id).order("sent_at", { ascending: false }).limit(1000);
-    setMsgs(((data as Msg[]) ?? []).reverse());
+  const alive = useRef(true);
+  /** Newest messages only, merged into what's on screen (live updates, after sending). */
+  async function refreshMsgs(dropPending?: string) {
+    const l = await fetchMsgs(r.id, 60);
+    if (!alive.current) return;
+    if (msgCache.has(r.id)) setMsgs(remember(r.id, l, false));
+    else setMsgs((cur) => (cur ? [...new Map([...cur, ...l].map((m) => [m.id, m] as const)).values()].sort(bySent) : l));
+    if (dropPending) setPending((p) => p.filter((m) => m.id !== dropPending));
   }
   useEffect(() => {
-    loadMsgs();
-    const on = () => loadMsgs();
+    alive.current = true;
+    (async () => {
+      if (msgCache.has(r.id)) { await refreshMsgs(); return; }   // opened before: shown at once, just catch up
+      const going = inflight.get(r.id);
+      if (going) { const l = await going; if (alive.current) setMsgs(l); return; }
+      const first = await fetchMsgs(r.id, 40);                     // newest first, so the chat shows quickly
+      if (!alive.current) return;
+      if (!msgCache.has(r.id)) setMsgs(first);
+      const all = await fetchMsgs(r.id, 1000);
+      if (alive.current) setMsgs(remember(r.id, all, true));
+    })();
+    const on = () => { void refreshMsgs(); };
     window.addEventListener("itaos:live", on);
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !(e.target as HTMLElement)?.closest?.("input,textarea,select")) onClose(); };
     window.addEventListener("keydown", esc);
     document.body.classList.add("wa-open");
-    return () => { window.removeEventListener("itaos:live", on); window.removeEventListener("keydown", esc); document.body.classList.remove("wa-open"); };
+    return () => { alive.current = false; window.removeEventListener("itaos:live", on); window.removeEventListener("keydown", esc); document.body.classList.remove("wa-open"); };
   }, [r.id]);
-  // Newest message in view, like WhatsApp.
-  useEffect(() => { const el = thread.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs?.length]);
 
   /** The owner's answer to "came from an ad?" wins over the automatic checks (ad_signal = 'owner'). */
   // Shown at once when tapped; falls back to the saved value if the save fails.
@@ -115,11 +172,11 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
     setBusy(false); if (error) setErr(error.code === "23505" ? T("A reminder already exists.", "Tayari kuna kikumbusho.") : error.message); else onChange();
   }
 
-  const dayKey = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  const dayKey = (iso: string) => fmt("d" + tz, () => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" })).format(new Date(iso));
   const today = dayKey(new Date().toISOString()), yest = dayKey(new Date(Date.now() - 864e5).toISOString());
   const dayLabel = (k: string) => k === today ? T("Today", "Leo") : k === yest ? T("Yesterday", "Jana")
     : new Date(k + "T12:00:00Z").toLocaleDateString(lang === "sw" ? "sw-TZ" : "en-GB", { weekday: Date.now() - Date.parse(k) < 6 * 864e5 ? "long" : undefined, day: "numeric", month: "long", year: k.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric", timeZone: "UTC" });
-  const hhmm = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+  const hhmm = (iso: string) => fmt("t" + tz, () => new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })).format(new Date(iso));
   const [copied, setCopied] = useState(false);
   const sideLabel = st.key === "check" ? T("Check payment", "Hakiki malipo") : confirmed ? T("Sale", "Mauzo") : T("Did they buy?", "Amenunua?");
 
@@ -128,11 +185,13 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   // shown as one small grey note in the middle instead of fake bubbles.
   type Row = { kind: "day"; key: string; label: string } | { kind: "note"; key: string; text: string; count: number; dir: string }
     | { kind: "msg"; key: string; m: Msg; first: boolean; last: boolean };
+  const all = useMemo(() => (pending.length ? [...(msgs ?? []), ...pending] : msgs), [msgs, pending]);
+  const rows = useMemo(() => {
   const rows: Row[] = [];
-  if (msgs) {
+  if (all) {
     let lastDay = "";
-    for (let i = 0; i < msgs.length; i++) {
-      const m = msgs[i];
+    for (let i = 0; i < all.length; i++) {
+      const m = all[i];
       const k = dayKey(m.sent_at);
       if (k !== lastDay) { rows.push({ kind: "day", key: "d" + k, label: dayLabel(k) }); lastDay = k; }
       const note = hiddenNote(m);
@@ -148,6 +207,50 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
       rows.push({ kind: "msg", key: m.id, m, first: !joins, last: true });
     }
   }
+  return rows;
+  }, [all, tz, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Only the newest STEP rows are drawn; scrolling near the top adds older ones without moving what you see.
+  const [shown, setShown] = useState(STEP);
+  const start = Math.max(0, rows.length - shown);
+  // keep the day header of the first drawn message
+  let from = start;
+  while (from > 0 && rows[from].kind !== "day") from--;
+  const visible = from < start ? [rows[from], ...rows.slice(start)] : rows.slice(start);
+  const growFrom = useRef<number | null>(null);
+  const atBottom = useRef(true);
+  const onThreadScroll = () => {
+    const el = thread.current; if (!el) return;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (el.scrollTop < 400 && start > 0 && growFrom.current == null) { growFrom.current = el.scrollHeight; setShown((s) => s + STEP); }
+  };
+  // Older messages added above: keep the same messages under your finger.
+  useLayoutEffect(() => {
+    const el = thread.current, h = growFrom.current;
+    if (el && h != null) { el.scrollTop += el.scrollHeight - h; growFrom.current = null; }
+  }, [shown]);
+  // Newest message in view before the first paint (no jump), and when new ones arrive while you're at the bottom.
+  const lastKey = rows.length ? rows[rows.length - 1].key : "";
+  useLayoutEffect(() => {
+    const el = thread.current;
+    if (el && atBottom.current) el.scrollTop = el.scrollHeight;
+  }, [lastKey]);
+  // Photos load after the text: stay pinned to the bottom while they grow, like WhatsApp.
+  const inner = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = thread.current, box = inner.current;
+    if (!el || !box || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { if (atBottom.current && growFrom.current == null) el.scrollTop = el.scrollHeight; });
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [!!msgs]);
+  const addPending = (text: string) => {
+    const m: Msg = { id: "tmp-" + Date.now() + Math.random().toString(36).slice(2, 6), direction: "out", sent_at: new Date().toISOString(), body: text, origin: "itaos", type: "text", media: null, status: null, pending: true };
+    atBottom.current = true;   // your own message always comes into view
+    setPending((p) => [...p, m]);
+    return m.id;
+  };
+  const dropPending = (id: string) => setPending((p) => p.filter((m) => m.id !== id));
   const noteText = (r: { text: string; count: number; dir: string }) => {
     const who = r.dir === "out" ? T("You sent", "Ulituma") : T("They sent", "Walituma");
     return r.text === "media"
@@ -158,7 +261,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
   };
 
   return (
-    <div ref={pane} className={"wa-pane" + (side ? " side-open" : "") + (hideSide ? " side-hidden" : "")} role="dialog" aria-label={T(`Chat with ${name}`, `Chat na ${name}`)}>
+    <div ref={pane} className={"wa-pane" + (side ? " side-open" : "") + (hideSide ? " side-hidden" : "") + (leaving ? " wa-leave" : "")} aria-hidden={leaving || undefined} role="dialog" aria-label={T(`Chat with ${name}`, `Chat na ${name}`)}>
       <header className="wa-head">
         <button className="wa-back" onClick={onClose} aria-label={T("Back to chats", "Rudi kwenye chats")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 5l-7 7 7 7" /></svg></button>
         <div className="cc-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</div>
@@ -179,15 +282,16 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
       </header>
       <div className="wa-body">
         <div className="wa-chat">
-          <div className="wa-thread" ref={thread}>
-            {!msgs ? <div className="wa-sys">{T("Loading the chat…", "Inapakia chat…")}</div>
-              : msgs.length === 0 ? <div className="wa-sys">{T("No messages saved for this customer.", "Hakuna ujumbe uliohifadhiwa kwa mteja huyu.")}</div>
-              : rows.map((row) => row.kind === "day" ? <div key={row.key} className="wa-day"><span>{row.label}</span></div>
+          <div className="wa-thread" ref={thread} onScroll={onThreadScroll}>
+            <div className="wa-thread-in" ref={inner}>
+            {!all ? <div className="wa-sys wa-loading" aria-label={T("Loading the chat…", "Inapakia chat…")}><span /><span /><span /></div>
+              : all.length === 0 ? <div className="wa-sys">{T("No messages saved for this customer.", "Hakuna ujumbe uliohifadhiwa kwa mteja huyu.")}</div>
+              : visible.map((row) => row.kind === "day" ? <div key={row.key} className="wa-day"><span>{row.label}</span></div>
                 : row.kind === "note" ? <div key={row.key} className="wa-note">{noteText(row)}</div>
                 : (() => {
                   const m = row.m;
                   return (
-                    <div key={row.key} className={"wa-msg " + m.direction + (row.first ? " tail first" : "") + (row.last ? " last" : "")}>
+                    <div key={row.key} className={"wa-msg " + m.direction + (row.first ? " tail first" : "") + (row.last ? " last" : "") + (m.pending ? " pending" : "")}>
                       <div className="wa-bub">
                         {m.media?.path ? <MediaView m={m} ws={ws} T={T} /> : <span className={"wa-text" + (special(m) ? " wa-special" : "")}>{special(m) ?? m.body ?? ""}</span>}
                         {/* time inside the bubble, bottom right, like WhatsApp */}
@@ -197,10 +301,12 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
                     </div>
                   );
                 })())}
+            </div>
           </div>
-          <Composer r={r} ws={ws} T={T} phone={phone} msgs={msgs} onSent={loadMsgs} />
+          <Composer r={r} ws={ws} T={T} phone={phone} msgs={msgs} onSent={refreshMsgs} onPending={addPending} onFailed={dropPending} />
         </div>
         <aside className="wa-side" aria-label={T("About this customer", "Kuhusu mteja huyu")}>
+          {(sideReady || side) && <>
           <div className="wa-side-head"><b>{T("This customer", "Mteja huyu")}</b><button className="icon wa-side-x" onClick={() => setSide(false)} aria-label={T("Hide", "Ficha")}>✕</button></div>
           {/* Who: one compact row (the big centred avatar is gone) */}
           <div className="wa-who">
@@ -277,6 +383,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
             </details>
           </div>
           {err && <div className="err small">{err}</div>}
+          </>}
         </aside>
       </div>
     </div>
@@ -312,7 +419,8 @@ function useMetaLock(wsId: string, bump: number) {
 
 /** Reply box at the bottom of the chat, like WhatsApp's. Sends from the business's own number through
  *  the wa-send function. WhatsApp allows free replies only within 24 h of the customer's last message. */
-export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Workspace; T: Tr; phone: string | null; msgs: Msg[] | null; onSent: () => Promise<void> | void }) {
+export function Composer({ r, ws, T, phone, msgs, onSent, onPending, onFailed }: { r: Outcome; ws: Workspace; T: Tr; phone: string | null; msgs: Msg[] | null;
+  onSent: (dropPending?: string) => Promise<void> | void; onPending?: (text: string) => string; onFailed?: (id: string) => void }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -368,17 +476,25 @@ export function Composer({ r, ws, T, phone, msgs, onSent }: { r: Outcome; ws: Wo
       </div>
     );
   }
+  // Sent like WhatsApp: the bubble appears at once with a clock, the box is ready for the next message, and the
+  // clock turns into ticks when WhatsApp confirms. If it fails, the bubble goes and the text comes back.
   async function send() {
     const t = text.trim();
-    if (!t || sending) return;
-    setSending(true); setErr("");
+    if (!t || (sending && !onPending)) return;
+    const tmp = onPending?.(t);
+    if (tmp) { setText(""); box.current?.focus(); } else setSending(true);
+    setErr("");
     try {
       await callFn("wa-send", { workspace_id: ws.id, conversation_id: r.id, text: t });
-      setText(""); await onSent();
+      if (!tmp) setText("");
+      await onSent(tmp);
       // WhatsApp's delivery report comes a few seconds later: look again so a failed send shows up.
       // (and re-check whether Meta blocked it, which turns the box into the "verify your business" note)
       window.setTimeout(() => { void onSent(); setBump((b) => b + 1); }, 5000); window.setTimeout(() => { void onSent(); setBump((b) => b + 1); }, 15000);
-    } catch (e) { setErr((e as Error).message); }
+    } catch (e) {
+      setErr((e as Error).message);
+      if (tmp) { onFailed?.(tmp); setText((cur) => cur || t); }
+    }
     setSending(false); box.current?.focus();
   }
   async function draft() {
@@ -666,6 +782,7 @@ function Ticks({ m, T }: { m: Msg; T: Tr }) {
   const two = "M11.07.66 4.86 7.32 2.2 4.6 1.1 5.68l3.77 3.85L12.2 1.74zM15.1.66l-6.21 6.66-.73-.75-1.1 1.13 1.84 1.83L16.2 1.74z";
   if (m.origin === "itaos" && m.status === "failed")
     return <svg className="wa-tk wa-tk-fail" viewBox="0 0 16 16" width="15" height="15" role="img" aria-label={T("Not delivered", "Haukufika")}><circle cx="8" cy="8" r="7" fill="currentColor" /><path d="M8 4v5M8 11.5v.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg>;
+  if (m.pending) return <svg className="wa-tk wa-tk-wait" viewBox="0 0 16 16" width="14" height="14" role="img" aria-label={T("Sending", "Inatuma")}><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M8 4.6V8l2.3 1.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>;
   const st = m.origin === "itaos" ? m.status : "delivered";
   const label = st === "read" ? T("Read", "Imesomwa") : st === "delivered" ? T("Delivered", "Imefika") : st === "sent" ? T("Sent", "Imetumwa") : T("Waiting for WhatsApp", "Inasubiri WhatsApp");
   return <svg className={"wa-tk" + (st === "read" ? " wa-tk-read" : "") + (!st ? " wa-tk-wait" : "")} viewBox="0 0 16 11" width="16" height="11" role="img" aria-label={label}><title>{label}</title><path d={st === "sent" || !st ? one : two} fill="currentColor" /></svg>;

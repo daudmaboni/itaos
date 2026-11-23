@@ -8,15 +8,20 @@ export type Run = { id: number; trigger: "auto" | "manual"; ran_at: string; chec
 export type Receipt = { is_receipt: boolean; amount: number | null; currency: string | null; txn_code: string | null; provider: string | null; paid_to: string | null; sender: string | null; paid_at: string | null; confidence: string; notes: string | null };
 export type Msg = { id: string; direction: "in" | "out"; sent_at: string; body: string | null; origin: string; type: string;
   /** WhatsApp's delivery report, kept for messages sent from itaOS (wa-webhook) */
+  /** shown the moment you press Send, before WhatsApp's copy arrives (ChatPane) */
+  pending?: boolean;
   status?: "sent" | "delivered" | "read" | "failed" | null; status_error?: { code?: number | null; title?: string; details?: string } | null;
   media: { path?: string; mime?: string; receipt?: Receipt | null; error?: string; product_match?: ProductMatch | null } | null };
 export type Lite = { id: string; outcome: string | null; kito_temp: string | null; warm: boolean; paid_orders: number; payment_signal: boolean; kito_outcome: string | null; kito_confidence?: string | null; outcome_override: string | null; override_by: string | null; phone_number_id: string };
 export type Tr = (en: string, sw: string) => string;
 
 /** Group heading for a chat's last message, in the workspace time zone. */
+// One date formatter per time zone: building one is slow, and the chat list asks for hundreds per redraw.
+const dayFmts = new Map<string, Intl.DateTimeFormat>();
+const dayFmt = (tz: string) => { let f = dayFmts.get(tz); if (!f) { f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }); dayFmts.set(tz, f); } return f; };
 export function timeGroup(iso: string | null, tz: string, T: Tr, now = new Date()): string {
   if (!iso) return T("Older", "Zamani");
-  const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const day = (d: Date) => dayFmt(tz).format(d);
   const a = Date.parse(day(new Date(iso)) + "T00:00:00Z"), b = Date.parse(day(now) + "T00:00:00Z");
   const days = Math.round((b - a) / 864e5);
   if (days <= 0) return T("Today", "Leo");

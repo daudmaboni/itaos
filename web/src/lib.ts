@@ -89,10 +89,14 @@ export const median = (a: number[]) => {
 };
 export const daysAgo = (n: number, tz?: string) => localDay(new Date(Date.now() - n * 864e5), tz);
 /** Calendar day (YYYY-MM-DD) of an instant in the workspace timezone. */
+// Building a date formatter is slow (pages call this hundreds of times per redraw): one per time zone.
+const localDayFmts = new Map<string, Intl.DateTimeFormat>();
 export const localDay = (d: Date | string | number, tz = "Africa/Dar_es_Salaam") => {
   const date = typeof d === "string" || typeof d === "number" ? new Date(d) : d;
   try {
-    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+    let f = localDayFmts.get(tz);
+    if (!f) { f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }); localDayFmts.set(tz, f); }
+    const parts = f.formatToParts(date);
     const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
     return `${get("year")}-${get("month")}-${get("day")}`;
   } catch { return date.toISOString().slice(0, 10); }
