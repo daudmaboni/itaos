@@ -103,7 +103,9 @@
 .in-body { display: grid; gap: 8px; position: relative; z-index: 1; animation: in-slide .35s cubic-bezier(.2, .8, .2, 1); }
 @keyframes in-slide { from { opacity: 0; transform: translateX(14px); } }
 .in-big { font-size: 64px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #0a5a3a40; }
-.in-line { margin: 0; font-size: 19px; line-height: 1.3; font-weight: 400; max-width: 30ch; }
+.card.insight { container-type: inline-size; }
+/* No width cap, and the size follows the card width, so a line like "Kept as profit from every shilling that came in." stays on one line */
+.in-line { margin: 0; font-size: clamp(14px, 3.5cqi, 19px); line-height: 1.3; font-weight: 400; }
 .in-note { margin: 0; font-size: 13.5px; color: #ffffffcc; max-width: 46ch; }
 .in-foot { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; position: relative; z-index: 1; }
 .in-arrow { all: unset; cursor: pointer; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #fff; }
@@ -113,7 +115,7 @@
 .in-dots button::before { content: ""; height: 4px; border-radius: 2px; background: #ffffff38; transition: background .25s; }
 .in-dots button.on::before { background: #fff; }
 .in-dots button:focus-visible { outline: 2px solid #fff; border-radius: 4px; }
-@media (max-width: 760px) { .in-big { font-size: 52px; } .in-line { font-size: 17px; } .card.insight { min-height: 240px; } .in-dots button { width: 24px; } }
+@media (max-width: 760px) { .in-big { font-size: 52px; } .card.insight { min-height: 240px; } .in-dots button { width: 24px; } }
 @media (prefers-reduced-motion: reduce) { .in-body { animation: none; } }
 
 /* ── "…" card menu (CardMenu.tsx) ── */
