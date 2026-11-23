@@ -306,6 +306,31 @@ async function ensureGroup(db: ReturnType<typeof admin>, ws: string, token: stri
   return rn as string;
 }
 
+/** A buyer's saved name ends with ✅ ("Black Songwe · Kayani ✅" → "Black Songwe · Kayani✅"); a lead's never does. */
+export function withTick(name: string, buyer: boolean) {
+  const bare = name.replace(/\s*✅+\s*$/u, "");
+  return buyer ? bare + "✅" : bare;
+}
+
+/** Add or remove the ✅ on contacts already in Google. Keeps whatever the owner split into first/last name. */
+async function tickNames(token: string, resources: string[], buyer: boolean) {
+  for (let i = 0; i < resources.length; i += 200) {
+    const part = resources.slice(i, i + 200);
+    const got = await gfetch(`${PEOPLE}/people:batchGet?personFields=names&${part.map((r) => "resourceNames=" + encodeURIComponent(r)).join("&")}`, token);
+    const contacts: Record<string, unknown> = {};
+    for (const r of got.responses ?? []) {
+      const person = r.person;
+      const n = person?.names?.[0];
+      if (!person?.resourceName || !person.etag || !n) continue;
+      const fixed = n.familyName ? { givenName: n.givenName, familyName: withTick(n.familyName, buyer) } : { givenName: withTick(n.givenName ?? "", buyer) };
+      if (fixed.givenName === n.givenName && (fixed as any).familyName === n.familyName) continue;   // already right
+      contacts[person.resourceName] = { etag: person.etag, names: [{ ...fixed, ...(n.middleName ? { middleName: n.middleName } : {}) }] };
+    }
+    if (Object.keys(contacts).length)
+      await gfetch(`${PEOPLE}/people:batchUpdateContacts`, token, { method: "POST", body: JSON.stringify({ contacts, updateMask: "names", readMask: "names" }) });
+  }
+}
+
 async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: string, wsName: string) {
   const ws = link.workspace_id;
   // 1. Labels: "itaOS" on every saved contact, plus "itaOS Buyers" (has paid) or "itaOS Leads" (everyone else).
@@ -326,6 +351,8 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
       const res = list.map((r) => r.resource);
       await gfetch(`${PEOPLE}/${add}/members:modify`, token, { method: "POST", body: JSON.stringify({ resourceNamesToAdd: res }) });
       await gfetch(`${PEOPLE}/${remove}/members:modify`, token, { method: "POST", body: JSON.stringify({ resourceNamesToRemove: res }) }).catch(() => {});
+      // Buyers get a ✅ at the end of their saved name (a lead who paid gains it; a refunded buyer loses it).
+      await tickNames(token, res, kind === "buyer").catch((e) => console.error("contact names", String((e as Error)?.message ?? e).slice(0, 200)));
       await db.rpc("svc_mark_google_kind", { p_ids: list.map((r) => r.id), p_kinds: list.map(() => kind) });
       relabelled += list.length;
     }
@@ -365,7 +392,7 @@ async function syncContacts(db: ReturnType<typeof admin>, link: Link, token: str
   const short = wsName.split(/\s+/)[0] || wsName;
   const people = (todo as any[]).map((c) => ({
     contactPerson: {
-      names: [{ givenName: [c.full_name || c.name || "Customer", short, c.region].filter(Boolean).join(" · ").slice(0, 200) }],
+      names: [{ givenName: withTick([c.full_name || c.name || "Customer", short, c.region].filter(Boolean).join(" · ").slice(0, 199), !!c.buyer) }],
       phoneNumbers: [{ value: "+" + String(c.wa_id).replace(/\D/g, ""), type: "mobile" }],
       memberships: [
         { contactGroupMembership: { contactGroupResourceName: group } },
