@@ -241,3 +241,19 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 .pc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pcard .pc-take { min-height: 40px; padding: 0 20px; border-radius: 999px; border: 0; background: #141a2a; color: #fff; font: 600 14px var(--font); box-shadow: none; }
 :root:not([data-theme="light"]) .pcard .pc-take { background: #fff; color: #141a2a; }
+
+/* Promise card: "More" holds the rarer outcomes */
+.pc-acts2 { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; align-items: center; }
+.pc-acts2 > .primary { flex: 0 1 auto; }
+.pc-more { position: relative; margin-right: auto; }
+.pc-more > summary { list-style: none; cursor: pointer; }
+.pc-more > summary::-webkit-details-marker { display: none; }
+.pc-more > summary::after { content: " ▾"; font-size: 11px; opacity: .6; }
+.pc-more-menu { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20; min-width: 230px; display: grid; gap: 6px; padding: 8px; border-radius: 16px; background: var(--card); box-shadow: 0 18px 40px -16px #0f1c2a59, 0 0 0 1px #0f1c2a12; }
+.pc-more-menu .pc-pick { justify-content: flex-start; width: 100%; box-sizing: border-box; }
+@media (max-width: 760px) {
+  .pc-acts2 { flex-wrap: wrap; }
+  .pcard .pc-acts2 > .primary { flex: 1 1 100%; order: 3; }
+  .pc-acts2 > .pc-pick { flex: 1; }
+  .pc-more { flex: 1; } .pc-more > summary { display: flex; justify-content: center; }
+}

@@ -209,15 +209,6 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
             <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
             <SendNow ws={ws} conversationId={t.conversation_id} purpose="promise" draft={draft} name={r?.contact_name} T={T}
               onSent={(txt) => patch("called", { status: "done", result: "called", draft: txt }, T("Sent from your WhatsApp number.", "Imetumwa kutoka namba yako ya WhatsApp."))} />
-            {at && <a className="pc-pick gcal" target="_blank" rel="noopener noreferrer" title={T("Opens Google Calendar with this reminder filled in. Press Save there.", "Inafungua Google Calendar ikiwa na kikumbusho hiki. Bonyeza Save huko.")}
-              href={gcalUrl({
-                title: `${name} — ${kindLabel(t.kind, sw)} · ${ws.name}`,
-                at,
-                details: [t.promise_text ? `“${t.promise_text}”` : "", r?.kito_summary ?? "", `${T("Open the chat in itaOS", "Fungua chat kwenye itaOS")}: https://itaos.app/#chats/open=${t.conversation_id}`].filter(Boolean).join("\n\n"),
-              })}>
-              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M12 14v4M10 16h4" /></svg>
-              {T("Add to Google Calendar", "Weka Google Calendar")}
-            </a>}
           </div>}
           {moving && editor && (
             <div className="pc-fields">
@@ -226,10 +217,25 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
             </div>
           )}
           {editor && (
-            <div className="pc-acts wrap">
-              <button className="pc-pick" disabled={busy} onClick={() => patch("lost", { status: "dismissed", result: "not_interested" })}>{spin("lost")}{T("Not interested", "Hana nia")}</button>
-              <button className="pc-pick" disabled={busy} onClick={() => setMoving((m) => !m)}>{T("Postponed…", "Ameahirisha…")}</button>
-              <button className="pc-pick" disabled={busy} onClick={() => patch("snooze", { status: "snoozed", snoozed_until: new Date(Date.now() + DAY).toISOString(), result: "no_answer" })}>{spin("snooze")}{T("No answer — tomorrow", "Hakupokea — kesho")}</button>
+            // Two outcomes up front; the rarer ones sit under "More" so the card stays calm.
+            <div className="pc-acts pc-acts2">
+              <details className="pc-more">
+                <summary className="pc-pick">{T("More", "Zaidi")}</summary>
+                <div className="pc-more-menu">
+                  <button className="pc-pick" disabled={busy} onClick={() => patch("snooze", { status: "snoozed", snoozed_until: new Date(Date.now() + DAY).toISOString(), result: "no_answer" })}>{spin("snooze")}{T("No answer — tomorrow", "Hakupokea — kesho")}</button>
+                  <button className="pc-pick" disabled={busy} onClick={() => setMoving((m) => !m)}>{T("Postponed…", "Ameahirisha…")}</button>
+                  <button className="pc-pick" disabled={busy} onClick={() => patch("lost", { status: "dismissed", result: "not_interested" })}>{spin("lost")}{T("Not interested", "Hana nia")}</button>
+                {at && <a className="pc-pick gcal" target="_blank" rel="noopener noreferrer" title={T("Opens Google Calendar with this reminder filled in. Press Save there.", "Inafungua Google Calendar ikiwa na kikumbusho hiki. Bonyeza Save huko.")}
+              href={gcalUrl({
+                title: `${name} — ${kindLabel(t.kind, sw)} · ${ws.name}`,
+                at,
+                details: [t.promise_text ? `“${t.promise_text}”` : "", r?.kito_summary ?? "", `${T("Open the chat in itaOS", "Fungua chat kwenye itaOS")}: https://itaos.app/#chats/open=${t.conversation_id}`].filter(Boolean).join("\n\n"),
+              })}>
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M12 14v4M10 16h4" /></svg>
+              {T("Add to Google Calendar", "Weka Google Calendar")}
+                </a>}
+                </div>
+              </details>
               <button className="pc-pick" disabled={busy} onClick={() => patch("called", { status: "done", result: "called" })}>{spin("called")}{T("Talked to them", "Nimeongea naye")}</button>
               <button className="primary" disabled={busy} onClick={() => { patch("paid", { status: "done", result: "paid" }); location.hash = "#chats/open=" + t.conversation_id; }} title={T("Opens the chat so you can record the sale", "Inafungua chat ili urekodi mauzo")}>{spin("paid")}{T("Paid → record sale", "Amelipa → rekodi mauzo")}</button>
             </div>
