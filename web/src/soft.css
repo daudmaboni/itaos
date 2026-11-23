@@ -100,23 +100,33 @@
 .in-head b { font-weight: 500; font-size: 16px; }
 .in-ico { width: 34px; height: 34px; border-radius: 10px; background: #fff; color: #12A06A; display: grid; place-items: center; flex: none; box-shadow: 0 2px 8px -2px #0000002e; }
 .in-period { margin-left: auto; padding: 7px 14px; border-radius: 999px; background: #fff; color: #141a1f; font-size: 13px; font-weight: 500; white-space: nowrap; }
-.in-body { display: grid; gap: 8px; position: relative; z-index: 1; animation: in-slide .35s cubic-bezier(.2, .8, .2, 1); }
-@keyframes in-slide { from { opacity: 0; transform: translateX(14px); } }
+.in-body { display: grid; gap: 8px; position: relative; z-index: 1; }
+.in-body.fwd { animation: in-up .45s cubic-bezier(.2, .8, .2, 1) both; }
+.in-body.bck { animation: in-down .45s cubic-bezier(.2, .8, .2, 1) both; }
+.in-body .in-big { animation: in-stamp .5s cubic-bezier(.3, 1.5, .5, 1) both; transform-origin: left center; }
+@keyframes in-up { from { opacity: 0; transform: translateY(16px); filter: blur(4px); } }
+@keyframes in-down { from { opacity: 0; transform: translateY(-16px); filter: blur(4px); } }
+@keyframes in-stamp { 0% { opacity: 0; transform: scale(.6); } 60% { opacity: 1; transform: scale(1.06); } 100% { transform: scale(1); } }
 .in-big { font-size: 64px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #0a5a3a40; }
 .card.insight { container-type: inline-size; }
 /* No width cap, and the size follows the card width, so a line like "Kept as profit from every shilling that came in." stays on one line */
 .in-line { margin: 0; font-size: clamp(14px, 3.5cqi, 19px); line-height: 1.3; font-weight: 400; }
 .in-note { margin: 0; font-size: 13.5px; color: #ffffffcc; max-width: 46ch; }
-.in-foot { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; position: relative; z-index: 1; }
-.in-arrow { all: unset; cursor: pointer; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #fff; }
-.in-arrow:hover { background: #ffffff1f; } .in-arrow:focus-visible { outline: 2px solid #fff; }
-.in-dots { display: flex; justify-content: center; gap: 6px; }
-.in-dots button { all: unset; cursor: pointer; height: 20px; width: 34px; display: grid; align-items: center; }
-.in-dots button::before { content: ""; height: 4px; border-radius: 2px; background: #ffffff38; transition: background .25s; }
-.in-dots button.on::before { background: #fff; }
-.in-dots button:focus-visible { outline: 2px solid #fff; border-radius: 4px; }
-@media (max-width: 760px) { .in-big { font-size: 52px; } .card.insight { min-height: 240px; } .in-dots button { width: 24px; } }
-@media (prefers-reduced-motion: reduce) { .in-body { animation: none; } }
+/* Slide-to-next track (after the "Slide to approve" pill in Divan Raj's Proposal approval shot) */
+.in-track { position: relative; z-index: 1; height: 52px; border-radius: 999px; background: #ffffff24; box-shadow: inset 0 0 0 1px #ffffff1f; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; }
+.in-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: #ffffff38; pointer-events: none; }
+.in-fill.anim { transition: width .32s cubic-bezier(.2, .8, .2, 1); }
+.in-track.is-done .in-fill { background: #ffffff59; }
+.in-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; padding-left: 40px; font-size: 13.5px; font-weight: 500; color: #ffffffd9; pointer-events: none; white-space: nowrap; transition: opacity .2s; }
+.in-label em { font-style: normal; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #ffffff26; font-variant-numeric: tabular-nums; }
+.card.insight .in-knob, .dash-ia .card.insight .in-knob { all: unset; box-sizing: border-box; position: absolute; left: 0; top: 4px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: grab;
+  background: #fff; color: #0E8F5E; box-shadow: 0 4px 12px -4px #0a3d2766; touch-action: none; }
+.card.insight .in-knob.anim { transition: transform .32s cubic-bezier(.2, .8, .2, 1), background .2s, color .2s; }
+.card.insight .in-knob:active { cursor: grabbing; }
+.card.insight .in-knob:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.in-track.is-done .in-knob { background: #F7C948; color: #141a1f; }
+@media (max-width: 760px) { .in-big { font-size: 52px; } .card.insight { min-height: 240px; } .in-track { height: 50px; } }
+@media (prefers-reduced-motion: reduce) { .in-body, .in-body .in-big { animation: none; } .in-fill.anim, .card.insight .in-knob.anim { transition: none; } }
 
 /* ── "…" card menu (CardMenu.tsx) ── */
 .cm { position: relative; flex: none; }
