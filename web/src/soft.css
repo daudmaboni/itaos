@@ -340,3 +340,8 @@ img.mv-img.loaded { animation: img-in .35s ease; }
 @keyframes ch-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes ch-pop { from { opacity: 0; transform: scale(.4); } }
 @media (prefers-reduced-motion: reduce) { .chart .ch-old, .chart .ch-new, .chart .ch-mark { animation: none; } }
+
+/* The profile menu is a sheet fixed to the bottom of the screen on phones. Anything on the top bar that creates
+   a containing block (transform, will-change, backdrop-filter) would trap that sheet inside the bar — it then
+   flashed at the top of the page and hid the bars. While the menu is open the bar drops all of those. */
+html.pm-open .topbar { transform: none !important; will-change: auto !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; filter: none !important; }
