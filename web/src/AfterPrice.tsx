@@ -3,6 +3,7 @@
 // the message filled in and sends it themselves, or taps "Send from itaOS" (SendNow: the draft inside
 // WhatsApp's 24 hours, the approved template after). "Sent" records it, so the list
 // can show who replied and who bought afterwards.
+import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, L, ago } from "./lib";
@@ -75,7 +76,6 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
     } catch (e) { setMsg((e as Error).message); }
     setWriting(false);
   }
-  const copy = async () => { try { await navigator.clipboard.writeText(d?.text ?? ""); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } };
   async function record(status: "done" | "dismissed", sentText?: string) {
     setDoing(status === "done" ? "sent" : "skip"); setMsg("");
     const now = new Date().toISOString();
@@ -120,7 +120,7 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
         {d?.missing?.length ? <div className="small warnt">{T("Fill in before sending:", "Jaza kabla ya kutuma:")} {d.missing.join(", ")}</div> : null}
         {editor && <div className="pc-picks">
           <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a follow-up", "Muombe Kito ujumbe")}</button>
-          <button className="pc-pick" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
+          <CopyBtn text={d?.text} T={T} />
           <SendNow ws={ws} conversationId={r.id} purpose="after_price" draft={d?.text} name={r.contact_name} T={T} onSent={(txt) => record("done", txt)} />
           {waHref && <button className="pc-pick" onClick={() => window.open(waHref, "_blank", "noopener")} title={T("Opens the chat with the message filled in. You press send.", "Inafungua chat ikiwa na ujumbe tayari. Wewe unabonyeza tuma.")}>{T("Open in WhatsApp", "Fungua WhatsApp")}</button>}
         </div>}

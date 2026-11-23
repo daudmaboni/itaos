@@ -3,6 +3,7 @@
 // last purchase. Locations (and names / phones from "Name 07xx… Town" delivery messages) are suggested
 // from the chat and marked "suggested" until the owner saves them. Data: list_buyers / save_customer
 // (migration 0054). The saved details feed Find a payment and printed receipts.
+import { useRemembered } from "./remember";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase, callFn, Workspace, money, canEdit, localDay } from "./lib";
@@ -44,7 +45,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
   const T = (en: string, s: string) => (sw ? s : en);
   const editor = canEdit(ws);
   const [q, setQ] = useState(() => decodeURIComponent(location.hash.match(/#buyers\/q=([^&]+)/)?.[1] ?? ""));
-  const [region, setRegion] = useState<string>("");
+  const [region, setRegion] = useRemembered<string>("buyers-region", "");
   const [only, setOnly] = useState<"all" | "nolocation" | "suggested">("all");
   const [rows, setRows] = useState<Buyer[] | null>(null);
   const [err, setErr] = useState("");
@@ -149,7 +150,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
         {err && <span className="err small">{T("Couldn't load buyers right now. Try again in a moment.", "Imeshindwa kupakia wateja sasa. Jaribu tena baada ya muda.")}</span>}
       </section>
 
-      {rows && shown.length === 0 && !err && <div className="empty">{q || region ? T("No buyers match that.", "Hakuna mteja anayelingana.") : only !== "all" ? T("Nothing here — all done.", "Hakuna hapa — yote yamekamilika.") : T("No paid customers yet.", "Bado hakuna mteja aliyelipa.")}</div>}
+      {rows && shown.length === 0 && !err && <div className="empty">{q || region ? <span className="dead-end"><b>{T("No buyers match that.", "Hakuna mteja anayelingana.")}</b><span className="dead-acts">{q && <button type="button" className="small" onClick={() => setQ("")}>{T("Clear the search", "Futa utafutaji")}</button>}{region && <button type="button" className="small" onClick={() => setRegion("")}>{T("All regions", "Mikoa yote")}</button>}<a className="small" href="#receipts">{T("Search payments instead →", "Tafuta kwenye malipo →")}</a></span></span> : only !== "all" ? T("Nothing here — all done.", "Hakuna hapa — yote yamekamilika.") : T("No paid customers yet.", "Bado hakuna mteja aliyelipa.")}</div>}
 
       {shown.length > 0 && (
         <section className="card by-list" aria-label={T("Buyers", "Wateja walionunua")}>

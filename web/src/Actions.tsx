@@ -1,6 +1,7 @@
 // Action Centre: the follow-up queue. Surfaces chats that need a reply or a follow-up, lets
 // staff assign / snooze / complete / dismiss tasks, and asks Kito for a DRAFT that a human reviews and
 // sends (copy to WhatsApp, or Send from itaOS). The Today tab (Today.tsx) merges all lists into one.
+import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Attention from "./Attention";
@@ -245,7 +246,6 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
     const { data } = await supabase.from("task_events").select("action,at,details").eq("task_id", t.id).order("at", { ascending: false }).limit(20);
     setHistory((data as any[]) ?? []);
   }
-  const copy = async () => { try { await navigator.clipboard.writeText(draft); setErr(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setErr(T("Could not copy.", "Haikunakiliwa.")); } };
   const snoozeFor = (days: number) => patch({ status: "snoozed", snoozed_until: new Date(Date.now() + days * 864e5).toISOString() });
 
   const name = r?.contact_name ?? t.title;
@@ -292,7 +292,7 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
           <div className="pc-picks">
             <button className="pc-pick" disabled={busy} onClick={askKito}>{asking ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
             <button className="pc-pick" disabled={busy || draft === (t.draft ?? "")} onClick={() => patch({ draft: draft || null }, T("Draft saved.", "Rasimu imehifadhiwa."))}>{T("Save draft", "Hifadhi rasimu")}</button>
-            <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
+            <CopyBtn text={draft} T={T} />
           </div>
         )}
         {editor && (

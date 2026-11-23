@@ -1,6 +1,7 @@
 // Reorders (Step 3): customers who bought 45–120 days ago and haven't bought since. Kito writes a short
 // "how are you getting on / want more?" draft; the owner copies it and sends it from WhatsApp themselves,
 // or taps "Send from itaOS" (the approved reorder template, since these are always past the 24 hours). "Sent" records the contact so itaOS can show who replied and who bought again.
+import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, ago, money } from "./lib";
@@ -86,7 +87,6 @@ export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspac
     } catch (e) { setMsg((e as Error).message); }
     setWriting(false);
   }
-  const copy = async () => { try { await navigator.clipboard.writeText(d?.text ?? ""); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } };
   async function record(status: "done" | "dismissed", sentText?: string) {
     setDoing(status === "done" ? "sent" : "skip"); setMsg("");
     const now = new Date().toISOString();
@@ -131,7 +131,7 @@ export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspac
         {d?.missing?.length ? <div className="small warnt">{T("Fill in before sending:", "Jaza kabla ya kutuma:")} {d.missing.join(", ")}</div> : null}
         {editor && <div className="pc-picks">
           <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
-          <button className="pc-pick" disabled={!d?.text} onClick={copy}>{T("Copy", "Nakili")}</button>
+          <CopyBtn text={d?.text} T={T} />
           <SendNow ws={ws} conversationId={r.conversation_id} purpose="reorder" draft={d?.text} name={r.contact_name} product={r.products} T={T} onSent={(txt) => record("done", txt)} />
         </div>}
         {editor && (

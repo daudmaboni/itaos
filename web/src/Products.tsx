@@ -4,6 +4,7 @@
 // the owner can still type a different number. Nothing is assumed for a new business.
 // Everything here belongs to one business (workspace): its products, its photos, its sales. Switching
 // business shows that business's list; nothing is shared between businesses.
+import { useRemembered } from "./remember";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImageViewer } from "./ImageViewer";
 import DateRange from "./DateRange";
@@ -521,7 +522,7 @@ export default function Products({ ws }: { ws: Workspace }) {
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [order, setOrder] = useState<Order_>("mine");
+  const [order, setOrder] = useRemembered<Order_>("products-order", "mine");
   const [moving, setMoving] = useState(false);
   useEffect(() => { setEditing(null); setQ(""); setFilter("all"); }, [ws.id]);
   const editor = canEdit(ws);

@@ -2,6 +2,7 @@
 // Kito only PROPOSES; the owner confirms the day (or picks one) or dismisses. Confirmed promises ring the
 // phone when due (push-send, migration 0046). itaOS never messages the customer: drafts are copied and
 // sent by the owner from WhatsApp. A recorded paid order closes the chat's promises automatically.
+import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, ago, when } from "./lib";
@@ -137,7 +138,6 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
     } catch (e) { setMsg((e as Error).message); }
     setWriting(false);
   }
-  const copy = async () => { try { await navigator.clipboard.writeText(draft); setMsg(T("Copied. Paste it in WhatsApp and send it yourself.", "Imenakiliwa. Bandika WhatsApp na utume mwenyewe.")); } catch { setMsg(T("Could not copy.", "Haikunakiliwa.")); } };
 
   const bucket = dueBucket(t);
   const initials = (name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("") || "?").toUpperCase();
@@ -216,7 +216,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
           {editor && <div className="pc-picks">
             {t.gentle && <button className="pc-pick" onClick={() => setDraft(gentleText(r?.contact_name, sw))}>{T("Soft check-in message", "Ujumbe wa kumjulia hali")}</button>}
             <button className="pc-pick" disabled={writing} onClick={askKito}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : T("Ask Kito for a draft", "Muombe Kito rasimu")}</button>
-            <button className="pc-pick" disabled={!draft} onClick={copy}>{T("Copy", "Nakili")}</button>
+            <CopyBtn text={draft} T={T} />
             <SendNow ws={ws} conversationId={t.conversation_id} purpose="promise" draft={draft} name={r?.contact_name} T={T}
               onSent={(txt) => patch("called", { status: "done", result: "called", draft: txt }, T("Sent from your WhatsApp number.", "Imetumwa kutoka namba yako ya WhatsApp."))} />
           </div>}

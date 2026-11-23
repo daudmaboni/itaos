@@ -310,3 +310,7 @@ img.mv-img.loaded { animation: img-in .35s ease; }
 @media (min-width: 900px) { .undo-toast { bottom: 28px; } }
 /* Buttons that delete something look different from everything else (red words, never the main button) */
 .danger-text, button.linkish.danger-text { color: var(--bad, #c8372d) !important; }
+
+/* Empty search: say what was searched, then the ways out */
+.dead-end { display: grid; gap: 8px; justify-items: center; text-align: center; }
+.dead-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }

@@ -1,6 +1,7 @@
 // Chats: one card per customer, written so anyone can read it at a glance.
 // Each card answers three questions: who is this, where do things stand, and what should I do now.
 // The technical detail (which rule or Kito reading decided the label) is still there, tucked away.
+import { useRemembered } from "./remember";
 import { enterRows, usePageEnter, select } from "./motion";
 import { takeChatReturn } from "./chatReturn";
 import { pushEntry, replaceEntry, cameFrom } from "./backStack";
@@ -45,7 +46,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const [ids, setIds] = useState<string[] | null>(hashIds());
   const cached = !ids ? getSnap(ws.id) : null;
   const [filter, setFilter] = useState<Filter>(ids ? "ids" : cached?.filter ?? "all");
-  const [src, setSrc] = useState<Source>(cached?.src ?? "any");
+  const [src, setSrc] = useRemembered<Source>("chats-src", cached?.src ?? "any", (v) => v === "any" || v === "live" || v === "import");
   const [rows, setRows] = useState<Outcome[]>(cached?.rows ?? []);
   const [lite, setLite] = useState<Lite[]>(cached?.lite ?? []);
   const [counts, setCounts] = useState<Record<string, number> | null>(cached?.counts ?? null);
@@ -489,7 +490,21 @@ export default function Chats({ ws }: { ws: Workspace }) {
       {err && <p className="err small" style={{ margin: 0 }}>{err}</p>}
 
       {loading ? <div className="cc-list" aria-busy="true">{[0, 1, 2, 3].map((i) => <div className="skeleton cc-skel" key={i} />)}</div>
-        : rows.length === 0 ? <div className="empty">{err ? T("Couldn't load the chats. Try again in a moment.", "Imeshindwa kupakia chat. Jaribu tena baada ya muda.") : emptyText}</div> : (
+        : rows.length === 0 ? <div className="empty">{err ? T("Couldn't load the chats. Try again in a moment.", "Imeshindwa kupakia chat. Jaribu tena baada ya muda.")
+          : (search || period || filter !== "all" || src !== "any") ? (
+            // A dead end should still lead somewhere: say what was searched and offer the ways out.
+            <div className="dead-end">
+              <b>{search ? T(`No chats match “${search}”`, `Hakuna chat inayolingana na “${search}”`) : emptyText}</b>
+              <span className="small muted">{T("Try one of these:", "Jaribu mojawapo:")}</span>
+              <div className="dead-acts">
+                {period && <button type="button" className="small" onClick={() => setRange(null)}>{T("Search all dates", "Tafuta tarehe zote")}</button>}
+                {filter !== "all" && filter !== "ids" && <button type="button" className="small" onClick={() => pick("all")}>{T("Look in All", "Angalia Zote")}</button>}
+                {src !== "any" && <button type="button" className="small" onClick={() => setSrc("any")}>{T("From everywhere", "Kutoka kote")}</button>}
+                {search && <button type="button" className="small" onClick={() => { setQText(""); setSearch(""); }}>{T("Clear the search", "Futa utafutaji")}</button>}
+                {search && /\D/.test(search) && <span className="small muted">{T("or type part of their phone number", "au andika sehemu ya namba yake")}</span>}
+              </div>
+            </div>
+          ) : emptyText}</div> : (
         <div className={"inbox frame" + (openRow ? " has-pane" : " no-pane")}>
         <div className="cc-list">
           {held && (() => {
