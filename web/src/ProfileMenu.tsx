@@ -77,6 +77,11 @@ export default function ProfileMenu({ ws, staff, language, onLanguage }: {
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
   }, [open]);
+  // Phones: hide the floating nav while the sheet is up (CSS slides it down).
+  useEffect(() => {
+    document.documentElement.classList.toggle("pm-open", open);
+    return () => document.documentElement.classList.remove("pm-open");
+  }, [open]);
   const go = (hash: string) => { setOpen(false); location.hash = hash; };
 
   const name = me?.name || me?.email.split("@")[0] || T("You", "Wewe");
