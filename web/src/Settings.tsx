@@ -2,8 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Dashboard from "./Dashboard";
 import { Avatar, PROFILE_EVT } from "./ProfileMenu";
 import Templates from "./Templates";
-import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle, PROFIT_LOOKS, saveProfitLook, useProfitLook } from "./MoneyHero";
-import type { ProfitLook } from "./MoneyHero";
+import MoneyHero, { HERO_STYLES, SAMPLE, saveHeroStyle, useHeroStyle } from "./MoneyHero";
 import type { HeroStyle } from "./MoneyHero";
 import { createPortal } from "react-dom";
 import { palette, readLogo } from "./brand";
@@ -734,35 +733,9 @@ function HeroPicker({ T }: { T: Tr }) {
           </button>
         ))}
       </div>
-      <ProfitPicker T={T} />
     </section>
   );
 }
-
-/** How profit shows inside the revenue card. Tapping profit on Home also moves to the next one. */
-function ProfitPicker({ T }: { T: Tr }) {
-  const cur = useProfitLook();
-  const hero = useHeroStyle();
-  const NAMES: Record<ProfitLook, [string, string]> = {
-    bar: ["Where each shilling went", "Kila shilingi ilienda wapi"], receipt: ["Receipt", "Risiti"],
-  };
-  return (
-    <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
-      <div><h3 style={{ margin: 0 }}>{T("How profit shows", "Jinsi faida inavyoonekana")}</h3>
-        <span className="small muted">{hero === "A" ? T("The one-card look shows profit in its own row; pick another look above to use these.", "Kadi moja inaonyesha faida mstari wake; chagua mwonekano mwingine juu kutumia hizi.")
-          : T("Or tap the profit on Home to switch. Saved on this device.", "Au gusa faida kwenye Nyumbani kubadilisha. Inahifadhiwa kwenye kifaa hiki.")}</span></div>
-      <div className="heropick" role="group" aria-label={T("How profit shows", "Jinsi faida inavyoonekana")}>
-        {PROFIT_LOOKS.map((l) => (
-          <button key={l} type="button" className={cur === l ? "on" : ""} aria-pressed={cur === l} onClick={() => saveProfitLook(l)}>
-            <div className="hp-prev" aria-hidden><MoneyHero style={hero === "A" ? "B" : hero} data={SAMPLE} T={T} look={l} /></div>
-            <span className="hp-name">{T(NAMES[l][0], NAMES[l][1])}{cur === l && <span className="small muted">· {T("in use", "inatumika")}</span>}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 
 /** Profile photo (23 Nov 2026): shows in the top bar. Squared and shrunk to 256 px on the phone before upload,
  *  stored in the public "avatars" bucket under the person's own folder, address kept in user_metadata.avatar_url. */

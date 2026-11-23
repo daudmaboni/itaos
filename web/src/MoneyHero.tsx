@@ -40,24 +40,9 @@ export type HeroData = {
   parts?: { revenue: number; ads: number; products: number; other: number; profit: number; fmt: (n: number) => string } | null;
 };
 
-/** How profit shows inside the revenue card (23 Nov 2026): the where-each-shilling-went bar, or a receipt slip. Tapping the profit part moves to the next look;
- *  the choice is saved on this device, and can be picked in Settings → App. */
-export type ProfitLook = "bar" | "receipt";
-export const PROFIT_LOOKS: ProfitLook[] = ["bar", "receipt"];
-const PKEY = "itaos-profit-look";
-export function readProfitLook(): ProfitLook {
-  try { const v = localStorage.getItem(PKEY) as ProfitLook; return PROFIT_LOOKS.includes(v) ? v : "bar"; } catch { return "bar"; }
-}
-export function saveProfitLook(v: ProfitLook) {
-  try { localStorage.setItem(PKEY, v); } catch { /* storage unavailable */ }
-  window.dispatchEvent(new Event(EVT));
-}
-export function useProfitLook(): ProfitLook {
-  const [s, set] = useState(readProfitLook);
-  useEffect(() => { const f = () => set(readProfitLook()); window.addEventListener(EVT, f); window.addEventListener("storage", f); return () => { window.removeEventListener(EVT, f); window.removeEventListener("storage", f); }; }, []);
-  return s;
-}
-export const nextProfitLook = (v: ProfitLook): ProfitLook => PROFIT_LOOKS[(PROFIT_LOOKS.indexOf(v) + 1) % PROFIT_LOOKS.length]!;
+/** Profit shows inside the revenue card as a receipt slip (23 Nov 2026). The "where each shilling went" bar
+ *  look was removed at Daud's request, so there is nothing to switch any more. */
+export type ProfitLook = "receipt";
 /** Share of revenue kept as profit, 0–100, rounded; null when there's no revenue or no profit figure. */
 export function keptPct(p: HeroData["parts"]): number | null {
   if (!p || p.revenue <= 0) return null;
@@ -87,19 +72,12 @@ function Split({ s, T }: { s: HeroData["split"]; T: T }) {
   );
 }
 
-export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, look: lookOverride }: { style: HeroStyle; data: HeroData; T: T; onRevenue?: () => void; revenueOpen?: boolean; look?: ProfitLook }) {
+export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen }: { style: HeroStyle; data: HeroData; T: T; onRevenue?: () => void; revenueOpen?: boolean }) {
   // Spending less is shown as good; earning more is good.
   const spendGood = x.spendD == null ? null : x.spendD < 0;
   const revGood = x.revenueD == null ? null : x.revenueD > 0;
   const click = onRevenue ? { role: "button", tabIndex: 0, "aria-expanded": !!revenueOpen, onClick: onRevenue, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRevenue(); } } } : {};
-  const lookSaved = useProfitLook();
-  const look: ProfitLook = lookOverride ?? lookSaved;
   const neg = !!x.profitNeg;
-  const cycle = (e: { stopPropagation: () => void; preventDefault?: () => void }) => { e.stopPropagation(); if (!lookOverride) saveProfitLook(nextProfitLook(look)); };
-  const cycleKey = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycle(e); } };
-  const tap = lookOverride ? {} : { role: "button", tabIndex: 0, onClick: cycle, onKeyDown: cycleKey, title: T("Tap to see profit another way", "Gusa kuona faida kwa njia nyingine") };
-  const profitWord = neg ? T("Loss", "Hasara") : T("Profit", "Faida");
-  const dots = lookOverride ? null : <span className="pl-dots" aria-hidden>{PROFIT_LOOKS.map((l) => <i key={l} className={l === look ? "on" : ""} />)}</span>;
   const revBlock = (big: boolean) => (
     <div className="mh-num">
       <span className="mh-k">{style === "E" ? T("Money in · Revenue", "Pesa iliyoingia · Mapato") : T("Revenue", "Mapato")}</span>
@@ -110,11 +88,11 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, l
   const rev = (big: boolean) => {
     if (style === "A") return revBlock(big);
     const p = x.parts;
-    // 6 · receipt slip
-    if (look === "receipt") return (
+    // receipt slip
+    return (
       <div className="pl pl-side2 pl-rc">
         {revBlock(big)}
-        <div className="pl-receipt" {...tap}>
+        <div className="pl-receipt">
           <span className="pl-rh">{T("WHERE IT WENT", "ILIKOENDA")}</span>
           {p ? <>
             <span className="pl-rl"><span>{T("Sales", "Mauzo")}</span><span>{p.fmt(p.revenue)}</span></span>
@@ -124,30 +102,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, l
           </> : <span className="pl-rl"><span>{x.profitSub ?? "–"}</span></span>}
           <span className="pl-rcut" aria-hidden />
           <span className={"pl-rtotal" + (neg ? " neg" : "")}><span>{neg ? T("LOSS", "HASARA") : T("PROFIT", "FAIDA")}</span><b>{x.profit ?? "–"}</b></span>
-          {dots}
         </div>
-      </div>
-    );
-    // 3 · where each shilling went (default)
-    const segs = p && p.revenue > 0 ? [
-      { k: "kept", v: Math.max(p.profit, 0), label: T("you kept", "umebaki na") },
-      { k: "ads", v: p.ads, label: T("ads", "matangazo") },
-      { k: "prod", v: p.products, label: T("products", "bidhaa") },
-      { k: "other", v: p.other > 0.5 ? p.other : 0, label: T("other costs", "gharama nyingine") },
-    ].filter((g) => g.v > 0) : [];
-    const tot = segs.reduce((a2, g) => a2 + g.v, 0) || 1;
-    return (
-      <div className="pl pl-bar">
-        <div className="pl-top">
-          {revBlock(big)}
-          <div className={"pl-right" + (neg ? " neg" : "")} {...tap}><span className="mh-k">{profitWord}</span><b>{x.profit ?? "–"}</b>{!x.profit && x.profitSub && <span className="mh-s">{x.profitSub}</span>}{dots}</div>
-        </div>
-        {segs.length > 0 && (
-          <div className="pl-split" {...tap}>
-            <div className="pl-segs" aria-hidden>{segs.map((g) => <span key={g.k} className={"s-" + g.k} style={{ flex: g.v }} />)}</div>
-            <div className="pl-legend">{segs.map((g) => <span key={g.k}><i className={"s-" + g.k} /><b>{Math.round((g.v / tot) * 100)}%</b> {g.label} · {p!.fmt(g.v)}</span>)}</div>
-          </div>
-        )}
       </div>
     );
   };
@@ -186,7 +141,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, l
   if (style === "E") return (
     <div className="mh mh-E">
       <div className="mh-joined">
-        <div className="mh-card green mh-click" {...click}>{rev(true)}{look !== "bar" && <Split s={x.split} T={T} />}</div>
+        <div className="mh-card green mh-click" {...click}>{rev(true)}<Split s={x.split} T={T} /></div>
         {x.roas && <span className="mh-badge">{x.roas} {T("return", "faida ya tangazo")}</span>}
         <div className="mh-card navy">{spend(false)}</div>
       </div>
@@ -197,7 +152,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, l
   return (
     <div className="mh mh-B">
       <div className="mh-card navy">{spend(true)}</div>
-      <div className="mh-card green mh-click" {...click}>{rev(true)}{look !== "bar" && <Split s={x.split} T={T} />}</div>
+      <div className="mh-card green mh-click" {...click}>{rev(true)}<Split s={x.split} T={T} /></div>
     </div>
   );
 }
