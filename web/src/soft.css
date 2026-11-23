@@ -41,10 +41,10 @@
 /* revenue: the glowing green "Insight" card */
 .mh-card.green {
   background:
-    radial-gradient(220px 180px at 16% 26%, #fff6c470, transparent 70%),
+    radial-gradient(160px 120px at 0% 0%, #fff6c440, transparent 70%),
     radial-gradient(120% 90% at 110% 0%, #ffffff1f, transparent 60%),
-    linear-gradient(155deg, #23B57E 0%, #13A06B 55%, #0E8F5E 100%); }
-.mh-card.green .mh-v { text-shadow: 0 0 28px #fff7c880; }
+    linear-gradient(155deg, #1DA673 0%, #12955F 55%, #0D8455 100%); }
+.mh-card.green .mh-v, .mh-card.green .pl-right b { text-shadow: 0 1px 2px #0a5a3a40; } /* crisp white on green, no glow behind the money */
 .mh-card.green .mh-k, .mh-card.green .mh-s { color: #ffffffd9; }
 .mh-card.green .pl-right b { color: #ffffff; }
 .mh-card.green .pl-right .mh-k { color: #ffffffd9; }
