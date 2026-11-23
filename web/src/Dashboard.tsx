@@ -150,6 +150,11 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
           roas: mx.returnOnAdSpendAllAdCustomers.value == null ? null : mx.returnOnAdSpendAllAdCustomers.value.toFixed(1) + "×",
           profit: mx.contribution.value == null ? null : money(W(mx.contribution.value), wsCur),
           profitNeg: (mx.contribution.value ?? 0) < 0,
+          parts: (() => {
+            const rv = W(mx.revenue.value), ad = A(mx.spend.value), pr = W(mx.contribution.value), pc = W(mx.coverage.orderCosts) ?? 0;
+            if (rv == null || pr == null || !canConvert || rv <= 0) return null;
+            return { revenue: rv, ads: ad ?? 0, products: pc, other: Math.max(0, rv - (ad ?? 0) - pc - pr), profit: pr, fmt: (n: number) => money(n, wsCur) };
+          })(),
           profitSub: mx.contribution.note === "no paid orders in period" ? T("no paid orders yet", "bado hakuna oda")
             : mx.contribution.note === "needs exchange rate" ? T("needs the exchange rate", "inahitaji kiwango cha kubadilisha")
             : mx.contribution.note === "needs order costs" ? T("add product costs", "weka gharama za bidhaa")

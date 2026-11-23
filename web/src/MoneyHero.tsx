@@ -36,7 +36,33 @@ export type HeroData = {
   /** money from ad customers vs the rest, in the same currency; null when nothing was sold */
   split: { ads: number; other: number; adsText: string; otherText: string } | null;
   roas: string | null; profit: string | null; profitSub?: string; profitNeg?: boolean;
+  /** Where the revenue went, all in the shown currency (null when the currencies can't be matched). */
+  parts?: { revenue: number; ads: number; products: number; other: number; profit: number; fmt: (n: number) => string } | null;
 };
+
+/** How profit shows inside the revenue card (23 Nov 2026). Tapping the profit part moves to the next look;
+ *  the choice is saved on this device, and can be picked in Settings → Appearance. */
+export type ProfitLook = "bar" | "headline" | "ring" | "receipt" | "pill";
+export const PROFIT_LOOKS: ProfitLook[] = ["bar", "headline", "ring", "receipt", "pill"];
+const PKEY = "itaos-profit-look";
+export function readProfitLook(): ProfitLook {
+  try { const v = localStorage.getItem(PKEY) as ProfitLook; return PROFIT_LOOKS.includes(v) ? v : "bar"; } catch { return "bar"; }
+}
+export function saveProfitLook(v: ProfitLook) {
+  try { localStorage.setItem(PKEY, v); } catch { /* storage unavailable */ }
+  window.dispatchEvent(new Event(EVT));
+}
+export function useProfitLook(): ProfitLook {
+  const [s, set] = useState(readProfitLook);
+  useEffect(() => { const f = () => set(readProfitLook()); window.addEventListener(EVT, f); window.addEventListener("storage", f); return () => { window.removeEventListener(EVT, f); window.removeEventListener("storage", f); }; }, []);
+  return s;
+}
+export const nextProfitLook = (v: ProfitLook): ProfitLook => PROFIT_LOOKS[(PROFIT_LOOKS.indexOf(v) + 1) % PROFIT_LOOKS.length]!;
+/** Share of revenue kept as profit, 0–100, rounded; null when there's no revenue or no profit figure. */
+export function keptPct(p: HeroData["parts"]): number | null {
+  if (!p || p.revenue <= 0) return null;
+  return Math.round((p.profit / p.revenue) * 100);
+}
 
 function Delta({ d, good }: { d: number | null; good: boolean | null }) {
   if (d == null) return null;
@@ -53,27 +79,109 @@ function Split({ s, T }: { s: HeroData["split"]; T: T }) {
   );
 }
 
-export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen }: { style: HeroStyle; data: HeroData; T: T; onRevenue?: () => void; revenueOpen?: boolean }) {
+export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, look: lookOverride }: { style: HeroStyle; data: HeroData; T: T; onRevenue?: () => void; revenueOpen?: boolean; look?: ProfitLook }) {
   // Spending less is shown as good; earning more is good.
   const spendGood = x.spendD == null ? null : x.spendD < 0;
   const revGood = x.revenueD == null ? null : x.revenueD > 0;
   const click = onRevenue ? { role: "button", tabIndex: 0, "aria-expanded": !!revenueOpen, onClick: onRevenue, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRevenue(); } } } : {};
-  const rev = (big: boolean) => (
-    <div className="mh-revrow">
-      <div className="mh-num">
-        <span className="mh-k">{style === "E" ? T("Money in · Revenue", "Pesa iliyoingia · Mapato") : T("Revenue", "Mapato")}</span>
-        <span className="mh-vrow"><b className={big ? "mh-v" : "mh-v sm"}>{x.revenue}</b><Delta d={x.revenueD} good={revGood} /></span>
-        <span className="mh-s">{x.revenueSub}</span>
-      </div>
-      {style !== "A" && (
-        <div className={"mh-profit" + (x.profitNeg ? " neg" : "")} title={T("After ad spend and the cost of what was sold", "Baada ya matangazo na gharama ya bidhaa zilizouzwa")}>
-          <span className="mh-k">{x.profitNeg ? T("Loss", "Hasara") : T("Profit", "Faida")}</span>
-          <b>{x.profit ?? "–"}</b>
-          <span className="mh-s">{x.profitSub ?? T("after ads & costs", "baada ya gharama")}</span>
-        </div>
-      )}
+  const lookSaved = useProfitLook();
+  const look: ProfitLook = lookOverride ?? lookSaved;
+  const pct = keptPct(x.parts);
+  const neg = !!x.profitNeg;
+  const cycle = (e: { stopPropagation: () => void; preventDefault?: () => void }) => { e.stopPropagation(); if (!lookOverride) saveProfitLook(nextProfitLook(look)); };
+  const cycleKey = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycle(e); } };
+  const tap = lookOverride ? {} : { role: "button", tabIndex: 0, onClick: cycle, onKeyDown: cycleKey, title: T("Tap to see profit another way", "Gusa kuona faida kwa njia nyingine") };
+  const profitWord = neg ? T("Loss", "Hasara") : T("Profit", "Faida");
+  const dots = lookOverride ? null : <span className="pl-dots" aria-hidden>{PROFIT_LOOKS.map((l) => <i key={l} className={l === look ? "on" : ""} />)}</span>;
+  const revBlock = (big: boolean, small = false) => (
+    <div className="mh-num">
+      <span className="mh-k">{style === "E" ? T("Money in · Revenue", "Pesa iliyoingia · Mapato") : T("Revenue", "Mapato")}</span>
+      <span className="mh-vrow"><b className={small ? "mh-v xs" : big ? "mh-v" : "mh-v sm"}>{x.revenue}</b><Delta d={x.revenueD} good={revGood} /></span>
+      <span className="mh-s">{x.revenueSub}</span>
     </div>
   );
+  const rev = (big: boolean) => {
+    if (style === "A") return revBlock(big);
+    const p = x.parts;
+    // 4 · Profit is the headline
+    if (look === "headline") return (
+      <div className="pl pl-headline">
+        <div className={"pl-big" + (neg ? " neg" : "")} {...tap}>
+          <span className="mh-k">{neg ? T("Today you lost", "Umepoteza") : T("You kept", "Umebaki na")}</span>
+          <b>{x.profit ?? "–"}</b>
+          <span className="mh-s">{x.profit ? T(`${profitWord.toLowerCase()} from ${x.revenue} in sales, after ads and products`, `${profitWord.toLowerCase()} kutoka mauzo ya ${x.revenue}, baada ya matangazo na bidhaa`) : (x.profitSub ?? "")}</span>
+          {dots}
+        </div>
+        <div className="pl-side">{revBlock(false, true)}</div>
+      </div>
+    );
+    // 8 · kept pill under the revenue number
+    if (look === "pill") return (
+      <div className="pl pl-pillrow">
+        {revBlock(big)}
+        <span className={"pl-pill" + (neg ? " neg" : "")} {...tap}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
+          <span>{neg ? T("You lost", "Umepoteza") : T("You kept", "Umebaki na")}</span>
+          <b>{x.profit ?? "–"}</b>
+          {pct != null && !neg && <em>{pct}%</em>}
+          {!x.profit && x.profitSub && <small>{x.profitSub}</small>}
+          {dots}
+        </span>
+      </div>
+    );
+    // 5 · margin ring
+    if (look === "ring") return (
+      <div className="pl pl-side2">
+        {revBlock(big)}
+        <div className={"pl-ringbox" + (neg ? " neg" : "")} {...tap}>
+          <span className="pl-ring" style={{ background: `conic-gradient(var(--pl-ring) 0deg ${Math.max(0, Math.min(100, pct ?? 0)) * 3.6}deg, #ffffff26 0deg 360deg)` }}>
+            <span><b>{pct == null ? "–" : `${neg ? 0 : pct}%`}</b><small>{T("kept", "imebaki")}</small></span>
+          </span>
+          <span className="pl-ringtext"><span className="mh-k">{profitWord}</span><b>{x.profit ?? "–"}</b><span className="mh-s">{x.profitSub ?? T("after ads & costs", "baada ya gharama")}</span>{dots}</span>
+        </div>
+      </div>
+    );
+    // 6 · receipt slip
+    if (look === "receipt") return (
+      <div className="pl pl-side2">
+        {revBlock(big)}
+        <div className="pl-receipt" {...tap}>
+          <span className="pl-rh">{T("WHERE IT WENT", "ILIKOENDA")}</span>
+          {p ? <>
+            <span className="pl-rl"><span>{T("Sales", "Mauzo")}</span><span>{p.fmt(p.revenue)}</span></span>
+            <span className="pl-rl out"><span>{T("Ads", "Matangazo")}</span><span>−{p.fmt(p.ads)}</span></span>
+            <span className="pl-rl out"><span>{T("Products", "Bidhaa")}</span><span>−{p.fmt(p.products)}</span></span>
+            {p.other > 0.5 && <span className="pl-rl out"><span>{T("Other costs", "Gharama nyingine")}</span><span>−{p.fmt(p.other)}</span></span>}
+          </> : <span className="pl-rl"><span>{x.profitSub ?? "–"}</span></span>}
+          <span className="pl-rcut" aria-hidden />
+          <span className={"pl-rtotal" + (neg ? " neg" : "")}><span>{neg ? T("LOSS", "HASARA") : T("PROFIT", "FAIDA")}</span><b>{x.profit ?? "–"}</b></span>
+          {dots}
+        </div>
+      </div>
+    );
+    // 3 · where each shilling went (default)
+    const segs = p && p.revenue > 0 ? [
+      { k: "kept", v: Math.max(p.profit, 0), label: T("you kept", "umebaki na") },
+      { k: "ads", v: p.ads, label: T("ads", "matangazo") },
+      { k: "prod", v: p.products, label: T("products", "bidhaa") },
+      { k: "other", v: p.other > 0.5 ? p.other : 0, label: T("other costs", "gharama nyingine") },
+    ].filter((g) => g.v > 0) : [];
+    const tot = segs.reduce((a2, g) => a2 + g.v, 0) || 1;
+    return (
+      <div className="pl pl-bar">
+        <div className="pl-top">
+          {revBlock(big)}
+          <div className={"pl-right" + (neg ? " neg" : "")} {...tap}><span className="mh-k">{profitWord}</span><b>{x.profit ?? "–"}</b>{!x.profit && x.profitSub && <span className="mh-s">{x.profitSub}</span>}{dots}</div>
+        </div>
+        {segs.length > 0 && (
+          <div className="pl-split" {...tap}>
+            <div className="pl-segs" aria-hidden>{segs.map((g) => <span key={g.k} className={"s-" + g.k} style={{ flex: g.v }} />)}</div>
+            <div className="pl-legend">{segs.map((g) => <span key={g.k}><i className={"s-" + g.k} /><b>{Math.round((g.v / tot) * 100)}%</b> {g.label} · {p!.fmt(g.v)}</span>)}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
   const spend = (big: boolean) => (
     <div className="mh-num">
       <span className="mh-k">{style === "E" ? T("Money out · Ad spend", "Pesa iliyotoka · Matangazo") : T("Ad spend", "Matumizi ya matangazo")}</span>
@@ -109,7 +217,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen }:
   if (style === "E") return (
     <div className="mh mh-E">
       <div className="mh-joined">
-        <div className="mh-card green mh-click" {...click}>{rev(true)}<Split s={x.split} T={T} /></div>
+        <div className="mh-card green mh-click" {...click}>{rev(true)}{look !== "bar" && <Split s={x.split} T={T} />}</div>
         {x.roas && <span className="mh-badge">{x.roas} {T("return", "faida ya tangazo")}</span>}
         <div className="mh-card navy">{spend(false)}</div>
       </div>
@@ -120,7 +228,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen }:
   return (
     <div className="mh mh-B">
       <div className="mh-card navy">{spend(true)}</div>
-      <div className="mh-card green mh-click" {...click}>{rev(true)}<Split s={x.split} T={T} /></div>
+      <div className="mh-card green mh-click" {...click}>{rev(true)}{look !== "bar" && <Split s={x.split} T={T} />}</div>
     </div>
   );
 }
@@ -131,4 +239,5 @@ export const SAMPLE: HeroData = {
   spend: "TZS 12,779", spendD: -0.82, spendSub: "15 chats (Meta)",
   split: { ads: 175000, other: 135000, adsText: "175,000", otherText: "135,000" },
   roas: "13.7×", profit: "TZS 280,521",
+  parts: { revenue: 310000, ads: 12779, products: 16700, other: 0, profit: 280521, fmt: (n) => Math.round(n).toLocaleString("en-US") },
 };
