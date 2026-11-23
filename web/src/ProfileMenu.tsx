@@ -67,6 +67,8 @@ export default function ProfileMenu({ ws, staff, language, onLanguage }: {
   const ringIn = useRing(ws);
   const ring = ringOf(ringIn);
   const [open, setOpen] = useState(false);
+  const [askOut, setAskOut] = useState(false); // Sign out asks once before it happens
+  useEffect(() => { if (!open) setAskOut(false); }, [open]);
   const box = useRef<HTMLDivElement>(null);
   useBackLayer(open, () => setOpen(false));
   useEffect(() => {
@@ -122,7 +124,17 @@ export default function ProfileMenu({ ws, staff, language, onLanguage }: {
           <a role="menuitem" href="#settings" onClick={(e) => { e.preventDefault(); go("#settings"); }}>{T("Settings", "Mipangilio")}</a>
           <a role="menuitem" href="#settings/account" onClick={(e) => { e.preventDefault(); go("#settings/account"); }}>{T("My profile and photo", "Wasifu wangu na picha")}</a>
           {staff && <a role="menuitem" href="/app/admin">{T("Pondi admin", "Pondi admin")} <small>{T("staff only", "wafanyakazi tu")}</small></a>}
-          <button role="menuitem" type="button" className="pm-out" onClick={() => { setOpen(false); void supabase.auth.signOut({ scope: "local" }); }}>{T("Sign out", "Toka")}</button>
+          {askOut ? (
+            <div className="pm-confirm" role="alertdialog" aria-label={T("Sign out?", "Utoke?")}>
+              <p><b>{T("Sign out of itaOS?", "Utoke kwenye itaOS?")}</b><small>{T("You'll need to sign in again to see your chats and sales.", "Utahitaji kuingia tena kuona mazungumzo na mauzo yako.")}</small></p>
+              <div>
+                <button type="button" className="pm-c-no" autoFocus onClick={() => setAskOut(false)}>{T("Cancel", "Ghairi")}</button>
+                <button type="button" className="pm-c-yes" onClick={() => { setOpen(false); void supabase.auth.signOut({ scope: "local" }); }}>{T("Sign out", "Toka")}</button>
+              </div>
+            </div>
+          ) : (
+            <button role="menuitem" type="button" className="pm-out" onClick={() => setAskOut(true)}>{T("Sign out", "Toka")}</button>
+          )}
         </div>
       </>}
     </div>

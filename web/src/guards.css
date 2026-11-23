@@ -229,6 +229,13 @@ a.g-sumcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .pm-menu > a:focus-visible, .pm-menu > button:focus-visible { outline: 2px solid var(--accent); }
 .pm-menu > a small { color: var(--muted); font-size: 12px; }
 .pm-menu > .pm-out { color: var(--bad); }
+.pm-confirm { margin-top: 4px; padding: 12px; border-radius: 14px; background: var(--bad-soft, #e5484d14); border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent); display: grid; gap: 12px; animation: pm-in .18s ease-out both; }
+.pm-confirm p { margin: 0; display: grid; gap: 3px; } .pm-confirm b { font-size: 14.5px; } .pm-confirm small { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.pm-confirm div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pm-confirm button { all: unset; box-sizing: border-box; text-align: center; min-height: 44px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.pm-confirm .pm-c-no { background: var(--raised); color: var(--ink); border: 1px solid var(--line); }
+.pm-confirm .pm-c-yes { background: var(--bad); color: #fff; }
+.pm-confirm button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pm-status { font-weight: 600; }
 .pm-status i { width: 9px; height: 9px; border-radius: 50%; background: var(--good); }
 .pm-status.t-amber { color: #A86A00; } .pm-status.t-amber i { background: #D98A00; }
