@@ -7,7 +7,7 @@ import { pushEntry, replaceEntry, cameFrom } from "./backStack";
 import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, fmt, when, canEdit, canManage, money, localDay } from "./lib";
 import DateRange from "./DateRange";
-import { RangeSel, resolveRange, addDays, loadRange, saveRange, presetLabel } from "./ranges";
+import { RangeSel, resolveRange, addDays, saveRange, presetLabel } from "./ranges";
 import { signalDismissed, fromLocalInput } from "./Orders";
 import { KitoLogo } from "./Logo";
 import { KitoLoader } from "./KitoLoader";
@@ -15,7 +15,8 @@ import { Source, Run, Lite, Tr, timeGroup, waLink, agoT, statusOf, kitoStale, in
 import { ChatPane, PartyHint, prefetchMsgs } from "./ChatPane";
 export { timeGroup, waLink } from "./chatParts";
 
-type Filter = "follow" | "lost" | "open" | "sold" | "signals" | "all" | "not" | "ids";
+import { PAGE, views, getSnap, setSnap, viewKeyOf, chatsRange, type Filter } from "./chatsCache";
+export { preloadChats, clearChatsCache } from "./chatsCache";
 /** Same rules as the database filters below, used to count each tab. */
 const inFilter = (r: Lite, f: Filter) =>
   f === "all" ? true
@@ -25,7 +26,6 @@ const inFilter = (r: Lite, f: Filter) =>
   : r.outcome === f;
 const inSource = (r: Lite, s: Source) => s === "any" || (s === "import" ? (r as any).phone_number_id === "import" : r.phone_number_id !== "import");
 
-const PAGE = 100;
 
 // The open chat lives in the address (#chats/open=<id>) so a reload brings you back inside it.
 const hashOpen = () => {
@@ -38,25 +38,12 @@ const hashIds = () => {
   return m ? m[1].split(",").filter(Boolean).slice(0, 100) : null;
 };
 
-// The last list shown, kept while the app is open. Coming back to Chats from another tab shows it at once
-// and refreshes it quietly in the background, instead of blanking the page and loading everything again.
-type Snap = {
-  ws: string; key: string; filter: Filter; src: Source;
-  rows: Outcome[]; lite: Lite[]; counts: Record<string, number> | null; phones: Record<string, string>;
-  adNames: Record<string, string>; tasks: Record<string, Task>; runs: Run[];
-  paidOn: Record<string, string> | null; boughtInRange: number | null;
-};
-let snap: Snap | null = null;
-// Every list you've looked at (tab, source, search, dates), kept while the app is open: switching back to a
-// tab shows it at once and refreshes it quietly, like WhatsApp's tabs, instead of grey placeholders.
-type ViewMem = { rows: Outcome[]; phones: Record<string, string>; paidOn: Record<string, string> | null; boughtInRange: number | null };
-const views = new Map<string, ViewMem>();
 // Kito's automatic catch-up runs once per business while the app is open, not every time Chats opens.
 const autoRan = new Set<string>();
 
 export default function Chats({ ws }: { ws: Workspace }) {
   const [ids, setIds] = useState<string[] | null>(hashIds());
-  const cached = !ids && snap && snap.ws === ws.id ? snap : null;
+  const cached = !ids ? getSnap(ws.id) : null;
   const [filter, setFilter] = useState<Filter>(ids ? "ids" : cached?.filter ?? "all");
   const [src, setSrc] = useState<Source>(cached?.src ?? "any");
   const [rows, setRows] = useState<Outcome[]>(cached?.rows ?? []);
@@ -75,7 +62,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const [qText, setQText] = useState("");
   const [search, setSearch] = useState("");
   useEffect(() => { const t = window.setTimeout(() => { setSearch(qText.trim()); setLimit(PAGE); }, 350); return () => window.clearTimeout(t); }, [qText]);
-  const [range, setRangeState] = useState<RangeSel | null>(() => { try { return localStorage.getItem("itaos:chats:alldates") === "1" ? null : (r => (r && r.key === "all" ? null : r))(loadRange("chats", null as any)); } catch { return null; } });
+  const [range, setRangeState] = useState<RangeSel | null>(chatsRange);
   const setRange = (r: RangeSel | null) => { setRangeState(r); setLimit(PAGE); try { if (r) { saveRange("chats", r); localStorage.removeItem("itaos:chats:alldates"); } else localStorage.setItem("itaos:chats:alldates", "1"); } catch { /* storage blocked */ } };
   const tzChats = ws.timezone || "Africa/Dar_es_Salaam";
   const todayChats = localDay(new Date(), tzChats);
@@ -105,6 +92,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const T: Tr = (en, sw) => (lang === "sw" ? sw : en);
   const refresh = () => setTick((t) => t + 1);
   const [quiet, setQuiet] = useState(false);   // live refresh: update in place, no "Loading…"
+  const [refreshing, setRefreshing] = useState(false);   // a list is on screen and a fresh one is loading: thin line under the top bar
   const [live, setLive] = useState(false);
 
   // Live: new WhatsApp messages, Kito's labels and recorded sales appear without reloading.
@@ -148,7 +136,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const viewKey = JSON.stringify([ws.id, filter, ids, src, limit, search, period?.from, period?.to]);
+  const viewKey = viewKeyOf(ws.id, filter, ids, src, limit, search, period?.from, period?.to);
 
   useEffect(() => {
     if (!quiet && shownKey.current !== viewKey) {
@@ -156,14 +144,40 @@ export default function Chats({ ws }: { ws: Workspace }) {
       if (mem) { setRows(mem.rows); setPhones(mem.phones); setPaidOn(mem.paidOn); setBoughtInRange(mem.boughtInRange); setLoading(false); shownKey.current = viewKey; }
       else setLoading(true);
     }
+    const blank = !quiet && shownKey.current !== viewKey && !views.get(viewKey);
+    setRefreshing(!blank && !quiet);   // live updates stay silent
     setQuiet(false); setErr("");
     let cur = true;
     const byPaid = filter === "sold";
-    let q = supabase.from("conversation_outcomes").select("*").eq("workspace_id", ws.id)
-      .order(byPaid ? "last_paid_at" : "last_message_at", { ascending: false, nullsFirst: false }).limit(limit);
-    if (filter !== "ids" && src === "import") q = q.eq("phone_number_id", "import");
-    else if (filter !== "ids" && src === "live") q = q.neq("phone_number_id", "import");
-    if (filter === "ids" && ids) q = q.in("id", ids);
+    // Every filter of this list, applied to a query of any size (the quick first 20 and the full page).
+    const narrow = <Q extends { eq: any; neq: any; in: any; gte: any; lt: any; gt: any; or: any }>(qq: Q): Q => {
+      let x: any = qq;
+      if (filter !== "ids" && src === "import") x = x.eq("phone_number_id", "import");
+      else if (filter !== "ids" && src === "live") x = x.neq("phone_number_id", "import");
+      if (filter === "ids" && ids) x = x.in("id", ids);
+      if (filter !== "ids" && period && !byPaid) x = x.gte("last_message_at", fromLocalInput(period.from + "T00:00")).lt("last_message_at", fromLocalInput(addDays(period.to, 1) + "T00:00"));
+      if (filter === "not") x = x.eq("not_customer", true);
+      else if (filter !== "ids") x = x.eq("not_customer", false);
+      if (filter === "ids" || filter === "not" || filter === "all") { /* nothing more */ }
+      else if (filter === "sold") x = x.gt("paid_orders", 0);   // Bought = a sale you recorded, nothing else
+      else if (filter === "follow") x = x.neq("outcome", "sold").or("kito_temp.in.(hot,warm),and(kito_temp.is.null,warm.eq.true)");
+      else if (filter === "signals") x = x.eq("paid_orders", 0).or("and(kito_outcome.eq.sold,or(kito_confidence.is.null,kito_confidence.neq.low)),outcome_override.eq.sold").or("override_by.is.null,outcome_override.eq.sold");
+      else x = x.eq("outcome", filter);
+      return x as Q;
+    };
+    const base = (n: number) => supabase.from("conversation_outcomes").select("*").eq("workspace_id", ws.id)
+      .order(byPaid ? "last_paid_at" : "last_message_at", { ascending: false, nullsFirst: false }).limit(n);
+    let q = narrow(base(limit));
+    // Nothing to show yet: fetch the first 20 on their own and show them straight away; the full page follows.
+    // (Not for searches, paid-date lists or the follow-up list, whose order is worked out after loading.)
+    if (blank && !search && !(byPaid && period) && filter !== "follow") {
+      narrow(base(20)).then(({ data, error }) => {
+        if (!cur || error || !data?.length) return;
+        setRows((r) => (shownKey.current === viewKey && r.length > 20 ? r : (data as Outcome[])));
+        setLoading((l) => { if (l) shownKey.current = viewKey; return false; });
+        setRefreshing(true);
+      });
+    }
     // Date range: chats with a message on those days (local days, East Africa time).
     // Bought is different: it lists the customers who PAID on those days (the payment day read from the chat),
     // not the day you confirmed the money or the day they last wrote.
@@ -194,15 +208,6 @@ export default function Chats({ ws }: { ws: Workspace }) {
       }
       setBoughtInRange(n);
     });
-    if (filter !== "ids" && period && !byPaid) q = q.gte("last_message_at", fromLocalInput(period.from + "T00:00")).lt("last_message_at", fromLocalInput(addDays(period.to, 1) + "T00:00"));
-    if (filter === "not") q = q.eq("not_customer", true);
-    else if (filter !== "ids") q = q.eq("not_customer", false);
-    if (filter === "ids" && ids) { /* handled below */ }
-    else if (filter === "not") { /* everyone marked "not a customer" */ }
-    else if (filter === "sold") q = q.gt("paid_orders", 0);   // Bought = a sale you recorded, nothing else
-    else if (filter === "follow") q = q.neq("outcome", "sold").or("kito_temp.in.(hot,warm),and(kito_temp.is.null,warm.eq.true)");
-    else if (filter === "signals") q = q.eq("paid_orders", 0).or("and(kito_outcome.eq.sold,or(kito_confidence.is.null,kito_confidence.neq.low)),outcome_override.eq.sold").or("override_by.is.null,outcome_override.eq.sold");
-    else if (filter !== "all") q = q.eq("outcome", filter);
     supabase.from("kito_runs").select("id,trigger,ran_at,checked,failed,remaining,note").eq("workspace_id", ws.id).order("ran_at", { ascending: false }).limit(20)
       .then(({ data }) => setRuns((data as Run[]) ?? []));
     // Tab counts are worked out in the database (the browser can only read 1,000 rows at a time).
@@ -233,7 +238,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
       supabase.from("follow_up_tasks").select("*").eq("workspace_id", ws.id).in("status", ["open", "snoozed"]),
     ]).then(async ([c, a, t]) => {
       if (!cur) return;   // a newer load (other tab, new search) has started: don't let this older one overwrite it
-      if (c.error) setErr(c.error.message);
+      if (c.error) { setErr(c.error.message); setRefreshing(false); }
       let list = (c.data as Outcome[]) ?? [];
       if (byPaid && period) {
         const m = (await paidIds) ?? {};
@@ -251,7 +256,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
       if (filter === "ids" && list.length && list.length <= 3) setOpenId((cur) => { if (!cur) autoOpened.current = list[0].id; return cur ?? list[0].id; });
       setAdNames(Object.fromEntries((a.data ?? []).map((x: any) => [x.ad_id, x.name])));
       setTasks(Object.fromEntries(((t.data ?? []) as Task[]).map((task) => [task.conversation_id, task])));
-      setLoading(false); shownKey.current = viewKey;
+      setLoading(false); setRefreshing(false); shownKey.current = viewKey;
       views.set(viewKey, { rows: list, phones: Object.fromEntries((cts ?? []).map((x: any) => [x.id, x.wa_id])), paidOn: byPaid && period ? ((await paidIds) ?? null) : null, boughtInRange: null });
       if (views.size > 24) views.delete(views.keys().next().value as string);
     });
@@ -261,8 +266,9 @@ export default function Chats({ ws }: { ws: Workspace }) {
   // Remember what's on screen for the next visit to this tab.
   useEffect(() => {
     if (loading || filter === "ids") return;
-    snap = { ws: ws.id, key: viewKey, filter, src, rows, lite, counts, phones, adNames, tasks, runs, paidOn, boughtInRange };
-  }, [loading, viewKey, rows, lite, counts, phones, adNames, tasks, runs, paidOn, boughtInRange]);
+    // Plain first pages are also saved on the phone, so the next open (even after the app was closed) shows them at once.
+    setSnap({ ws: ws.id, key: viewKey, filter, src, rows, lite, counts, phones, adNames, tasks, runs, paidOn, boughtInRange }, !search && limit === PAGE && !refreshing);
+  }, [loading, refreshing, viewKey, rows, lite, counts, phones, adNames, tasks, runs, paidOn, boughtInRange]);
 
   /** background = the automatic catch-up when Chats opens: nothing on screen changes until new labels arrive. */
   async function runKito(background = false) {
@@ -422,6 +428,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
 
   return (
     <section className="card chats" ref={pageRef}>
+      {refreshing && <div className="chats-progress" role="progressbar" aria-label={T("Updating the chats", "Inasasisha chats")} />}
       <div className="chats-head">
         <div>
           <h2 style={{ margin: 0 }}>{T("Customers", "Wateja")} <span className="muted chats-total">{fmt(total)}</span>{live && <span className="live-dot" title={T("Live: updates by itself when a message arrives", "Hai: inajisasisha ujumbe ukiingia")}>{T("Live", "Hai")}</span>}</h2>

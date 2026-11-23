@@ -10,7 +10,7 @@ import { supabase, Workspace, WS_COLUMNS, Role, PASSWORD_RECOVERY } from "./lib"
 import { AuthScreen, SetNewPassword, initialLang, tr, AuthShell, AuthBrand, AuthField, AuthIcon } from "./Auth";
 import Dashboard from "./Dashboard";
 import ProfileMenu from "./ProfileMenu";
-import Chats from "./Chats";
+import Chats, { preloadChats, clearChatsCache } from "./Chats";
 import Connect from "./Connect";
 import Settings from "./Settings";
 import Actions from "./Actions";
@@ -110,6 +110,7 @@ export default function App() {
       // Signing out (or a fresh sign-in) always starts on the dashboard: the page the last person was on
       // (e.g. #settings, where Sign out lives) must not carry over to the next account on this device.
       if (e === "SIGNED_OUT" || (e === "SIGNED_IN" && s && hadSession.current === false)) {
+        clearChatsCache();   // the saved chats list holds customer names and numbers: never carry it to the next account
         if (location.hash) history.replaceState({ itaDepth: depth() }, "", location.pathname + location.search);
         viewRef.current = "dashboard"; setView("dashboard");
       }
@@ -138,6 +139,15 @@ export default function App() {
     window.addEventListener("hashchange", onHash);
     return () => { sub.subscription.unsubscribe(); window.removeEventListener("hashchange", onHash); };
   }, []);
+
+  // Chats: load the list quietly in the background a moment after the app opens (only when nothing is saved
+  // on the phone yet), so the first tap on Chats shows real chats at once.
+  const wsId = ws?.id;
+  useEffect(() => {
+    if (!ws) return;
+    const t = window.setTimeout(() => { void preloadChats(ws); }, 2500);
+    return () => window.clearTimeout(t);
+  }, [wsId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!session) { setWs(undefined); return; }
