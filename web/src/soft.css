@@ -154,8 +154,10 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 .rec .rec-sec > .rec-rows { background: var(--raised); border-radius: 16px; padding: 2px 14px; }
 .rec .rec-row { padding: 12px 0; }
 .rec .rec-n { min-width: 26px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--card); font-size: 12px; font-weight: 700; color: var(--muted); }
-.rec .rec-more { justify-self: start; background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13.5px; font-weight: 600; color: #0E8F5E; cursor: pointer; }
-:root:not([data-theme="light"]) .rec .rec-more { color: var(--mint); }
+.card.rec button.rec-more, .dash-ia .card.rec button.rec-more { justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 0; padding: 8px 16px; border: 0; border-radius: 999px; box-shadow: none;
+  background: color-mix(in srgb, #0E8F5E 12%, transparent); color: #0E8F5E; font: 600 13.5px var(--font); cursor: pointer; }
+.card.rec button.rec-more:hover:not(:disabled) { background: color-mix(in srgb, #0E8F5E 20%, transparent); border: 0; }
+:root:not([data-theme="light"]) .card.rec button.rec-more { color: var(--mint); background: color-mix(in srgb, var(--mint) 14%, transparent); }
 .rec .rec-items { background: none; padding: 0; }
 .rec .rec-alert { margin: 0; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--warn, #E8A33D) 14%, transparent); }
 .rec .rec-notes { margin: 0; display: grid; border-top: 1px solid var(--line); }
