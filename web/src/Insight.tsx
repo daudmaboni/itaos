@@ -1,70 +1,78 @@
 // Green Insight card on Home (23 Nov 2026), after the soft-cards design Daud picked: one fact per slide.
-// Moving between facts copies the "slide to approve" motion from Divan Raj's Proposal approval shot (Dribbble):
-// a white pill track with a round knob; drag the knob (or swipe the card) to the right and a light fill follows it,
-// let go past ~65% and the knob runs to the end, turns into a tick, the next fact comes in with its big number
-// popping like the approval stamp, and the knob springs back. Swiping the card left goes back one.
+// Swiping copies the Pool widgets size swipe (60fps.design): the facts sit side by side, the next one peeking in
+// from the right edge, smaller and faded. The row follows the finger; let go and it springs onto the nearest fact
+// (a short flick is enough), the one in front grows to full size while the others shrink back, and the dots
+// update, the active one stretching into a pill. Stops at the first and last fact with a soft rubber band.
 // data-noswipe: a swipe here moves the insight, never the page tabs. Facts come from insights.ts.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Insight as Slide } from "./insights";
 import { CardMenu, copyText, refreshPage } from "./CardMenu";
 
 type T = (en: string, sw: string) => string;
-const KNOB = 44, PAD = 4, DONE = 0.65;
+const PEEK = 0.86, GAP = 14, SPRING = "transform .6s cubic-bezier(.2, 1.25, .35, 1), opacity .45s ease";
 
 export default function Insight({ slides, period, T }: { slides: Slide[]; period: string; T: T }) {
   const [i, setI] = useState(0);
-  const [dir, setDir] = useState<1 | -1>(1);
-  const [p, setP] = useState(0);              // knob position 0..1
-  const [phase, setPhase] = useState<"idle" | "drag" | "run" | "done" | "back">("idle");
-  const track = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x0: number; y0: number; from: "knob" | "card"; axis: "" | "h" | "v" } | null>(null);
-  const timers = useRef<number[]>([]);
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
-  if (!slides.length) return null;
-  const n = slides.length, k = Math.min(i, n - 1), s = slides[k]!;
-  const later = (ms: number, f: () => void) => { timers.current.push(window.setTimeout(f, ms)); };
-  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const span = () => Math.max(1, (track.current?.clientWidth ?? 300) - KNOB - PAD * 2);
+  const view = useRef<HTMLDivElement>(null);
+  const row = useRef<HTMLDivElement>(null);
+  const items = useRef<(HTMLDivElement | null)[]>([]);
+  const drag = useRef<{ x0: number; y0: number; axis: "" | "h" | "v"; dx: number; t: number; x: number; v: number } | null>(null);
+  const n = slides.length, k = Math.min(i, Math.max(0, n - 1));
 
-  const next = () => {
-    if (n < 2 || phase === "run" || phase === "done") return;
-    if (reduced) { setDir(1); setI((v) => (v + 1) % n); setP(0); return; }
-    setPhase("run"); setP(1);
-    later(220, () => { setPhase("done"); setDir(1); setI((v) => (v + 1) % n); });
-    later(650, () => { setPhase("back"); setP(0); });
-    later(1000, () => setPhase("idle"));
-  };
-  const prev = () => { if (n < 2) return; setDir(-1); setI((v) => (v - 1 + n) % n); };
-  const release = () => {
-    const d = drag.current; drag.current = null;
-    if (!d) return;
-    if (p >= DONE) next(); else { setPhase("back"); setP(0); later(320, () => setPhase("idle")); }
-  };
+  /** Place the row at slide k moved by dx pixels; size and fade each slide by its distance from the front. */
+  const layout = useCallback((dx: number, animate: boolean) => {
+    const w = (view.current?.clientWidth ?? 320) * PEEK, step = w + GAP;
+    const pos = k * step - dx;
+    if (row.current) { row.current.style.transition = animate ? SPRING : "none"; row.current.style.transform = `translate3d(${-pos}px,0,0)`; }
+    items.current.forEach((el, j) => {
+      if (!el) return;
+      const d = Math.min(1, Math.abs(j * step - pos) / step);
+      el.style.width = `${w}px`;
+      el.style.transition = animate ? SPRING : "none";
+      el.style.transform = `scale(${1 - 0.12 * d})`;
+      el.style.opacity = String(1 - 0.6 * d);
+    });
+  }, [k]);
+  useLayoutEffect(() => { layout(0, true); }, [layout, n]);
+  useEffect(() => { const f = () => layout(0, false); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, [layout]);
 
-  const onDown = (from: "knob" | "card") => (e: React.PointerEvent) => {
-    if (n < 2 || phase === "run" || phase === "done") return;
-    if (from === "card" && (e.target as HTMLElement).closest("button, a, .cm")) return;
-    drag.current = { x0: e.clientX, y0: e.clientY, from, axis: from === "knob" ? "h" : "" };
-    if (from === "knob") { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); setPhase("drag"); }
+  if (!n) return null;
+  const s = slides[k]!;
+  const go = (j: number) => setI(Math.max(0, Math.min(n - 1, j)));
+
+  const down = (e: React.PointerEvent) => {
+    if (n < 2 || (e.target as HTMLElement).closest("button, a, .cm")) return;
+    drag.current = { x0: e.clientX, y0: e.clientY, axis: "", dx: 0, t: e.timeStamp, x: e.clientX, v: 0 };
   };
-  const onMove = (e: React.PointerEvent) => {
+  const move = (e: React.PointerEvent) => {
     const d = drag.current; if (!d) return;
     const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
     if (!d.axis) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
       d.axis = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
       if (d.axis === "v") { drag.current = null; return; }   // let the page scroll
-      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); setPhase("drag");
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     }
-    if (d.from === "card" && dx < -50) { drag.current = null; setP(0); setPhase("idle"); prev(); return; }
-    setP(Math.max(0, Math.min(1, dx / span())));
+    const dt = Math.max(1, e.timeStamp - d.t);
+    d.v = 0.7 * d.v + 0.3 * ((e.clientX - d.x) / dt); d.t = e.timeStamp; d.x = e.clientX;
+    // rubber band past the first and last fact
+    const edge = (k === 0 && dx > 0) || (k === n - 1 && dx < 0);
+    d.dx = edge ? dx * 0.3 : dx;
+    layout(d.dx, false);
+  };
+  const up = () => {
+    const d = drag.current; drag.current = null;
+    if (!d || d.axis !== "h") return;
+    const w = (view.current?.clientWidth ?? 320) * PEEK;
+    const to = d.dx < -w * 0.22 || d.v < -0.35 ? k + 1 : d.dx > w * 0.22 || d.v > 0.35 ? k - 1 : k;
+    const j = Math.max(0, Math.min(n - 1, to));
+    if (j === k) layout(0, true); else go(j);
   };
 
-  const x = PAD + p * span();
-  const moving = phase === "drag" ? "" : " anim";
   return (
     <section className="card insight" aria-roledescription="carousel" aria-label={T("Insight", "Maarifa")}
-      onPointerDown={onDown("card")} onPointerMove={onMove} onPointerUp={release} onPointerCancel={release}
+      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+      onKeyDown={(e) => { if (e.key === "ArrowRight") go(k + 1); if (e.key === "ArrowLeft") go(k - 1); }}
       style={{ touchAction: "pan-y" }} data-noptr data-noswipe>
       <div className="in-head">
         <span className="in-ico" aria-hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" /></svg></span>
@@ -76,28 +84,21 @@ export default function Insight({ slides, period, T }: { slides: Slide[]; period
           { label: T("See why people didn't buy", "Ona kwa nini hawakununua"), href: "#why" },
         ]} />
       </div>
-      <div className={"in-body " + (dir > 0 ? "fwd" : "bck")} key={s.key} aria-live="polite">
-        <div className={"in-big t-" + s.tone}>{s.big}</div>
-        <p className="in-line">{s.line}</p>
-        <p className="in-note">{s.note}</p>
-      </div>
-      {n > 1 && (
-        <div className={"in-track" + (phase === "done" ? " is-done" : "")} ref={track}>
-          <span className={"in-fill" + moving} style={{ width: x + KNOB }} aria-hidden />
-          <span className="in-label" style={{ opacity: 1 - Math.min(1, p * 1.6) }}>
-            {T("Slide for the next insight", "Telezesha kwa maarifa yanayofuata")} <em>{k + 1}/{n}</em>
-          </span>
-          <button type="button" className={"in-knob" + moving} style={{ transform: `translateX(${x}px)` }}
-            aria-label={T(`Next insight (${k + 1} of ${n})`, `Maarifa yanayofuata (${k + 1} kati ya ${n})`)}
-            onPointerDown={(e) => { e.stopPropagation(); onDown("knob")(e); }} onPointerMove={onMove} onPointerUp={(e) => { e.stopPropagation(); if (drag.current && p < 0.05) { drag.current = null; setPhase("idle"); next(); } else release(); }}
-            onPointerCancel={release} onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); prev(); } }}
-            onClick={(e) => { if (e.detail === 0) next(); }}>
-            {phase === "done"
-              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}
-          </button>
+      <div className="in-view" ref={view}>
+        <div className="in-row" ref={row}>
+          {slides.map((x, j) => (
+            <div key={x.key} className={"in-body" + (j === k ? " on" : "")} ref={(el) => { items.current[j] = el; }}
+              aria-hidden={j !== k} aria-live={j === k ? "polite" : undefined} onClick={() => { if (j !== k) go(j); }}>
+              <div className={"in-big t-" + x.tone}>{x.big}</div>
+              <p className="in-line">{x.line}</p>
+              <p className="in-note">{x.note}</p>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+      {n > 1 && <div className="in-dots" role="group" aria-label={T("Pick an insight", "Chagua maarifa")}>
+        {slides.map((x, j) => <button key={x.key} type="button" className={j === k ? "on" : ""} aria-label={`${j + 1} / ${n}`} aria-current={j === k || undefined} onClick={() => go(j)} />)}
+      </div>}
     </section>
   );
 }
