@@ -1252,14 +1252,26 @@ button.wa-side-btn svg { flex: none; opacity: .8; }
 }
 
 /* ===== Pull down to refresh (pullRefresh.ts) ===== */
-.ptr { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%; z-index: 200; width: 40px; height: 40px; border-radius: 50%;
-  display: grid; place-items: center; background: var(--card); color: var(--muted); border: 1px solid var(--line);
-  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, .35); opacity: 0; transform: translate(-50%, -56px); pointer-events: none; }
-.ptr.ready { color: var(--accent); }
-.ptr.back { transition: transform .25s var(--ease), opacity .2s ease; }
-.ptr.spin { transition: transform .2s var(--ease); color: var(--accent); }
-.ptr.spin svg { animation: ptr-spin .7s linear infinite; }
+.ptr { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%; z-index: 200; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px; box-sizing: border-box;
+  border-radius: 999px; background: var(--card); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 10px 26px -12px #0000005c; font-size: 13.5px; font-weight: 650; white-space: nowrap;
+  opacity: 0; transform: translate(-50%, -52px); pointer-events: none; }
+.ptr-ico { position: relative; width: 18px; height: 18px; color: var(--muted); flex: none; }
+.ptr-ico svg { position: absolute; inset: 0; }
+.ptr-ok { opacity: 0; transform: scale(.4); transition: opacity .2s, transform .3s cubic-bezier(.34, 1.56, .64, 1); }
+.ptr-txt { font-variant-numeric: tabular-nums; }
+.ptr[data-s="ready"] .ptr-ico, .ptr[data-s="spin"] .ptr-ico { color: var(--accent); }
+.ptr[data-s="spin"] .ptr-arc { animation: ptr-spin .7s linear infinite; }
+.ptr[data-s="done"] { background: #0f7a4f; color: #fff; border-color: transparent; }
+.ptr[data-s="done"] .ptr-ico { color: #fff; }
+.ptr[data-s="done"] .ptr-arc { opacity: 0; }
+.ptr[data-s="done"] .ptr-ok { opacity: 1; transform: none; }
+.ptr { transition: background-color .25s, color .25s; }
+.ptr.back { transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .25s ease, background-color .25s, color .25s; }
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
+/* after a refresh the page settles in gently (App.tsx adds .refreshed) */
+.page-view.refreshed { animation: ptr-in .35s cubic-bezier(.2, .8, .2, 1); }
+@keyframes ptr-in { from { opacity: .55; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .page-view.refreshed { animation: none; } .ptr[data-s="spin"] .ptr-arc { animation-duration: 1.6s; } }
 
 /* ===== Chats on a phone (20 Nov, 3): the filter bar, WhatsApp-style =====
    1) one full-width search box  2) one line of small filter chips you swipe, running to the screen edges

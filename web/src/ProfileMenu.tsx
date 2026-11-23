@@ -47,7 +47,9 @@ function useRing(ws: Workspace) {
     const id = window.setInterval(() => { if (!document.hidden) void load(); }, 5 * 60e3);
     const vis = () => { if (!document.hidden) void load(); };
     document.addEventListener("visibilitychange", vis);
-    return () => { live = false; window.clearInterval(id); document.removeEventListener("visibilitychange", vis); };
+    const pulled = () => { void load(); }; // pull-to-refresh
+    window.addEventListener("itaos-refresh", pulled);
+    return () => { live = false; window.clearInterval(id); document.removeEventListener("visibilitychange", vis); window.removeEventListener("itaos-refresh", pulled); };
   }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return x;
 }

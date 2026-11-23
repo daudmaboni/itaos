@@ -1,6 +1,7 @@
 import { useNavBadges, chatsBadge, actionsBadge, NavBadge, Badges } from "./badges";
 import { AppTip } from "./PhoneApp";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { REFRESH_EVT } from "./pullRefresh";
 import { createPortal, flushSync } from "react-dom";
 import { pageTransition, navFlags, curtainCover, curtainReveal } from "./pageTransition";
 import { enterShell, enterTiles, shake, switchTheme, applyThemeMode, usePageEnter, select, type ThemeMode } from "./motion";
@@ -178,6 +179,15 @@ export default function App() {
   useEffect(() => { if (session === null || (session && ws !== undefined)) hidePreloader(); }, [session, ws]);
 
   const badges = useNavBadges(ws?.id ?? "", view);
+  // Pull-to-refresh (pullRefresh.ts): reload the open page in place instead of the whole app. The page is
+  // remounted; each page shows its kept data straight away and fetches fresh data behind it.
+  const [refreshN, setRefreshN] = useState(0);
+  useEffect(() => {
+    const on = (e: Event) => { if (!ws) return; e.preventDefault(); setRefreshN((n) => n + 1); };
+    window.addEventListener(REFRESH_EVT, on);
+    return () => window.removeEventListener(REFRESH_EVT, on);
+  }, [ws]);
+  useEffect(() => { if (ws?.language) document.documentElement.lang = ws.language; }, [ws?.language]);
 
   if (session === undefined) return <div className="center muted">Loading…</div>;
   if (!session) return <AuthScreen />;
@@ -209,7 +219,7 @@ export default function App() {
       </header>
       <Island ws={ws} />
       <BottomNav view={view} sw={ws.language === "sw"} badges={badges} />
-      <PageView view={view}>
+      <PageView view={view} refreshN={refreshN}><Fragment key={refreshN}>
       {view === "dashboard" && <><AppTip sw={ws.language === "sw"} /><Dashboard ws={ws} onWs={setWs} /></>}
       {view === "kito" && <Kito ws={ws} staff={isPlatformAdmin} />}
       {view === "attention" && <Actions ws={ws} />}
@@ -225,7 +235,7 @@ export default function App() {
       {view === "products" && <Products key={ws.id} ws={ws} />}
       {view === "connect" && <Connect ws={ws} />}
       {view === "settings" && <Settings ws={ws} onWs={setWs} theme={theme} onTheme={setThemeFrom} />}
-      </PageView>
+      </Fragment></PageView>
     </div>
   );
 }
@@ -504,8 +514,12 @@ const swipeOrder = (sw: boolean): View[] => [...ORDER, ...moreItems(sw).map(([v]
 
 /** Wraps the current page. On phones, a new section slides in from the side it lives on
  *  (iOS-style), or rises in gently when it isn't one of the bottom-nav sections. */
-export function PageView({ view, children }: { view: View; children: React.ReactNode }) {
+export function PageView({ view, children, refreshN = 0 }: { view: View; children: React.ReactNode; refreshN?: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { // after a pull-to-refresh the page settles in gently
+    const el = ref.current; if (!el || !refreshN) return;
+    el.classList.remove("refreshed"); void el.offsetWidth; el.classList.add("refreshed");
+  }, [refreshN]);
   const prev = useRef(view);
   useLayoutEffect(() => {
     const el = ref.current, from = prev.current; prev.current = view;

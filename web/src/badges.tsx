@@ -34,7 +34,9 @@ export function useNavBadges(wsId: string, view: string): Badges {
     const iv = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
     const vis = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", vis);
-    return () => { window.clearTimeout(t); window.clearInterval(iv); document.removeEventListener("visibilitychange", vis); supabase.removeChannel(ch); };
+    const pulled = () => { load(); }; // pull-to-refresh
+    window.addEventListener("itaos-refresh", pulled);
+    return () => { window.clearTimeout(t); window.clearInterval(iv); document.removeEventListener("visibilitychange", vis); window.removeEventListener("itaos-refresh", pulled); supabase.removeChannel(ch); };
   }, [wsId, load]);
 
   return b;
