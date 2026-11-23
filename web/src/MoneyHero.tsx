@@ -40,10 +40,10 @@ export type HeroData = {
   parts?: { revenue: number; ads: number; products: number; other: number; profit: number; fmt: (n: number) => string } | null;
 };
 
-/** How profit shows inside the revenue card (23 Nov 2026). Tapping the profit part moves to the next look;
+/** How profit shows inside the revenue card (23 Nov 2026): the where-each-shilling-went bar, or a receipt slip. Tapping the profit part moves to the next look;
  *  the choice is saved on this device, and can be picked in Settings → Appearance. */
-export type ProfitLook = "bar" | "headline" | "ring" | "receipt" | "pill";
-export const PROFIT_LOOKS: ProfitLook[] = ["bar", "headline", "ring", "receipt", "pill"];
+export type ProfitLook = "bar" | "receipt";
+export const PROFIT_LOOKS: ProfitLook[] = ["bar", "receipt"];
 const PKEY = "itaos-profit-look";
 export function readProfitLook(): ProfitLook {
   try { const v = localStorage.getItem(PKEY) as ProfitLook; return PROFIT_LOOKS.includes(v) ? v : "bar"; } catch { return "bar"; }
@@ -86,64 +86,25 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, l
   const click = onRevenue ? { role: "button", tabIndex: 0, "aria-expanded": !!revenueOpen, onClick: onRevenue, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRevenue(); } } } : {};
   const lookSaved = useProfitLook();
   const look: ProfitLook = lookOverride ?? lookSaved;
-  const pct = keptPct(x.parts);
   const neg = !!x.profitNeg;
   const cycle = (e: { stopPropagation: () => void; preventDefault?: () => void }) => { e.stopPropagation(); if (!lookOverride) saveProfitLook(nextProfitLook(look)); };
   const cycleKey = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycle(e); } };
   const tap = lookOverride ? {} : { role: "button", tabIndex: 0, onClick: cycle, onKeyDown: cycleKey, title: T("Tap to see profit another way", "Gusa kuona faida kwa njia nyingine") };
   const profitWord = neg ? T("Loss", "Hasara") : T("Profit", "Faida");
   const dots = lookOverride ? null : <span className="pl-dots" aria-hidden>{PROFIT_LOOKS.map((l) => <i key={l} className={l === look ? "on" : ""} />)}</span>;
-  const revBlock = (big: boolean, small = false) => (
+  const revBlock = (big: boolean) => (
     <div className="mh-num">
       <span className="mh-k">{style === "E" ? T("Money in · Revenue", "Pesa iliyoingia · Mapato") : T("Revenue", "Mapato")}</span>
-      <span className="mh-vrow"><b className={small ? "mh-v xs" : big ? "mh-v" : "mh-v sm"}>{x.revenue}</b><Delta d={x.revenueD} good={revGood} /></span>
+      <span className="mh-vrow"><b className={big ? "mh-v" : "mh-v sm"}>{x.revenue}</b><Delta d={x.revenueD} good={revGood} /></span>
       <span className="mh-s">{x.revenueSub}</span>
     </div>
   );
   const rev = (big: boolean) => {
     if (style === "A") return revBlock(big);
     const p = x.parts;
-    // 4 · Profit is the headline
-    if (look === "headline") return (
-      <div className="pl pl-headline">
-        <div className={"pl-big" + (neg ? " neg" : "")} {...tap}>
-          <span className="mh-k">{neg ? T("Today you lost", "Umepoteza") : T("You kept", "Umebaki na")}</span>
-          <b>{x.profit ?? "–"}</b>
-          <span className="mh-s">{x.profit ? T(`${profitWord.toLowerCase()} from ${x.revenue} in sales, after ads and products`, `${profitWord.toLowerCase()} kutoka mauzo ya ${x.revenue}, baada ya matangazo na bidhaa`) : (x.profitSub ?? "")}</span>
-          {dots}
-        </div>
-        <div className="pl-side">{revBlock(false, true)}</div>
-      </div>
-    );
-    // 8 · kept pill under the revenue number
-    if (look === "pill") return (
-      <div className="pl pl-pillrow">
-        {revBlock(big)}
-        <span className={"pl-pill" + (neg ? " neg" : "")} {...tap}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
-          <span>{neg ? T("You lost", "Umepoteza") : T("You kept", "Umebaki na")}</span>
-          <b>{x.profit ?? "–"}</b>
-          {pct != null && !neg && <em>{pct}%</em>}
-          {!x.profit && x.profitSub && <small>{x.profitSub}</small>}
-          {dots}
-        </span>
-      </div>
-    );
-    // 5 · margin ring
-    if (look === "ring") return (
-      <div className="pl pl-side2">
-        {revBlock(big)}
-        <div className={"pl-ringbox" + (neg ? " neg" : "")} {...tap}>
-          <span className="pl-ring" style={{ background: `conic-gradient(var(--pl-ring) 0deg ${Math.max(0, Math.min(100, pct ?? 0)) * 3.6}deg, #ffffff26 0deg 360deg)` }}>
-            <span><b>{pct == null ? "–" : `${neg ? 0 : pct}%`}</b><small>{T("kept", "imebaki")}</small></span>
-          </span>
-          <span className="pl-ringtext"><span className="mh-k">{profitWord}</span><b>{x.profit ?? "–"}</b><span className="mh-s">{x.profitSub ?? T("after ads & costs", "baada ya gharama")}</span>{dots}</span>
-        </div>
-      </div>
-    );
     // 6 · receipt slip
     if (look === "receipt") return (
-      <div className="pl pl-side2">
+      <div className="pl pl-side2 pl-rc">
         {revBlock(big)}
         <div className="pl-receipt" {...tap}>
           <span className="pl-rh">{T("WHERE IT WENT", "ILIKOENDA")}</span>

@@ -742,8 +742,7 @@ function ProfitPicker({ T }: { T: Tr }) {
   const cur = useProfitLook();
   const hero = useHeroStyle();
   const NAMES: Record<ProfitLook, [string, string]> = {
-    bar: ["Where each shilling went", "Kila shilingi ilienda wapi"], headline: ["Profit as the headline", "Faida kama kichwa"],
-    ring: ["Ring", "Pete"], receipt: ["Receipt", "Risiti"], pill: ["Pill under revenue", "Kidonge chini ya mapato"],
+    bar: ["Where each shilling went", "Kila shilingi ilienda wapi"], receipt: ["Receipt", "Risiti"],
   };
   return (
     <div style={{ display: "grid", gap: 10, marginTop: 18 }}>

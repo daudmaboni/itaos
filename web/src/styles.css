@@ -1709,77 +1709,48 @@ a.by-row{color:inherit;text-decoration:none}
 .wl-main a { color: inherit; text-decoration: underline; }
 .wl-act { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 640px) { .wl-row { grid-template-columns: 1fr; } .wl-act { justify-content: flex-start; } }
-/* Profit inside the revenue card, five looks (MoneyHero ProfitLook, 23 Nov 2026). Tap the profit part to switch. */
-.pl { --pl-green: #6CF2A8; --pl-ring: #6CF2A8; display: grid; gap: 16px; min-width: 0; }
+/* Profit inside the revenue card: the where-each-shilling-went bar, or a receipt slip (MoneyHero ProfitLook, 23 Nov 2026). Tap the profit part to switch. */
+.pl { --pl-green: #6CF2A8; display: grid; gap: 16px; min-width: 0; }
 .pl [role="button"] { cursor: pointer; border-radius: 16px; }
 .pl [role="button"]:focus-visible { outline: 2px solid #F7C948; outline-offset: 3px; }
 .pl-dots { display: inline-flex; gap: 4px; margin-top: 6px; }
 .pl-dots i { width: 5px; height: 5px; border-radius: 50%; background: #ffffff4d; }
 .pl-dots i.on { background: #ffffff; width: 14px; border-radius: 999px; }
-.mh-v.xs { font-size: 22px; }
-/* 3 · bar */
+/* bar */
 .pl-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .pl-top > .mh-num { flex: 1 1 260px; }
 .pl-right { display: grid; justify-items: end; text-align: right; gap: 1px; padding: 2px 4px; }
 .pl-right .mh-k { color: #c9f9dd; }
 .pl-right b { font-size: 32px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 750; color: var(--pl-green); font-variant-numeric: tabular-nums; }
-.pl-right.neg b, .pl-big.neg b, .pl-ringbox.neg b, .pl-rtotal.neg b { color: #ffb4a8; }
+.pl-right.neg b { color: #ffb4a8; }
 .pl-split { display: grid; gap: 8px; padding: 2px; }
 .pl-segs { display: flex; gap: 3px; height: 14px; }
 .pl-segs span { border-radius: 6px; min-width: 6px; }
 .s-kept { background: var(--pl-green); } .s-ads { background: #F7C948; } .s-prod { background: #ffffffa6; } .s-other { background: #ffffff4d; }
 .pl-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: #ffffffcc; }
 .pl-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.pl-legend i { width: 9px; height: 9px; border-radius: 3px; }
+.pl-legend i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
 .pl-legend b { color: #fff; }
-/* 4 · headline */
-.pl-headline { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
-.pl-big { display: grid; gap: 4px; padding: 2px; }
-.pl-big .mh-k { color: #c9f9dd; font-size: 14px; }
-.pl-big b { font-size: clamp(34px, 7vw, 58px); line-height: 1; letter-spacing: -0.04em; font-weight: 800; color: var(--pl-green); font-variant-numeric: tabular-nums; }
-.pl-big .mh-s { color: #ffffffcc; }
-.pl-side { padding: 10px 14px; border-radius: 14px; background: #ffffff14; }
-/* 5 · ring and 6 · receipt sit right of the revenue */
-.pl-side2 { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-.pl-side2 > .mh-num { flex: 1 1 240px; }
-.pl-ringbox { display: flex; align-items: center; gap: 14px; padding: 12px 16px 12px 12px; border-radius: 18px; background: #0a3b22b3; }
-.pl-ring { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; flex: none; }
-.pl-ring > span { width: 64px; height: 64px; border-radius: 50%; background: #0b3f25; display: grid; place-items: center; align-content: center; }
-.pl-ring b { font-size: 19px; color: var(--pl-green); line-height: 1; }
-.pl-ring small { font-size: 10px; color: #ffffffa6; }
-.pl-ringtext { display: grid; gap: 1px; }
-.pl-ringtext .mh-k { color: #c9f9dd; }
-.pl-ringtext b { font-size: 24px; letter-spacing: -0.02em; color: var(--pl-green); font-variant-numeric: tabular-nums; }
-.pl-receipt { width: 260px; max-width: 100%; box-sizing: border-box; display: grid; gap: 5px; padding: 14px 16px; border-radius: 6px 6px 12px 12px; background: #FBFAF5; color: #1b2430; font-family: ui-monospace, "Geist Mono", SFMono-Regular, Menlo, monospace; box-shadow: 0 16px 30px -16px #00000080; transform: rotate(1.2deg); }
+/* receipt: right of the revenue on computers, full width under it on phones */
+.pl-side2 { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.pl-side2 > .mh-num { flex: 1 1 240px; padding-top: 2px; }
+.pl-receipt { width: 300px; max-width: 100%; box-sizing: border-box; display: grid; gap: 5px; padding: 14px 16px; border-radius: 6px 6px 12px 12px; background: #FBFAF5; color: #1b2430; font-family: ui-monospace, "Geist Mono", SFMono-Regular, Menlo, monospace; box-shadow: 0 16px 30px -16px #00000080; transform: rotate(1.2deg); }
 .pl-receipt .pl-dots i { background: #1b243033; } .pl-receipt .pl-dots i.on { background: #12734a; }
 .pl-rh { font-size: 10.5px; letter-spacing: .12em; color: #5b6472; }
 .pl-rl { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
 .pl-rl.out { color: #8a3b2e; }
+.pl-rl span:last-child, .pl-rtotal b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pl-rcut { border-top: 2px dashed #c9ccd2; margin: 3px 0; }
 .pl-rtotal { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; font-weight: 700; }
 .pl-rtotal b { font-size: 18px; color: #12734a; }
 .pl-rtotal.neg b { color: #b0291c; }
-/* 8 · pill */
-.pl-pillrow { gap: 12px; }
-.pl-pill { justify-self: start; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 999px !important; background: #0a3b22; color: #d9fbe8; font-size: 14px; max-width: 100%; }
-.pl-pill svg { color: var(--pl-green); }
-.pl-pill b { font-size: 19px; color: var(--pl-green); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.pl-pill em { font-style: normal; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--pl-green); color: #06321c; }
-.pl-pill small { font-size: 12px; color: #ffffffa6; }
-.pl-pill .pl-dots { margin: 0 4px 0 0; }
-.pl-pill.neg b, .pl-pill.neg svg { color: #ffb4a8; }
-/* navy cards (look A) never use these; the narrow side-by-side look stacks everything */
-.mh-C .pl-headline { grid-template-columns: minmax(0, 1fr); }
-.mh-C .pl-big b { font-size: 26px; }
+/* the narrow side-by-side look stacks everything */
 .mh-C .pl-right { justify-items: start; text-align: left; }
 .mh-C .pl-right b { font-size: 20px; }
-.mh-C .pl-ringbox { padding: 8px; gap: 10px; } .mh-C .pl-ring { width: 64px; height: 64px; } .mh-C .pl-ring > span { width: 48px; height: 48px; } .mh-C .pl-ring b { font-size: 14px; }
-.mh-C .pl-ringtext b { font-size: 16px; }
 .mh-C .pl-receipt { width: 100%; transform: none; }
-.mh-C .pl-pill b { font-size: 15px; }
 @media (max-width: 560px) {
-  .pl-headline { grid-template-columns: minmax(0, 1fr); align-items: start; }
-  .pl-side { justify-self: start; }
   .pl-right { justify-items: start; text-align: left; }
-  .pl-receipt { width: 100%; transform: none; }
+  .pl-receipt { width: 100%; transform: none; padding: 14px 16px 16px; }
+  .pl-rtotal b { font-size: 17px; }
+  .pl-legend { display: grid; gap: 4px; }
 }
