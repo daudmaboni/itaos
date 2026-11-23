@@ -1,0 +1,82 @@
+/* ── Soft cards (23 Nov 2026), after the green "Insight" dashboard Daud picked: light grey page, white cards with
+   big round corners and no borders, a small icon tile before each card title, medium-weight titles, lighter big
+   numbers, white pill buttons, a green bar beside the headline figure, and the revenue card as a glowing green card.
+   Loaded last (main.tsx). ── */
+:root { --ico-tasks: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2312A06A%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%206h11M9%2012h11M9%2018h11M4%206h.01M4%2012h.01M4%2018h.01%22/%3E%3C/svg%3E"); --soft-r: 28px; --soft-shadow: 0 1px 2px #0f1c2a0d, 0 14px 34px -20px #0f1c2a40; --soft-ring: 0 0 0 1px #0f1c2a0f, 0 2px 6px -2px #0f1c2a1f; --mint: #4FD8A8; }
+:root[data-theme="light"] { --paper: #E5E7EA; --card: #ffffff; --muted: #868c96; }
+:root:not([data-theme="light"]) { --soft-shadow: 0 1px 0 #ffffff08 inset, 0 14px 34px -20px #000; --soft-ring: 0 0 0 1px #ffffff14; }
+@media (max-width: 760px) { :root { --soft-r: 24px; } }
+
+/* cards */
+.card, .dash-ia .card, .pcard, .ht-list, .ht-F, .kpi, .dash-ia .kpi { border: 0; border-radius: var(--soft-r); box-shadow: var(--soft-shadow); }
+:root:not([data-theme="light"]) :is(.card, .dash-ia .card, .pcard, .ht-list, .ht-F, .kpi, .dash-ia .kpi) { border: 1px solid var(--line); }
+.kpi, .dash-ia .kpi { border-radius: calc(var(--soft-r) - 6px); }
+
+/* card titles: medium weight, with a small icon tile in front */
+.card h2, .dash-ia .card h2 { font-weight: 500; font-size: 16px; letter-spacing: -0.01em; }
+:is(.dash-ia .card > h2, .dash-ia .card > div:first-child > h2:first-child, .dash-ia .card > .row:first-child > h2:first-child, .donow > h2) { display: flex; align-items: center; gap: 12px; }
+:is(.dash-ia .card > h2, .dash-ia .card > div:first-child > h2:first-child, .dash-ia .card > .row:first-child > h2:first-child, .donow > h2)::before {
+  content: ""; flex: none; width: 36px; height: 36px; border-radius: 11px; background: var(--card) url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2312A06A%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%2020V10M12%2020V4M19%2020v-7%22/%3E%3C/svg%3E") center / 18px no-repeat; box-shadow: var(--soft-ring); }
+.donow > h2::before { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2312A06A%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%206h11M9%2012h11M9%2018h11M4%206h.01M4%2012h.01M4%2018h.01%22/%3E%3C/svg%3E"); }
+:root:not([data-theme="light"]) :is(.dash-ia .card > h2, .dash-ia .card > div:first-child > h2:first-child, .dash-ia .card > .row:first-child > h2:first-child, .donow > h2)::before { background-color: var(--raised); }
+
+/* lighter, bigger numbers */
+.mh-v, .pl-right b, .kpi .v, .dash-ia .kpi .v, .ht-big, .ht-row b { font-weight: 500; letter-spacing: -0.04em; }
+.mh-v { font-size: 40px; line-height: 1.05; }
+.pl-right b { font-size: 36px; }
+@media (min-width: 900px) { .mh-v { font-size: 56px; } .pl-right b { font-size: 48px; } }
+@media (max-width: 760px) { .mh-v { font-size: 34px; } .mh-v.sm { font-size: 24px; } .pl-right b { font-size: 28px; } }
+
+/* white pill buttons (date range) */
+.dr-trigger { border-radius: 999px; background: var(--card); box-shadow: var(--soft-ring); padding: 9px 16px; font-weight: 500; }
+.dr-trigger b { font-weight: 500; }
+
+/* Do this now: soft rows */
+.donow .dn-list a { border-radius: 16px; }
+:root[data-theme="light"] .donow .dn-list a { background: #F4F5F7; }
+:root[data-theme="light"] .donow .dn-bad a { background: #FDEDEC; }
+.donow .dn-cta { font-weight: 500; }
+
+/* ── Money card ── */
+/* revenue: the glowing green "Insight" card */
+.mh-card.green {
+  background:
+    radial-gradient(220px 180px at 16% 26%, #fff6c470, transparent 70%),
+    radial-gradient(120% 90% at 110% 0%, #ffffff1f, transparent 60%),
+    linear-gradient(155deg, #23B57E 0%, #13A06B 55%, #0E8F5E 100%); }
+.mh-card.green .mh-v { text-shadow: 0 0 28px #fff7c880; }
+.mh-card.green .mh-k, .mh-card.green .mh-s { color: #ffffffd9; }
+.mh-card.green .pl-right b { color: #ffffff; }
+.mh-card.green .pl-right .mh-k { color: #ffffffd9; }
+.mh-card.green .pl-legend { color: #ffffffd9; }
+.mh-card.green .pl-segs .s-kept { background: #ffffff; }
+/* legend marks: short dashes */
+.pl-legend i, .mh-card.green .pl-legend i { width: 14px; height: 4px; border-radius: 2px; }
+.mh-card.green .pl-legend i.s-kept { background: #ffffff; }
+/* a small icon tile before "Money in" and "Money out" */
+.mh-num > .mh-k:first-child { display: inline-flex; align-items: center; gap: 10px; }
+.mh-num > .mh-k:first-child::before { content: ""; width: 30px; height: 30px; border-radius: 9px; background: #fff url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2312A06A%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%2018h6M10%2021h4M12%203a6%206%200%200%200-3.5%2010.9c.6.5%201%201.2%201%202V16h5v-.1c0-.8.4-1.5%201-2A6%206%200%200%200%2012%203z%22/%3E%3C/svg%3E") center / 17px no-repeat; box-shadow: 0 2px 8px -2px #0000002e; flex: none; }
+.mh-card.navy .mh-num > .mh-k:first-child::before { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2312A06A%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v18M16.5%207.5c-.8-1.3-2.4-2-4.3-2-2.6%200-4.2%201.4-4.2%203.2%200%204.3%208.8%202.3%208.8%206.6%200%201.9-1.8%203.3-4.6%203.3-2%200-3.7-.8-4.6-2.3%22/%3E%3C/svg%3E"); box-shadow: var(--soft-ring); }
+.mh-num { gap: 6px; }
+
+/* ad spend: a white card with a green bar beside the figure */
+.mh-card.navy { background: var(--card); color: var(--ink); box-shadow: var(--soft-shadow); }
+:root:not([data-theme="light"]) .mh-card.navy { border: 1px solid var(--line); }
+.mh-card.navy .mh-k { color: var(--ink); font-weight: 500; }
+.mh-card.navy .mh-s { color: var(--muted); }
+.mh-card.navy .mh-vrow { position: relative; padding-left: 16px; }
+.mh-card.navy .mh-vrow::before { content: ""; position: absolute; left: 0; top: 12%; bottom: 12%; width: 4px; border-radius: 2px; background: var(--mint); }
+.mh-card.navy .mh-d { background: var(--raised); }
+.mh-card.navy .mh-d.good { color: #0E8F5E; }
+:root:not([data-theme="light"]) .mh-card.navy .mh-d.good { color: var(--mint); }
+.mh-card.navy .mh-trio .mh-k { color: var(--muted); }
+.mh-card.navy .mh-trio b.pos { color: #0E8F5E; }
+
+/* E look: two separate cards, the return pill sits on the gap between them */
+.mh-joined { background: none; overflow: visible; gap: var(--sp-gap, 16px); border-radius: 0; }
+.mh-joined .mh-card { border-radius: var(--soft-r); }
+.mh-joined > .mh-card.green + .mh-badge { z-index: 3; margin: calc(-15px - var(--sp-gap, 16px)) 22px calc(-15px - var(--sp-gap, 16px)) 0; background: #fff; color: #0E8F5E; box-shadow: 0 6px 18px -6px #0f1c2a59; }
+.mh-card.green { box-shadow: 0 22px 44px -24px #0e8f5e99; }
+.mh-joined > .mh-card.green + .mh-badge { align-self: center; height: 30px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 13px; }
+.dash-ia .donow > h2::before, .donow > h2::before { background-image: var(--ico-tasks) !important; }
+:root:not([data-theme="light"]) .mh-card.navy .mh-num > .mh-k:first-child::before { background-color: var(--raised); }

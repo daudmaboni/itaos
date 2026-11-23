@@ -13,6 +13,7 @@ import "./guards.css";   // Fake payment guard, Why people didn't buy, Staff lea
 import "./products.css"; // My products (main stylesheet, so the page is never shown unstyled)
 import "./island.css";   // always in the main stylesheet, loaded last so nothing out-ranks the pop-up
 import "./compact.css";  // tighter cards on phones; after the others so it wins
+import "./soft.css";     // soft white cards + glowing green revenue card (23 Nov 2026)
 import { startPwa } from "./pwa";
 import { startPullRefresh } from "./pullRefresh";
 import { startNoZoom } from "./noZoom";
