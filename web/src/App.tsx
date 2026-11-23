@@ -657,6 +657,15 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
       const fling = Math.abs(v) > 0.35 && Math.abs(dx) > 30 && Math.sign(v) === Math.sign(dx);
       const next = Math.abs(dx) > window.innerWidth * 0.22 || fling ? cur + (dx < 0 ? 1 : -1) : cur;
       if (e.type === "touchcancel" || next < 0 || next >= seq.length || next === cur) { springBack(); return; }
+      // Swiping past Chats (23 Nov 2026): open the More sheet so the person picks the page, instead of
+      // dropping them on whichever More page happens to be first.
+      if (cur < ORDER.length && next >= ORDER.length) {
+        navigator.vibrate?.(8);
+        springBack();
+        setLens(SLOTS - 1, false);
+        setOpen(true);
+        return;
+      }
       navigator.vibrate?.(8);
       setLens(slotOf(next), false);
       navFlags.swipe = dx < 0 ? 1 : -1;
