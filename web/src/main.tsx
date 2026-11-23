@@ -9,6 +9,7 @@ import "./graphite.css";
 import "./glass.css";
 import "./chat-wa.css";
 import "./auth.css";
+import "./guards.css";   // Fake payment guard, Why people didn't buy, Staff leak guard
 import "./products.css"; // My products (main stylesheet, so the page is never shown unstyled)
 import "./island.css";   // always in the main stylesheet, loaded last so nothing out-ranks the pop-up
 import { startPwa } from "./pwa";

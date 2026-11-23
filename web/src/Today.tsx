@@ -15,6 +15,8 @@ import { ReorderCard, type ReorderRow } from "./Reorders";
 import { mergeToday, type QueueItem, type Item } from "./today";
 export type { QueueItem } from "./today";
 import { quietAfterPrice } from "./afterPrice";
+import { PayCheckCard } from "./PaymentGuard";
+import type { PayItem, PayRes } from "./guards";
 
 const DAY = 864e5;
 
@@ -31,11 +33,18 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data }) => { if (live && Array.isArray(data)) setReorders(data as ReorderRow[]); });
     return () => { live = false; };
   }, [ws.id, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Suspicious payment screenshots (Fake payment guard): checked before anything else today.
+  const [pays, setPays] = useKept<PayItem[]>("todaypays:" + ws.id, []);
+  useEffect(() => {
+    let live = true;
+    supabase.rpc("payment_checks", { p_ws: ws.id, p_days: 14 }).then(({ data, error }) => { if (live && !error && data) setPays((data as PayRes).items ?? []); });
+    return () => { live = false; };
+  }, [ws.id, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   const quiet = useMemo(() => quietAfterPrice(rows, tasks), [rows, tasks]);
   const items = useMemo(() => mergeToday({
-    queue, promises, quiet, bucket: dueBucket,
+    queue, promises, quiet, bucket: dueBucket, payments: pays,
     reorders: (reorders ?? []).filter((x) => x.state === "todo" && !hiddenReorder.has(x.conversation_id)),
-  }), [queue, promises, quiet, reorders, hiddenReorder]);
+  }), [queue, promises, quiet, reorders, hiddenReorder, pays]);
 
   // Phone numbers for "Open in WhatsApp" on the after-price cards.
   const [phones, setPhones] = useState<Record<string, string>>({});
@@ -66,6 +75,7 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
   const label: Record<Item["kind"], string> = {
     reply: T("Waiting for your reply", "Anasubiri jibu lako"), promise: T("Promise", "Ahadi"),
     after_price: T("Quiet after the price", "Kimya baada ya bei"), reorder: T("Due to buy again", "Wakati wa kununua tena"),
+    payment: T("Check this payment", "Kagua malipo haya"),
   };
   const refresh = async () => { setTick((x) => x + 1); await onChange(); };
 
@@ -75,8 +85,8 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
         <div className="row between" style={{ alignItems: "flex-start" }}>
           <div>
             <h2>{T("Today", "Leo")} ({items.length})</h2>
-            <span className="small muted">{T("Everyone worth contacting now, best first, each customer once: waiting for a reply, promises that are due, quiet after the price, and past buyers due to buy again.",
-              "Kila mtu anayefaa kuwasiliana naye sasa, bora kwanza, kila mteja mara moja: wanaosubiri jibu, ahadi zilizofika, kimya baada ya bei, na wanunuzi wa zamani wanaofaa kununua tena.")}</span>
+            <span className="small muted">{T("Everyone worth contacting now, best first, each customer once: payments to check, waiting for a reply, promises that are due, quiet after the price, and past buyers due to buy again.",
+              "Kila mtu anayefaa kuwasiliana naye sasa, bora kwanza, kila mteja mara moja: malipo ya kukagua, wanaosubiri jibu, ahadi zilizofika, kimya baada ya bei, na wanunuzi wa zamani wanaofaa kununua tena.")}</span>
           </div>
           {progress.done > 0 && (
             <span className="small today-prog" title={T("What happened after your follow-ups. Not proof itaOS caused it: see Money itaOS brought back on Home.", "Kilichotokea baada ya ufuatiliaji wako. Si uthibitisho kwamba itaOS ilisababisha: angalia Pesa itaOS imerudisha kwenye Home.")}>
@@ -93,6 +103,7 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
               {i.kind === "promise" && <PromiseCard t={i.t} r={rows.find((x) => x.id === i.t.conversation_id)} ws={ws} editor={editor} onChange={refresh} />}
               {i.kind === "after_price" && <QuietCard r={i.r} quietDays={Math.max(1, Math.floor(i.quietFor / DAY))} phone={phoneOf(phones[i.r.contact_id])} ws={ws} editor={editor} T={T} onDone={refresh} />}
               {i.kind === "reorder" && <ReorderCard r={i.x} ws={ws} editor={editor} T={T} onDone={() => { void refresh(); }} />}
+              {i.kind === "payment" && <PayCheckCard it={i.p} ws={ws} editor={editor} onDone={() => { void refresh(); }} />}
             </div>
           ))}</div>}
       </section>

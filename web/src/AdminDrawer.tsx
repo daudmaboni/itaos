@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DrawerPerformance, DrawerTasks } from './AdminInsights';
+import { DrawerFeatures, MembersAdmin } from './AdminFeatures';
 import { daysOnStep, stepAction, type OnboardingRow } from './adminInsights';
 import { Overview, WsStatus, WsRow, Detail, fmt, ago, stamp, plural, money, tileColor, initials, healthOf, viaName, STEPS, EXTRAS, stuckAt, useRpc, ACTION, describe, ORIGIN, ORDER_FROM, ICON } from "./adminParts";
 import { useBackLayer } from "./backStack";
@@ -145,6 +146,8 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
               <p className="ia-faint small">Suspended pauses the business app for everyone in it and blocks replies from itaOS. WhatsApp messages keep arriving, so nothing is lost.</p>
             </section>
 
+            <DrawerFeatures supabase={supabase} id={id} tick={tick} />
+
             <ProofTest supabase={supabase} id={id} onChanged={onChanged} />
 
             <section className="ia-dsec">
@@ -276,11 +279,8 @@ export function Drawer({ supabase, id, row, onb, onClose, onChanged, onDeleted }
 
             <section className="ia-dsec">
               <h3>People</h3>
-              {d.members.length === 0
-                ? <p className="ia-empty left">Nobody belongs to this business, so no one can sign in to it. It's safe to delete below.</p>
-                : <ul className="ia-people">
-                    {d.members.map((m) => <li key={m.email}><span className="ia-trunc">{m.email}</span><span className="ia-badge">{m.role}</span><small className="ia-faint">signed in {ago(m.last_sign_in_at)}</small></li>)}
-                  </ul>}
+              {d.members.length === 0 && <p className="ia-empty left">Nobody belongs to this business, so no one can sign in to it. Add the owner below, or delete it.</p>}
+              <MembersAdmin supabase={supabase} id={id} members={d.members} onChanged={() => { setTick((t) => t + 1); onChanged(); }} />
             </section>
 
             {d.audit.length > 0 && (

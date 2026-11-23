@@ -30,3 +30,20 @@ describe("Today list", () => {
     expect(items.map((i) => i.id)).toEqual(["q"]);
   });
 });
+
+describe("Today list: payment checks", () => {
+  const pay = (conv: string, severity: "red" | "amber" | "ok", verdict: "ok" | "fake" | null = null) => ({ conversation_id: conv, severity, verdict, flags: [] } as any);
+  it("puts suspicious payments first, red before amber, and skips decided or clean ones", () => {
+    const items = mergeToday({
+      now, bucket, promises: [], quiet: [], reorders: [],
+      queue: [{ r: o("a"), reason: "reply", temp: "warm", age: 1 }],
+      payments: [pay("x", "amber"), pay("y", "red"), pay("z", "red", "ok"), pay("w", "ok")],
+    });
+    expect(items.map((i) => i.id)).toEqual(["y", "x", "a"]);
+    expect(items[0].kind).toBe("payment");
+  });
+  it("a customer with a payment to check shows once, as the payment", () => {
+    const items = mergeToday({ now, bucket, promises: [], quiet: [], reorders: [], queue: [{ r: o("a"), reason: "reply", temp: "warm", age: 1 }], payments: [pay("a", "amber")] });
+    expect(items.map((i) => i.kind)).toEqual(["payment"]);
+  });
+});

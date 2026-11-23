@@ -14,6 +14,9 @@ import PaidOrders from "./PaidOrders";
 import MoneyHero, { useHeroStyle, heroCovers } from "./MoneyHero";
 import Recovered from "./Recovered";
 import AdMoney from "./AdMoney";
+import PaymentGuard from "./PaymentGuard";
+import LostReasons from "./LostReasons";
+import LeakGuard from "./LeakGuard";
 
 export default function Dashboard({ ws, onWs }: { ws: Workspace; onWs?: (w: Workspace) => void }) {
   const [range, setRangeState] = useState<RangeSel>(() => loadRange("dashboard", { key: "last_7" }));
@@ -169,6 +172,9 @@ export default function Dashboard({ ws, onWs }: { ws: Workspace; onWs?: (w: Work
         {showPaid && <PaidOrders ws={ws} orders={g.orders} period={mx.period} adNames={adNames} onClose={() => setShowPaid(false)} />}
         <Recovered ws={ws} period={mx.period} conv={W} cur={wsCur} />
         <AdMoney ws={ws} />
+        <PaymentGuard ws={ws} compact />
+        <LostReasons ws={ws} />
+        <LeakGuard ws={ws} />
 
         <div className="two">
           <section className="card">

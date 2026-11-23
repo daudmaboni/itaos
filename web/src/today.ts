@@ -1,6 +1,7 @@
 // Today list rules (pure, tested): merge the separate follow-up lists, best first, one card per chat.
 import type { Outcome, Task } from "./lib";
 import type { ReorderRow } from "./Reorders";
+import type { PayItem } from "./guards";
 
 export type QueueItem = { r: Outcome; reason: "reply" | "follow_up"; temp: string | null; age: number };
 
@@ -8,16 +9,20 @@ export type Item =
   | { kind: "reply"; id: string; rank: number; q: QueueItem }
   | { kind: "promise"; id: string; rank: number; t: Task }
   | { kind: "after_price"; id: string; rank: number; r: Outcome; quietFor: number }
-  | { kind: "reorder"; id: string; rank: number; x: ReorderRow };
+  | { kind: "reorder"; id: string; rank: number; x: ReorderRow }
+  | { kind: "payment"; id: string; rank: number; p: PayItem };
 
 /** Pure: merge the lists, best first, one card per chat. Exported for tests. */
 export function mergeToday(o: {
   queue: QueueItem[]; promises: Task[]; quiet: { r: Outcome; quietFor: number }[]; reorders: ReorderRow[]; now?: number;
   /** when a promise is due (Promises.dueBucket), passed in so this file stays free of UI imports */
   bucket: (t: Task, now: number) => "overdue" | "today" | "upcoming" | "undated";
+  /** payment screenshots that look wrong and nobody decided yet: checked first, before anything is sent */
+  payments?: PayItem[];
 }): Item[] {
   const now = o.now ?? Date.now();
   const out: Item[] = [];
+  for (const p of o.payments ?? []) if (!p.verdict && p.severity !== "ok") out.push({ kind: "payment", id: p.conversation_id, rank: p.severity === "red" ? -2 : -1, p });
   for (const q of o.queue) if (q.reason === "reply") out.push({ kind: "reply", id: q.r.id, rank: 0, q });
   for (const t of o.promises) {
     if (t.status === "proposed") { out.push({ kind: "promise", id: t.conversation_id, rank: 3, t }); continue; }

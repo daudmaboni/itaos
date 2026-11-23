@@ -1,5 +1,6 @@
 // The open chat on the Chats page: messages, reply box, payment confirmation and photos (moved out of Chats.tsx, unchanged).
 import { select } from "./motion";
+import { PayFlagBanner } from "./PaymentGuard";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { supabase, callFn, Workspace, Outcome, Task, dur, L, when, canEdit, canManage, canSend, money, amt, moneyInput, moneyText } from "./lib";
 import { AssignChat } from "./team";
@@ -280,6 +281,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
           <button className="icon wa-x" onClick={onClose} aria-label={T("Close chat", "Funga chat")} title={T("Close (Esc)", "Funga (Esc)")}>✕</button>
         </div>
       </header>
+      <PayFlagBanner ws={ws} convId={r.id} />
       <div className="wa-body">
         <div className="wa-chat">
           <div className="wa-thread" ref={thread} onScroll={onThreadScroll}>

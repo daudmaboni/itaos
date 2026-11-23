@@ -1,0 +1,78 @@
+/* The three guards (PaymentGuard.tsx, LostReasons.tsx, LeakGuard.tsx). Same quiet card style as the Ad money manager. */
+.guard .g-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.guard .g-head h2 { margin: 0; }
+.guard .g-sum { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 0; }
+.guard .g-pill { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: var(--raised); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.guard .g-pill.bad { background: var(--bad-soft); color: var(--bad); }
+.guard .g-pill.warn { background: var(--warn-soft); color: var(--warn); }
+.guard .g-pill.ok { background: var(--good-soft); color: var(--good); }
+.guard .chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.guard .chip.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.guard .chip.ok { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.guard .g-list { display: grid; border-top: 1px solid var(--line); margin-top: 10px; }
+.guard .g-item { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.guard .g-item:last-child { border-bottom: 0; }
+.guard .g-item.done { opacity: .65; }
+.guard .g-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.guard .g-top b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.guard .g-amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.guard .g-why { margin: 0; padding-left: 18px; display: grid; gap: 3px; line-height: 1.45; }
+.guard .g-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.guard .g-acts a { font-size: 13px; }
+.guard .g-recv { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--raised); margin-top: 10px; }
+.guard .g-recv .g-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.guard .g-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 6px 5px 11px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+.guard .g-tag button { all: unset; cursor: pointer; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+.guard .g-tag button:hover { background: var(--raised); color: var(--ink); }
+.guard .g-sug { all: unset; box-sizing: border-box; cursor: pointer; font-size: 13px; padding: 6px 11px; border-radius: 999px; border: 1px dashed var(--line-2, var(--line)); }
+.guard .g-sug:hover { border-color: var(--accent); }
+.guard .g-sug:focus-visible, .guard .g-tag button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.guard .g-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.guard .g-add input { flex: 1 1 200px; min-width: 0; }
+.guard .g-more { margin-top: 8px; }
+
+/* Why people didn't buy: one bar per reason, then what to do. */
+.lost .lr-rows { display: grid; border-top: 1px solid var(--line); margin-top: 10px; }
+.lost .lr-row { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.lost .lr-row:last-child { border-bottom: 0; }
+.lost .lr-line { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(80px, 2fr) auto; gap: 12px; align-items: center; }
+.lost .lr-line button { all: unset; cursor: pointer; display: contents; }
+.lost .lr-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lost .lr-bar { height: 8px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.lost .lr-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.lost .lr-n { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.lost .lr-n small { font-weight: 400; color: var(--muted); }
+.lost .lr-open { display: grid; gap: 6px; padding: 4px 0 2px; }
+.lost .lr-open p { margin: 0; line-height: 1.5; }
+.lost .lr-ex { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.lost .lr-ex a { color: inherit; }
+.lost .lr-ads { margin: 10px 0 0; }
+
+/* Staff leak guard */
+.leak .lk-sec { margin-top: 14px; }
+.leak .lk-sec h3 { margin: 0 0 4px; font-size: 15px; }
+.leak .lk-people { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.leak .lk-people th, .leak .lk-people td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.leak .lk-people th { font-weight: 500; color: var(--muted); font-size: 12px; }
+.leak .lk-people td:not(:first-child), .leak .lk-people th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.leak .lk-wrap { overflow-x: auto; }
+.leak .lk-sample { font-size: 13px; color: var(--muted); margin: 0; overflow-wrap: anywhere; white-space: pre-line; max-height: 4.6em; overflow: hidden; }
+
+/* The red/amber strip at the top of a chat */
+.pay-flag { margin: 0; padding: 10px 14px; display: grid; gap: 6px; background: var(--bad-soft); color: var(--ink); border-bottom: 1px solid color-mix(in srgb, var(--bad) 30%, transparent); }
+.pay-flag.amber { background: var(--warn-soft); border-bottom-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+.pay-flag b { color: var(--bad); }
+.pay-flag.amber b { color: var(--warn); }
+.pay-flag ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.45; }
+.pay-flag .g-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .lost .lr-line { grid-template-columns: minmax(0, 1fr) auto; }
+  .lost .lr-bar { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* The chat pane is a 2-row grid (header, body); with the strip it becomes 3 rows. */
+.wa-pane:has(> .pay-flag) { grid-template-rows: auto auto minmax(0, 1fr); }
+.wa-pane > .pay-flag { max-height: 38vh; overflow: auto; }
+.today-why.payment { color: var(--bad); }
+.guard .g-top b { white-space: normal; overflow-wrap: anywhere; }

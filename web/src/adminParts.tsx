@@ -60,7 +60,7 @@ export type Detail = {
 export type Staff = { email: string; added_at: string; last_sign_in_at: string | null; is_me: boolean };
 export type Tone = 'ok' | 'warn' | 'bad' | 'idle';
 export type Health = { tone: Tone; text: string };
-export type View = 'today' | 'workspaces' | 'performance' | 'usage' | 'quality' | 'errors' | 'audit' | 'staff';
+export type View = 'today' | 'workspaces' | 'features' | 'performance' | 'usage' | 'quality' | 'errors' | 'audit' | 'staff';
 export const nf = new Intl.NumberFormat('en-US');
 export const fmt = (v: number | null | undefined) => (v == null ? '–' : nf.format(v));
 export const TZ = 'Africa/Dar_es_Salaam';
@@ -149,6 +149,7 @@ export const ACTION: Record<string, string> = {
   set_api_price: 'Changed an AI model price', set_api_budget: 'Changed the AI budget', add_task: 'Added a staff follow-up',
   task_done: 'Completed a staff follow-up', task_reopened: 'Reopened a staff follow-up',
   staff_access_changed: 'Changed staff access',
+  add_member: 'Added or changed a person in the business', remove_member: 'Removed a person from the business',
 };
 export function describe(action: string, d: any): string {
   if (action === 'set_state' && d?.after) {
@@ -163,6 +164,8 @@ export function describe(action: string, d: any): string {
   if (action === 'set_send') return d?.after ? 'switched on' : 'switched off';
   if (action === 'set_send_block') return d?.after ? 'allowed' : 'locked off';
   if (action === 'set_holdout') return `${d?.before ?? '?'}% → ${d?.after ?? '?'}%`;
+  if (action === 'add_member') return `${d?.email ?? '?'}: ${d?.before ? `${d.before} → ` : ''}${d?.role ?? '?'}`;
+  if (action === 'remove_member') return `${d?.email ?? '?'} (${d?.role ?? '?'})`;
   if (action === 'delete_workspace') return `${d?.name ?? 'business'}: ${fmt(d?.chats ?? 0)} chats, ${fmt(d?.messages ?? 0)} messages, ${fmt(d?.orders ?? 0)} orders removed`;
   if (action === 'add_staff' || action === 'remove_staff') return d?.email ?? '';
   if (action === 'set_api_price') return `${d?.model}: $${d?.after?.input} in / $${d?.after?.output} out per million tokens`;
@@ -198,6 +201,7 @@ export const ICON = {
   quality: sv('M9 12l2 2 4-4M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6Z'),
   more: <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>,
   staff: sv('M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM21 19v-1a4 4 0 0 0-3-3.9M15 4.1a3 3 0 0 1 0 5.8'),
+  feat: sv('M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v5H4zM13 14h7v5h-7z'),
 };
 
 /* ================= styles ================= */

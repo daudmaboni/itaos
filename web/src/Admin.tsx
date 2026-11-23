@@ -13,10 +13,11 @@ import { Overview, WsRow, Activity, ErrRow, Staff, View, ago, hoursSince, useRpc
 import { CSS } from "./adminStyles";
 import { Today, Businesses, Errors, Audit, StaffPage } from "./AdminPages";
 import { Drawer } from "./AdminDrawer";
+import { FeaturesPage, FEATURES_CSS } from "./AdminFeatures";
 import { useBackLayer, depth } from "./backStack";
 export { healthOf } from "./adminParts";
 /* ================= types ================= */
-const VIEWS: View[] = ['today', 'workspaces', 'performance', 'usage', 'quality', 'errors', 'audit', 'staff'];
+const VIEWS: View[] = ['today', 'workspaces', 'features', 'performance', 'usage', 'quality', 'errors', 'audit', 'staff'];
 
 /* ================= helpers ================= */
 /** Use in your nav to show the Admin link only to platform admins. */
@@ -103,6 +104,7 @@ export default function Admin({ supabase, backHref, onSignOut }: { supabase: Sup
         <nav className="ia-nav" aria-label="Admin sections">
           <NavBtn on={view === 'today'} onClick={() => setView('today')} icon={ICON.today}>Today</NavBtn>
           <NavBtn on={view === 'workspaces'} onClick={() => setView('workspaces')} icon={ICON.ws} count={rows.length}>Businesses</NavBtn>
+          <NavBtn on={view === 'features'} onClick={() => setView('features')} icon={ICON.feat}>Features</NavBtn>
           <NavBtn on={view === 'performance'} onClick={() => setView('performance')} icon={ICON.perf}>Performance</NavBtn>
           <NavBtn on={view === 'usage'} onClick={() => setView('usage')} icon={ICON.usage} count={costAlerts.filter((a) => a.tone !== 'info').length} hot>AI usage</NavBtn>
           <NavBtn on={view === 'quality'} onClick={() => setView('quality')} icon={ICON.quality}>Data quality</NavBtn>
@@ -124,13 +126,13 @@ export default function Admin({ supabase, backHref, onSignOut }: { supabase: Sup
         <BBtn on={view === 'today'} onClick={() => { setMore(false); setView('today'); }} icon={ICON.today}>Today</BBtn>
         <BBtn on={view === 'workspaces'} onClick={() => { setMore(false); setView('workspaces'); }} icon={ICON.ws}>Businesses</BBtn>
         <BBtn on={view === 'errors'} onClick={() => { setMore(false); setView('errors'); }} icon={ICON.err} count={recentErrors}>Errors</BBtn>
-        <BBtn on={more || ['performance', 'usage', 'quality', 'audit', 'staff'].includes(view)} onClick={() => setMore((m) => !m)} icon={ICON.more}
+        <BBtn on={more || ['features', 'performance', 'usage', 'quality', 'audit', 'staff'].includes(view)} onClick={() => setMore((m) => !m)} icon={ICON.more}
               count={costAlerts.filter((a) => a.tone !== 'info').length}>More</BBtn>
       </nav>
       {more && <>
         <div className="ia-sheet-back" onClick={() => setMore(false)} />
         <div className="ia-sheet" role="dialog" aria-label="More">
-          {([['performance', 'Performance', ICON.perf], ['usage', 'AI usage', ICON.usage], ['quality', 'Data quality', ICON.quality], ['audit', 'Audit log', ICON.audit], ['staff', 'Staff', ICON.staff]] as const).map(([v, label, icon]) => (
+          {([['features', 'Features', ICON.feat], ['performance', 'Performance', ICON.perf], ['usage', 'AI usage', ICON.usage], ['quality', 'Data quality', ICON.quality], ['audit', 'Audit log', ICON.audit], ['staff', 'Staff', ICON.staff]] as const).map(([v, label, icon]) => (
             <button key={v} className={view === v ? 'on' : ''} onClick={() => { setMore(false); setView(v); }}>{icon}<span>{label}</span>
               {v === 'usage' && costAlerts.filter((a) => a.tone !== 'info').length > 0 && <em>{costAlerts.filter((a) => a.tone !== 'info').length}</em>}</button>
           ))}
@@ -147,6 +149,7 @@ export default function Admin({ supabase, backHref, onSignOut }: { supabase: Sup
         {view === 'today' && <Today ov={ov.data} rows={rows} act={act.data} errors={errors} onOpen={setOpenWs} goErrors={() => setView('errors')}
                                     onb={onbBy} costAlerts={costAlerts} goUsage={() => setView('usage')} />}
         {view === 'workspaces' && <Businesses rows={rows} act={act.data} loading={ws.loading} onOpen={setOpenWs} />}
+        {view === 'features' && <FeaturesPage supabase={supabase} tick={tick} onOpen={setOpenWs} />}
         {view === 'performance' && <PerformancePage supabase={supabase} tick={tick} onOpen={setOpenWs} />}
         {view === 'usage' && <UsagePage supabase={supabase} tick={tick} />}
         {view === 'quality' && <QualityPage supabase={supabase} tick={tick} onOpen={setOpenWs} />}
@@ -239,7 +242,7 @@ function Frame({ children }: { children: React.ReactNode }) {
     mo.observe(root, { childList: true, subtree: true });
     return () => { mo.disconnect(); root.removeEventListener('click', onClick); window.removeEventListener('popstate', onPop); document.documentElement.classList.remove('ia-paged'); };
   }, []);
-  return <div className="ia" ref={ref}><style>{CSS + INSIGHTS_CSS}</style>{children}</div>;
+  return <div className="ia" ref={ref}><style>{CSS + INSIGHTS_CSS + FEATURES_CSS}</style>{children}</div>;
 }
 
 function NavBtn({ on, onClick, icon, count, hot, children }:
