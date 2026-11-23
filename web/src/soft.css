@@ -265,3 +265,8 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
   .kpis .kpi .kpi-s2 { display: none; }
   .kpis .kpi { align-content: start; }
 }
+/* Phones: the first tile only goes full width when the count is odd, so no tile is left alone on the last row
+   (Ads had 6: one wide, then a lone half tile at the end; Why had 2: one wide, one half) */
+@media (max-width: 640px) { .kpis:not(.has-hero) > :first-child:nth-last-child(even) { grid-column: auto; } }
+/* Bottom bar: no hover fill on the More button (on phones a tap leaves :hover stuck, which hid the icon under a white blob) */
+.bottomnav a:hover:not(:disabled), .bottomnav button:hover:not(:disabled), :where(html:not(.hp-page)) .bottomnav button:hover:not(:disabled) { background: none; }
