@@ -35,7 +35,9 @@ const tidy = (s: string) => (s && (s === s.toLowerCase() || s === s.toUpperCase(
 export const initials = (n: string | null) => { const w = (n ?? "").trim().split(/\s+/).filter((x) => /\p{L}/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase() : ""; };
 /** A steady colour per customer for the initials circle. */
 export const hue = (id: string) => { let h = 2166136261; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) % 360; };
-const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Dar_es_Salaam" }) : "–";
+// One formatter for every row (building one per call made a 400-buyer list freeze the phone).
+const DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Dar_es_Salaam" });
+const day = (iso: string | null) => iso ? DAY.format(new Date(iso)) : "–";
 
 export default function Buyers({ ws }: { ws: Workspace }) {
   const sw = ws.language === "sw";

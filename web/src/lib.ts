@@ -77,7 +77,11 @@ export type AdPerf = {
   status?: string | null;
 };
 
-export const fmt = (n: number | null | undefined) => (n == null || !isFinite(n) ? "–" : Math.round(n).toLocaleString("en-US"));
+// Number formatters built once (toLocaleString builds a new one on every call; pages format hundreds per redraw).
+const NUM0 = new Intl.NumberFormat("en-US");
+const NUM2 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const WHEN = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+export const fmt = (n: number | null | undefined) => (n == null || !isFinite(n) ? "–" : NUM0.format(Math.round(n)));
 export const tzs = (n: number | null | undefined) => (n == null || !isFinite(n) ? "–" : "TZS " + fmt(n));
 export const pct = (n: number | null | undefined) => (n == null || !isFinite(n) ? "–" : Math.round(n * 100) + "%");
 export const dur = (sec: number | null | undefined) =>
@@ -101,7 +105,7 @@ export const localDay = (d: Date | string | number, tz = "Africa/Dar_es_Salaam")
     return `${get("year")}-${get("month")}-${get("day")}`;
   } catch { return date.toISOString().slice(0, 10); }
 };
-export const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "–");
+export const when = (iso: string | null | undefined) => (iso ? WHEN.format(new Date(iso)) : "–");
 export const ago = (iso: string | null | undefined) => {
   if (!iso) return "–";
   const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -139,8 +143,8 @@ export const L = {
 /** Bare number in a currency's usual precision: whole shillings, cents for dollars. */
 export const amt = (n: number | null | undefined, cur: string) =>
   n == null || !isFinite(n) ? "–" : cur === "TZS" || cur === "KES" || cur === "UGX"
-    ? Math.round(n).toLocaleString("en-US")
-    : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    ? NUM0.format(Math.round(n))
+    : NUM2.format(n);
 /** Number with its currency code, e.g. "USD 456.20" or "TZS 170,000". */
 export const money = (n: number | null | undefined, cur: string) => (n == null || !isFinite(n) ? "–" : cur + " " + amt(n, cur));
 
