@@ -134,7 +134,11 @@ export default function Chats({ ws }: { ws: Workspace }) {
   }, [ws.id]);
 
   useEffect(() => {
-    const onHash = () => { const i = hashIds(); setIds(i); if (i) setFilter("ids"); };
+    const onHash = () => {
+      const i = hashIds(); setIds(i); if (i) setFilter("ids");
+      // Back gesture / button out of an open chat lands on "#chats": close the chat and show the list.
+      if (!i && location.hash.startsWith("#chats")) setOpenId(hashOpen());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -316,7 +320,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
     enterRows(select(root, ".cc"), { delay: 0.1, stagger: 0.04 });
   }, [loading, filter]);
 
-  const pick = (f: Filter) => { setIds(null); setFilter(f); setLimit(PAGE); if (location.hash !== "#chats") history.replaceState(null, "", "#chats"); };
+  const pick = (f: Filter) => { setIds(null); setFilter(f); setLimit(PAGE); if (location.hash !== "#chats") history.replaceState(history.state, "", "#chats"); };
   const pool = lite.filter((r) => inSource(r, src));
   const count = (f: Filter) => f === "sold" && period && boughtInRange != null ? boughtInRange : counts ? Number(counts[f] ?? 0) : pool.filter((r) => inFilter(r, f)).length;
   const imported = counts ? Number(counts.imported ?? 0) : lite.filter((r) => (r as any).phone_number_id === "import").length;
@@ -336,11 +340,18 @@ export default function Chats({ ws }: { ws: Workspace }) {
       .then(({ data }) => { if (!off && data) setOpenSnap(data as Outcome); });
     return () => { off = true; };
   }, [openId, found, rows, ws.id]);
-  // Keep the address in step with the open chat (replaceState: no extra history entries, no hashchange).
+  // Keep the address in step with the open chat (23 Nov 2026). Opening a chat from the list now ADDS one
+  // history step, so the phone's Back gesture closes the chat and shows the list again, instead of jumping
+  // past Chats to the page before it. Switching chats replaces that step (no pile-up); closing with the
+  // arrow steps back over it. The existing history state (e.g. itaFromHome) is always kept.
   useEffect(() => {
     if (!location.hash.startsWith("#chats") || hashIds()) return;
     const want = openId ? "#chats/open=" + openId : "#chats";
-    if (location.hash !== want) history.replaceState(null, "", want);
+    if (location.hash === want) return;
+    const st = (history.state ?? {}) as { itaChat?: boolean };
+    if (openId && !hashOpen()) history.pushState({ ...st, itaChat: true }, "", want);
+    else if (!openId && st.itaChat) history.back(); // fires hashchange → list shows
+    else history.replaceState(history.state, "", want);
   }, [openId]);
   // After a reload the open chat may not be in the first page of the list: fetch it on its own.
   useEffect(() => {
