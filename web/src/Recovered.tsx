@@ -122,75 +122,80 @@ export default function Recovered({ ws, period, conv, cur }: {
         <p className="small" style={{ margin: 0 }}>{T(`Without the sales itaOS spotted from your messages: ${t.extra_strict > 0 ? M(t.extra_strict) : "no extra yet"}${t.extra_strict_lo != null && t.extra_strict_hi != null && t.extra_strict > 0 ? ` (range ${M(Math.max(0, t.extra_strict_lo))} – ${M(t.extra_strict_hi)})` : ""}.`,
           `Bila mauzo itaOS iliyoyaona kwenye jumbe zako: ${t.extra_strict > 0 ? M(t.extra_strict) : "bado hakuna ziada"}${t.extra_strict_lo != null && t.extra_strict_hi != null && t.extra_strict > 0 ? ` (kati ya ${M(Math.max(0, t.extra_strict_lo))} – ${M(t.extra_strict_hi)})` : ""}.`)}</p>
       )}
-      {!trialOn && r.recorded.orders > 0 && (r.recorded.tick_orders ?? 0) > 0 && (
-        <p className="small" style={{ margin: 0 }}>{T(`${fmt(r.recorded.tick_orders!)} of these ${fmt(r.recorded.orders)} were recorded by itaOS from your ✅ or "money received" messages. Without them: ${M(r.recorded.amount - (r.recorded.tick_amount ?? 0))}.`,
-          `${fmt(r.recorded.tick_orders!)} kati ya haya ${fmt(r.recorded.orders)} yalirekodiwa na itaOS kutoka jumbe zako za ✅ au "tumepokea malipo". Bila hayo: ${M(r.recorded.amount - (r.recorded.tick_amount ?? 0))}.`)}</p>
-      )}
-      {!trialOn && (
-        <p className="small muted" style={{ margin: 0 }}>{r.status === "off"
-          ? T("Not proof that itaOS caused these sales: the comparison is switched off for this business.", "Si uthibitisho kwamba itaOS ilisababisha mauzo haya: ulinganisho umezimwa kwa biashara hii.")
-          : T(`Not yet proof that itaOS caused these sales. Comparing with customers kept aside: ${fmt(Math.min(t.hold.n, t.need_hold))} of ${t.need_hold} kept aside and ${fmt(Math.min(t.show.n, t.need_show))} of ${t.need_show} shown have finished their window.`,
-              `Bado si uthibitisho kwamba itaOS ilisababisha mauzo haya. Tunalinganisha na wateja waliowekwa pembeni: ${fmt(Math.min(t.hold.n, t.need_hold))} kati ya ${t.need_hold} waliowekwa pembeni na ${fmt(Math.min(t.show.n, t.need_show))} kati ya ${t.need_show} walioonyeshwa wamemaliza muda wao.`)}</p>
-      )}
-
-      {!trialOn && (t.show.n > 0 || t.pending_show > 0) && (
-        <p className="small muted" style={{ margin: 0 }}>{t.show.n > 0
-          ? T(`You messaged ${fmt(t.show.messaged)} of the ${fmt(t.show.n)} shown customers whose window has ended.`, `Ulituma ujumbe kwa ${fmt(t.show.messaged)} kati ya wateja ${fmt(t.show.n)} walioonyeshwa ambao muda wao umeisha.`)
-          : T(`${fmt(t.pending_show)} shown customers are still inside their window.`, `Wateja ${fmt(t.pending_show)} walioonyeshwa bado wako ndani ya muda wao.`)}</p>
-      )}
-
       {/* The comparison itself */}
       {t.show.n > 0 && t.hold.n > 0 && (
-        <div className="rec-rows">
-          <div className="rec-row"><span>{T("Customers itaOS showed you", "Wateja itaOS ilikuonyesha")}</span><span className="muted small">{fmt(t.show.bought)}/{fmt(t.show.n)}</span><b>{pct(t.show.rate)} {T("bought", "walinunua")}</b></div>
-          <div className="rec-row"><span>{T("Customers it kept aside", "Wateja iliowaweka pembeni")}</span><span className="muted small">{fmt(t.hold.bought)}/{fmt(t.hold.n)}</span><b>{pct(t.hold.rate)} {T("bought", "walinunua")}</b></div>
+        <div className="rec-sec">
+          <span className="rec-label">{T("The comparison", "Ulinganisho")}</span>
+          <div className="rec-rows">
+            <div className="rec-row"><span>{T("Customers itaOS showed you", "Wateja itaOS ilikuonyesha")}</span><span className="muted small">{fmt(t.show.bought)}/{fmt(t.show.n)}</span><b>{pct(t.show.rate)} {T("bought", "walinunua")}</b></div>
+            <div className="rec-row"><span>{T("Customers it kept aside", "Wateja iliowaweka pembeni")}</span><span className="muted small">{fmt(t.hold.bought)}/{fmt(t.hold.n)}</span><b>{pct(t.hold.rate)} {T("bought", "walinunua")}</b></div>
+          </div>
           {clear && t.extra_customers != null && t.extra_customers > 0 && <p className="small" style={{ margin: 0 }}>{T(`About ${fmt(t.extra_customers)} extra customers bought this period.`, `Takriban wateja ${fmt(t.extra_customers)} wa ziada walinunua kipindi hiki.`)}</p>}
           <p className="small muted" style={{ margin: 0 }}>{T(`You messaged ${fmt(t.show.messaged)} of the ${fmt(t.show.n)} shown customers.`, `Ulituma ujumbe kwa ${fmt(t.show.messaged)} kati ya ${fmt(t.show.n)} walioonyeshwa.`)}{t.hold.contaminated > 0 ? T(` ${fmt(t.hold.contaminated)} kept-aside customers got a message anyway (they stay in their group, which makes the difference smaller, not bigger).`, ` Wateja ${fmt(t.hold.contaminated)} waliowekwa pembeni walipata ujumbe hata hivyo (wanabaki kwenye kundi lao, jambo linalopunguza tofauti, si kuiongeza).`) : ""}</p>
         </div>
       )}
 
-      {/* Journeys: what happened after a flag (context) */}
+      {/* Journeys: what happened after a flag (context), with every sale behind a button */}
       {(["very_likely", "likely", "on_own", "ad"] as Tier[]).some((k) => r.tiers[k].orders > 0) && (
-        <div className="rec-rows">
-          {trialOn && <span className="small muted">{T("What happened after the flags (not proof on its own):", "Kilichotokea baada ya kuonyeshwa (si uthibitisho peke yake):")}</span>}
-          {(["very_likely", "likely", "on_own", "ad"] as Tier[]).filter((k) => r.tiers[k].orders > 0).map((k) => (
-            <div className="rec-row" key={k}>
-              <span>{tierLabel[k]}{(k === "on_own" || k === "ad") && <span className="small muted"> · {T("not counted", "haihesabiwi")}</span>}</span>
-              <span className="muted small">{fmt(r.tiers[k].orders)}</span>
-              <b className={k === "on_own" || k === "ad" ? "muted" : ""}>{M(r.tiers[k].amount)}</b>
+        <div className="rec-sec">
+          <span className="rec-label">{trialOn ? T("What happened after the flags (not proof on its own)", "Kilichotokea baada ya kuonyeshwa (si uthibitisho peke yake)") : T("How these sales happened", "Mauzo haya yalivyotokea")}</span>
+          <div className="rec-rows">
+            {(["very_likely", "likely", "on_own", "ad"] as Tier[]).filter((k) => r.tiers[k].orders > 0).map((k) => (
+              <div className="rec-row" key={k}>
+                <span>{tierLabel[k]}{(k === "on_own" || k === "ad") && <span className="small muted"> · {T("not counted", "haihesabiwi")}</span>}</span>
+                <span className="rec-n">{fmt(r.tiers[k].orders)}</span>
+                <b className={k === "on_own" || k === "ad" ? "muted" : ""}>{M(r.tiers[k].amount)}</b>
+              </div>
+            ))}
+          </div>
+          {r.items.length > 0 && <button type="button" className="rec-more" onClick={() => setOpen((x) => !x)} aria-expanded={open}>{open ? T("Hide the sales", "Ficha mauzo") : T(`See every sale (${fmt(r.items.length)})`, `Ona kila mauzo (${fmt(r.items.length)})`)}</button>}
+          {open && (
+            <div className="rec-rows rec-items">
+              {r.items.map((i) => (
+                <a className="rec-row" key={i.order_id} href={"#chats/open=" + i.conversation_id}>
+                  <span>{i.name}
+                    <span className="small muted" style={{ display: "block" }}>
+                      {kindLabel[i.kind]} {when(i.flagged_at, tz)}
+                      {i.acted_at && <> → {T("you messaged", "ulimtumia")} {when(i.acted_at, tz)}</>}
+                      {i.replied_at && <> → {T("replied", "alijibu")} {when(i.replied_at, tz)}</>}
+                      {" "}→ {T("paid", "alilipa")} {when(i.paid_at, tz)}
+                    </span>
+                  </span>
+                  <span />
+                  <b>{M(i.amount)}</b>
+                </a>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {r.items.length > 0 && <button type="button" className="linkish small" onClick={() => setOpen((x) => !x)} aria-expanded={open}>{open ? T("Hide the sales", "Ficha mauzo") : T("See every sale", "Ona kila mauzo")}</button>}
-      {open && (
-        <div className="rec-rows">
-          {r.items.map((i) => (
-            <a className="rec-row" key={i.order_id} href={"#chats/open=" + i.conversation_id}>
-              <span>{i.name}
-                <span className="small muted" style={{ display: "block" }}>
-                  {kindLabel[i.kind]} {when(i.flagged_at, tz)}
-                  {i.acted_at && <> → {T("you messaged", "ulimtumia")} {when(i.acted_at, tz)}</>}
-                  {i.replied_at && <> → {T("replied", "alijibu")} {when(i.replied_at, tz)}</>}
-                  {" "}→ {T("paid", "alilipa")} {when(i.paid_at, tz)}
-                </span>
-              </span>
-              <span />
-              <b>{M(i.amount)}</b>
-            </a>
-          ))}
+          )}
         </div>
       )}
 
       {r.no_message > 0 && (
-        <p className="small" style={{ margin: 0 }}>{T(`${fmt(r.no_message)} customers itaOS flagged got no message from you before their window closed.`, `Wateja ${fmt(r.no_message)} itaOS iliwaonyesha hawakupata ujumbe wako kabla muda wao kuisha.`)} <a href="#actions">{T("Open Actions →", "Fungua Actions →")}</a></p>
+        <p className="rec-alert small">{T(`${fmt(r.no_message)} customers itaOS flagged got no message from you before their window closed.`, `Wateja ${fmt(r.no_message)} itaOS iliwaonyesha hawakupata ujumbe wako kabla muda wao kuisha.`)} <a href="#actions">{T("Open Actions →", "Fungua Actions →")}</a></p>
       )}
-      {r.past.rate != null && (
-        <p className="small muted" style={{ margin: 0 }}>{T(`For context: before itaOS, ${pct(r.past.rate)} of customers who went quiet after the price came back and paid (${fmt(r.past.paid)} of ${fmt(r.past.n)}).`, `Kwa kulinganisha: kabla ya itaOS, ${pct(r.past.rate)} ya wateja walionyamaza baada ya bei walirudi kulipa (${fmt(r.past.paid)} kati ya ${fmt(r.past.n)}).`)}</p>
-      )}
-      {r.capture.entered + r.capture.detected > 0 && (
-        <p className="small muted" style={{ margin: 0 }}>{T(`Only payments recorded in itaOS count: ${fmt(r.capture.entered)} entered by you, ${fmt(r.capture.detected)} spotted by itaOS this period.`, `Malipo yaliyorekodiwa kwenye itaOS pekee ndiyo yanahesabiwa: ${fmt(r.capture.entered)} uliyoingiza, ${fmt(r.capture.detected)} itaOS iliyoyaona kipindi hiki.`)}</p>
-      )}
+
+      {/* The fine print, together in one quiet box, one point per line */}
+      {(() => {
+        const notes: { k: string; label: string; text: string }[] = [];
+        if (!trialOn && r.recorded.orders > 0 && (r.recorded.tick_orders ?? 0) > 0) notes.push({ k: "tick", label: T("From your messages", "Kutoka jumbe zako"),
+          text: T(`${fmt(r.recorded.tick_orders!)} of ${fmt(r.recorded.orders)} were recorded from your ✅ or "money received" messages. Without them: ${M(r.recorded.amount - (r.recorded.tick_amount ?? 0))}.`,
+            `${fmt(r.recorded.tick_orders!)} kati ya ${fmt(r.recorded.orders)} yalirekodiwa kutoka jumbe zako za ✅ au "tumepokea malipo". Bila hayo: ${M(r.recorded.amount - (r.recorded.tick_amount ?? 0))}.`) });
+        if (!trialOn) notes.push({ k: "proof", label: T("Proof", "Uthibitisho"), text: r.status === "off"
+          ? T("Not proof that itaOS caused these sales: the comparison is switched off for this business.", "Si uthibitisho kwamba itaOS ilisababisha mauzo haya: ulinganisho umezimwa kwa biashara hii.")
+          : T(`Not proof yet that itaOS caused these sales. Finished their window so far: ${fmt(Math.min(t.hold.n, t.need_hold))} of ${t.need_hold} kept aside, ${fmt(Math.min(t.show.n, t.need_show))} of ${t.need_show} shown.`,
+              `Bado si uthibitisho kwamba itaOS ilisababisha mauzo haya. Waliomaliza muda wao hadi sasa: ${fmt(Math.min(t.hold.n, t.need_hold))} kati ya ${t.need_hold} waliowekwa pembeni, ${fmt(Math.min(t.show.n, t.need_show))} kati ya ${t.need_show} walioonyeshwa.`) });
+        if (!trialOn && (t.show.n > 0 || t.pending_show > 0)) notes.push({ k: "window", label: T("Still waiting", "Bado wanasubiriwa"), text: t.show.n > 0
+          ? T(`You messaged ${fmt(t.show.messaged)} of the ${fmt(t.show.n)} shown customers whose window has ended.`, `Ulituma ujumbe kwa ${fmt(t.show.messaged)} kati ya wateja ${fmt(t.show.n)} walioonyeshwa ambao muda wao umeisha.`)
+          : T(`${fmt(t.pending_show)} shown customers are still inside their window.`, `Wateja ${fmt(t.pending_show)} walioonyeshwa bado wako ndani ya muda wao.`) });
+        if (r.past.rate != null) notes.push({ k: "past", label: T("Before itaOS", "Kabla ya itaOS"),
+          text: T(`${pct(r.past.rate)} of customers who went quiet after the price came back and paid (${fmt(r.past.paid)} of ${fmt(r.past.n)}).`, `${pct(r.past.rate)} ya wateja walionyamaza baada ya bei walirudi kulipa (${fmt(r.past.paid)} kati ya ${fmt(r.past.n)}).`) });
+        if (r.capture.entered + r.capture.detected > 0) notes.push({ k: "cap", label: T("What counts", "Kinachohesabiwa"),
+          text: T(`Only payments recorded in itaOS: ${fmt(r.capture.entered)} entered by you, ${fmt(r.capture.detected)} spotted by itaOS this period.`, `Malipo yaliyorekodiwa kwenye itaOS pekee: ${fmt(r.capture.entered)} uliyoingiza, ${fmt(r.capture.detected)} itaOS iliyoyaona kipindi hiki.`) });
+        if (r.found_orders > 0) notes.push({ k: "found", label: T("Also spotted", "Pia imeona"),
+          text: T(`itaOS recorded ${fmt(r.found_orders)} sales from the chats for you (${M(r.found_amount)}). Those aren't counted above.`, `itaOS ilirekodi mauzo ${fmt(r.found_orders)} kutoka kwenye chats (${M(r.found_amount)}). Hayo hayajahesabiwa juu.`) });
+        if (!notes.length) return null;
+        return <dl className="rec-notes">{notes.map((n) => <div key={n.k}><dt>{n.label}</dt><dd>{n.text}</dd></div>)}</dl>;
+      })()}
 
       <button type="button" className="linkish small" onClick={() => setHow((x) => !x)} aria-expanded={how}>{how ? T("Hide how this is counted", "Ficha jinsi inavyohesabiwa") : T("How is this counted?", "Inahesabiwaje?")}</button>
       {how && (
@@ -202,9 +207,6 @@ export default function Recovered({ ws, period, conv, cur }: {
           <span>{T("5. Sales itaOS records on its own from your ✅ or \"money received\" messages count as sales, but the card also shows the figure without them, so you can see how much rests on them.", "5. Mauzo itaOS inayorekodi yenyewe kutoka jumbe zako za ✅ au \"tumepokea malipo\" yanahesabiwa, lakini kadi inaonyesha pia kiasi bila hayo, ili uone kiasi gani kinategemea hayo.")}</span>
           <span>{T(`Method ${r.methodology ?? r.version}`, `Mbinu ${r.methodology ?? r.version}`)}{r.experiment_start ? T(`, comparison running since ${when(r.experiment_start, tz)}.`, `, ulinganisho tangu ${when(r.experiment_start, tz)}.`) : "."}</span>
         </div>
-      )}
-      {r.found_orders > 0 && (
-        <p className="small muted rec-found">{T(`Also: itaOS spotted and recorded ${fmt(r.found_orders)} sales from the chats for you (${M(r.found_amount)}). Those aren't counted above.`, `Pia: itaOS iliona na kurekodi mauzo ${fmt(r.found_orders)} kutoka kwenye chats (${M(r.found_amount)}). Hayo hayajahesabiwa juu.`)}</p>
       )}
     </section>
   );

@@ -30,7 +30,9 @@ describe("home tiles", () => {
     expect(t.ads.fill).toBe(0);
   });
   it("picks another look each time", () => {
-    for (let i = 0; i < 20; i++) { const cur = LOOKS[i % 4]!; expect(pickLook(cur)).not.toBe(cur); }
-    expect(LOOKS).toContain(pickLook(null, () => 0.99));
+    for (let i = 0; i < 20; i++) { const cur = LOOKS[i % LOOKS.length]!; expect(pickLook(cur)).not.toBe(cur); }
+    expect(LOOKS).toEqual(["F", "B", "I"]);
+    expect(pickLook(null)).toBe("F");
+    expect(pickLook("I")).toBe("F");
   });
 });

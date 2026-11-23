@@ -64,8 +64,6 @@
 :root:not([data-theme="light"]) .mh-card.navy { border: 1px solid var(--line); }
 .mh-card.navy .mh-k { color: var(--ink); font-weight: 500; }
 .mh-card.navy .mh-s { color: var(--muted); }
-.mh-card.navy .mh-vrow { position: relative; padding-left: 16px; }
-.mh-card.navy .mh-vrow::before { content: ""; position: absolute; left: 0; top: 12%; bottom: 12%; width: 4px; border-radius: 2px; background: var(--mint); }
 .mh-card.navy .mh-d { background: var(--raised); }
 .mh-card.navy .mh-d.good { color: #0E8F5E; }
 :root:not([data-theme="light"]) .mh-card.navy .mh-d.good { color: var(--mint); }
@@ -75,9 +73,9 @@
 /* E look: two separate cards, the return pill sits on the gap between them */
 .mh-joined { background: none; overflow: visible; gap: var(--sp-gap, 16px); border-radius: 0; }
 .mh-joined .mh-card { border-radius: var(--soft-r); }
-.mh-joined > .mh-card.green + .mh-badge { z-index: 3; margin: calc(-15px - var(--sp-gap, 16px)) 22px calc(-15px - var(--sp-gap, 16px)) 0; background: #fff; color: #0E8F5E; box-shadow: 0 6px 18px -6px #0f1c2a59; }
+.mh-joined > .mh-card.green + .mh-badge { z-index: 3; margin: calc(-21px - var(--sp-gap, 16px) / 2) auto; background: #fff; color: #0E8F5E; box-shadow: 0 0 0 5px var(--paper), 0 8px 20px -6px #0f1c2a66; }
 .mh-card.green { box-shadow: 0 22px 44px -24px #0e8f5e99; }
-.mh-joined > .mh-card.green + .mh-badge { align-self: center; height: 30px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 13px; }
+.mh-joined > .mh-card.green + .mh-badge { justify-self: center; align-self: center; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 18px; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
 .dash-ia .donow > h2::before, .donow > h2::before { background-image: var(--ico-tasks) !important; }
 :root:not([data-theme="light"]) .mh-card.navy .mh-num > .mh-k:first-child::before { background-color: var(--raised); }
 
@@ -139,3 +137,49 @@
 @media (min-width: 1100px) { .donow > .cm { top: 24px; right: 24px; } }
 /* computers: the receipt sits in the top right, so it drops a little to make room for the … button */
 @media (min-width: 900px) { .mh-card:has(> .cm) > .pl-rc > .pl-receipt { margin-top: 34px; } .mh-card.green > .cm { top: 18px; right: 22px; } }
+
+/* Money out opens the Ads page (23 Nov 2026) */
+a.mh-card { text-decoration: none; cursor: pointer; transition: box-shadow .2s, transform .2s; }
+a.mh-card.navy:hover { box-shadow: var(--soft-shadow), 0 0 0 1.5px var(--mint); }
+a.mh-card.navy:active { transform: scale(.995); }
+a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); color: var(--muted); font-size: 18px; line-height: 1; }
+.mh-joined > a.mh-card.navy { padding-top: 28px; }
+
+/* Sales after your follow-ups: sections with small labels, fine print in one quiet box (23 Nov 2026) */
+.rec { gap: 16px; }
+.rec .rec-sec { display: grid; gap: 8px; }
+.rec .rec-label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rec .rec-sec > .rec-rows { background: var(--raised); border-radius: 16px; padding: 2px 14px; }
+.rec .rec-row { padding: 12px 0; }
+.rec .rec-n { min-width: 26px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--card); font-size: 12px; font-weight: 700; color: var(--muted); }
+.rec .rec-more { justify-self: start; background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13.5px; font-weight: 600; color: #0E8F5E; cursor: pointer; }
+:root:not([data-theme="light"]) .rec .rec-more { color: var(--mint); }
+.rec .rec-items { background: none; padding: 0; }
+.rec .rec-alert { margin: 0; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--warn, #E8A33D) 14%, transparent); }
+.rec .rec-notes { margin: 0; display: grid; border-top: 1px solid var(--line); }
+.rec .rec-notes > div { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.rec .rec-notes > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.rec .rec-notes dt { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.rec .rec-notes dd { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+@media (max-width: 420px) { .rec .rec-notes > div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Chats list: every customer on its own white round card with space between, like the "New" preview (23 Nov 2026).
+   Applies on phones and computers; replaces the flat WhatsApp-style rows with hairlines. */
+.chats .cc-list, .chats .inbox.frame > .cc-list { gap: 10px; }
+.chats .cc, .chats .inbox.frame .cc, .chats .inbox.frame .cc:hover {
+  border: 0; border-left: 0; border-radius: 18px; background: var(--card); overflow: hidden;
+  box-shadow: 0 1px 2px #0f1c2a0f, 0 6px 16px -8px #0f1c2a33; }
+.chats .cc:hover, .chats .inbox.frame .cc:hover { box-shadow: 0 1px 2px #0f1c2a14, 0 10px 22px -10px #0f1c2a40; }
+:root:not([data-theme="light"]) :is(.chats .cc, .chats .inbox.frame .cc, .chats .inbox.frame .cc:hover) { box-shadow: inset 0 0 0 1px var(--line); }
+.chats .inbox.frame .cc.sel { background: var(--ib-soft, var(--raised)); box-shadow: inset 0 0 0 1.5px var(--ib, var(--brand)); }
+.chats .inbox.frame .cc-top { border-radius: 0; padding: 12px 14px; }
+.chats .inbox.frame .cc-main { padding: 0; border-bottom: 0; }
+.chats .inbox.frame .cc-group { margin: 12px 4px 0; }
+.chats .inbox.frame .cc-list > div:first-child > .cc-group { margin-top: 2px; }
+@media (max-width: 899px) {
+  .chats .inbox.frame, .chats .inbox.frame > .cc-list { background: transparent; border-right: 0; }
+  .chats .inbox.frame > .cc-list { padding: 2px 0 8px; }
+}
+@media (min-width: 900px) {
+  .chats .inbox.frame > .cc-list { padding: 12px; background: var(--paper); }
+}

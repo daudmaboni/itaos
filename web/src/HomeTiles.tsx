@@ -1,5 +1,5 @@
-// Home tiles in four looks (A ads hero + list, B list with meters, F health bars, I needs you / all good).
-// Home opens on a random look and moves to another every 20 s with a short fade and slide. It pauses while
+// Home tiles in three looks (F business health, B list with meters, I needs you / all good; A is no longer shown).
+// Home opens on Business health and moves to the next look every 20 s with a short fade and slide. It pauses while
 // the owner touches, hovers or focuses it, never rotates with "reduce motion" on, and the dots pick one by hand.
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Workspace } from "./lib";

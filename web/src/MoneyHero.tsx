@@ -72,7 +72,7 @@ function Split({ s, T }: { s: HeroData["split"]; T: T }) {
   );
 }
 
-export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, menu }: { style: HeroStyle; data: HeroData; T: T; onRevenue?: () => void; revenueOpen?: boolean; menu?: import("react").ReactNode }) {
+export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, menu, preview }: { style: HeroStyle; data: HeroData; T: T; onRevenue?: () => void; revenueOpen?: boolean; menu?: import("react").ReactNode; /** Settings preview: no links inside its button */ preview?: boolean }) {
   // Spending less is shown as good; earning more is good.
   const spendGood = x.spendD == null ? null : x.spendD < 0;
   const revGood = x.revenueD == null ? null : x.revenueD > 0;
@@ -114,6 +114,13 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, m
     </div>
   );
 
+  // Money out (ad spend) opens the Ads page.
+  const outCard = (big: boolean) => preview ? <div className="mh-card navy">{spend(big)}</div> : (
+    <a className="mh-card navy" href="#ads" title={T("Open the Ads page", "Fungua ukurasa wa Matangazo")}>
+      {spend(big)}<span className="mh-go" aria-hidden>›</span>
+    </a>
+  );
+
   if (style === "A") return (
     <div className="mh mh-A">
       <div className="mh-card navy">
@@ -132,7 +139,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, m
     <div className="mh mh-C">
       <div className="mh-tiles">
         <div className="mh-card green mh-click" {...click}>{menu}{rev(false)}</div>
-        <div className="mh-card navy">{spend(false)}</div>
+        {outCard(false)}
       </div>
       {x.split && <div className="mh-card plain"><span className="mh-k">{T("Where the money came from", "Pesa imetoka wapi")}</span><Split s={x.split} T={T} /></div>}
     </div>
@@ -143,7 +150,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, m
       <div className="mh-joined">
         <div className="mh-card green mh-click" {...click}>{menu}{rev(true)}<Split s={x.split} T={T} /></div>
         {x.roas && <span className="mh-badge">{x.roas} {T("return", "faida ya tangazo")}</span>}
-        <div className="mh-card navy">{spend(false)}</div>
+        {outCard(false)}
       </div>
     </div>
   );
@@ -151,7 +158,7 @@ export default function MoneyHero({ style, data: x, T, onRevenue, revenueOpen, m
   // B
   return (
     <div className="mh mh-B">
-      <div className="mh-card navy">{spend(true)}</div>
+      {outCard(true)}
       <div className="mh-card green mh-click" {...click}>{menu}{rev(true)}<Split s={x.split} T={T} /></div>
     </div>
   );

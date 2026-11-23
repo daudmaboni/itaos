@@ -727,7 +727,7 @@ function HeroPicker({ T }: { T: Tr }) {
       <div className="heropick" role="group" aria-label={T("Home money cards", "Kadi za pesa")}>
         {HERO_STYLES.map((h) => (
           <button key={h} type="button" className={cur === h ? "on" : ""} aria-pressed={cur === h} onClick={() => saveHeroStyle(h)}>
-            <div className="hp-prev" aria-hidden><MoneyHero style={h} data={SAMPLE} T={T} /></div>
+            <div className="hp-prev" aria-hidden><MoneyHero style={h} data={SAMPLE} T={T} preview /></div>
             <span className="hp-name">{T(NAMES[h][0], NAMES[h][1])}{cur === h && <span className="small muted">· {T("in use", "inatumika")}</span>}</span>
             <span className="hp-note">{T(NAMES[h][2], NAMES[h][3])}</span>
           </button>
