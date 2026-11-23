@@ -57,3 +57,13 @@
   .ht-btn { min-height: 40px; font-size: 12.5px; }
   .ht-btn.wide { min-height: 42px; border-radius: 14px; font-size: 13px; }
 }
+
+/* Cards closer to the screen edges on phones (23 Nov 2026): page side margin 14px → 8px.
+   Everything that bleeds to the edge (top bar, sub-tabs, chip rows) moves with it. */
+@media (max-width: 760px) {
+  .shell { padding-left: 8px; padding-right: 8px; gap: 10px; }
+  .topbar { margin: 0 -8px; padding-left: 12px; padding-right: 12px; }
+  nav.subtabs { margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+  .chats-tools .chips-tabs { margin: 0 -8px; padding: 0 8px; scroll-padding-inline: 8px; }
+  .dash-ia .hero, .hero { padding-left: 4px; padding-right: 4px; }
+}
