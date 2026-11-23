@@ -12,12 +12,16 @@ import { diagnose, Finding } from "./diagnosis";
 import { delta, Metric } from "./metrics";
 import { SourceBadge } from "./Provenance";
 
-export default function Report({ ws }: { ws: Workspace }) {
-  const [range, setRangeState] = useState<RangeSel>(() => loadRange("report", { key: "last_7" }));
+/** The weekly diagnosis. Since 23 Nov 2026 it lives at the bottom of "Why people didn't buy" (embedded):
+ *  then it takes that page's dates and filters, and leaves out its own header and the funnel table that page already shows. */
+export default function Report({ ws, embedded, range: rangeIn, filters: filtersIn }: { ws: Workspace; embedded?: boolean; range?: RangeSel; filters?: Record<string, string> }) {
+  const [ownRange, setRangeState] = useState<RangeSel>(() => loadRange("report", { key: "last_7" }));
   const setRange = (r: RangeSel) => { setRangeState(r); saveRange("report", r); };
+  const range = rangeIn ?? ownRange;
   const lang = ws.language;
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
-  const [filters, setFilters] = useFilters("report");
+  const [ownFilters, setFilters] = useFilters("report");
+  const filters = filtersIn ?? ownFilters;
   const g = useGrowthData(ws, range, { cache: true, filters });   // last numbers show at once; fresh ones load quietly
   const [copied, setCopied] = useState(false);
   const { mx, prev } = g;
@@ -49,15 +53,16 @@ export default function Report({ ws }: { ws: Workspace }) {
   ];
 
   return (
-    <div className="shell-grid" ref={pageRef}>
-      <div className="hero">
+    <div className={embedded ? "shell-grid report-embedded" : "shell-grid"} ref={pageRef} style={embedded ? { padding: 0 } : undefined}>
+      {embedded && <h2 style={{ margin: "8px 0 0" }}>{T("Diagnosis", "Uchunguzi")}</h2>}
+      {!embedded && <div className="hero">
         <div style={{ display: "grid", gap: 4 }}>
           <h2>{T("Weekly diagnosis", "Uchunguzi wa wiki")}</h2>
           <div className="sub"><span>{mx.period.from} → {mx.period.to}</span><span>{T("vs", "dhidi ya")} {prev.period.from} → {prev.period.to}</span><span>{ws.timezone} · {ws.currency}</span></div>
         </div>
         <DateRange value={range} onChange={setRange} today={g.today} tz={ws.timezone || "Africa/Dar_es_Salaam"} lang={lang} start={g.dataStart} />
-      </div>
-      <FilterBar value={filters} onChange={setFilters} options={g.options} lang={lang} />
+      </div>}
+      {!embedded && <FilterBar value={ownFilters} onChange={setFilters} options={g.options} lang={lang} />}
       {g.err && <p className="err">{g.err}</p>}
       <WeeklySummaryCard text={weeklySummary(mx, prev, findings, { lang, business: ws.name, currency: ws.currency })} T={T} copied={copied} onCopied={() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }} />
 
@@ -77,7 +82,7 @@ export default function Report({ ws }: { ws: Workspace }) {
         </ol>
       </section>
 
-      <section className="card">
+      {!embedded && (<section className="card">
         <h2>{T("Funnel: this period vs the one before", "Mchakato: kipindi hiki dhidi ya kilichopita")}</h2>
         <div className="scroll"><table>
           <thead><tr><th>{T("Metric", "Kipimo")}</th><th className="n">{T("This period", "Kipindi hiki")}</th><th className="n">{T("Before", "Kilichopita")}</th><th className="n">{T("Change", "Badiliko")}</th><th>{T("Source", "Chanzo")}</th></tr></thead>
@@ -87,7 +92,7 @@ export default function Report({ ws }: { ws: Workspace }) {
           })}</tbody>
         </table></div>
         <p className="small muted" style={{ margin: 0 }}>{T(`Chats are counted in the period they started (${ws.timezone}). Attributed sales are paid orders linked to those chats within ${ws.conversion_window_days} days. Revenue counts orders by the date they were paid. Inferred signals never enter revenue or cost per sale.`, `Chats zinahesabiwa kwenye kipindi zilipoanza (${ws.timezone}). Mauzo yaliyounganishwa ni oda zilizolipwa ndani ya siku ${ws.conversion_window_days}. Mapato yanahesabu oda kwa tarehe ya malipo. Dalili hazihesabiwi kwenye mapato.`)}</p>
-      </section>
+      </section>)}
     </div>
   );
 }

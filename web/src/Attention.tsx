@@ -21,7 +21,8 @@ type Health = { status: string; events: number; exhausted: number };
 
 const chatLink = (ids: (string | null)[]) => "#chats/ids=" + ids.filter(Boolean).slice(0, 100).join(",");
 
-export default function Attention({ ws }: { ws: Workspace }) {
+/** Payments to confirm, deliveries, overdue items, sync problems. Since 23 Nov 2026 a tab in Actions (embedded). */
+export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: boolean }) {
   const lang = ws.language;
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   // Kept while the app is open: coming back shows the last list at once (no placeholders) and refreshes it quietly.
@@ -79,9 +80,9 @@ export default function Attention({ ws }: { ws: Workspace }) {
     <div className="shell-grid attention" ref={pageRef}>
       <div className="hero">
         <div style={{ display: "grid", gap: 4 }}>
-          <h2>{T("Needs attention", "Yanayohitaji hatua")}</h2>
+          {!embedded && <h2>{T("Needs attention", "Yanayohitaji hatua")}</h2>}
           <div className="sub"><span>{total === 0 ? T("All clear: nothing waiting on you.", "Kila kitu kiko sawa: hakuna kinachokusubiri.") : T(`${total} things to look at`, `Mambo ${total} ya kuangalia`)}</span>
-            <a href="#report">{T("Weekly summary →", "Muhtasari wa wiki →")}</a></div>
+            <a href="#why">{T("Weekly summary →", "Muhtasari wa wiki →")}</a></div>
         </div>
       </div>
       {err && <p className="err">{err}</p>}

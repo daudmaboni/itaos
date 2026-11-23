@@ -11,14 +11,12 @@ import Dashboard from "./Dashboard";
 import Chats from "./Chats";
 import Connect from "./Connect";
 import Settings from "./Settings";
-import Report from "./Report";
 import Actions from "./Actions";
 import Receipts from "./Receipts";
 import PaymentGuard from "./PaymentGuard";
 import LeakGuard from "./LeakGuard";
 import Buyers from "./Buyers";
 import Kito from "./Kito";
-import Attention from "./Attention";
 import Island from "./Island";
 import Products from "./Products";
 import Logo, { KitoLogo } from "./Logo";
@@ -218,8 +216,8 @@ export default function App() {
       <PageView view={view}>
       {view === "dashboard" && <><AppTip sw={ws.language === "sw"} /><Dashboard ws={ws} onWs={setWs} /></>}
       {view === "kito" && <Kito ws={ws} staff={isPlatformAdmin} />}
-      {view === "attention" && <Attention ws={ws} />}
-      {view === "report" && <Report ws={ws} />}
+      {view === "attention" && <Actions ws={ws} />}
+      {view === "report" && <Dashboard ws={ws} onWs={setWs} page="why" />}
       {view === "actions" && <Actions ws={ws} />}
       {view === "receipts" && <Receipts ws={ws} />}
       {view === "payments" && <PaymentGuard ws={ws} />}
@@ -401,9 +399,8 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
 function moreItems(sw: boolean): [View, string, string, JSX.Element][] {
   const L = (en: string, s: string) => (sw ? s : en);
   return [
-    ["attention", L("Needs attention", "Yanayohitaji hatua"), L("Payments, deliveries", "Malipo, usafirishaji"), <Ico d="M12 8v5M12 16.5v.5M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />],
-    ["report", L("Diagnosis", "Uchunguzi"), L("This week's results", "Matokeo ya wiki hii"), <Ico d="M3 12h4l3-8 4 16 3-8h4" />],
-    ["actions", L("Actions", "Vitendo"), L("Promises and tasks", "Ahadi na kazi"), <Ico d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" />],
+    ["why", L("Why people didn't buy", "Kwa nini hawakununua"), L("Reasons, diagnosis and what to fix", "Sababu, uchunguzi na cha kurekebisha"), <Ico d="M3 12h4l3-8 4 16 3-8h4" />],
+    ["actions", L("Actions", "Vitendo"), L("Today, payments, deliveries, promises", "Leo, malipo, usafirishaji, ahadi"), <Ico d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" />],
     ["buyers", L("Buyers", "Wateja walionunua"), L("Names, phones and locations of everyone who paid", "Majina, simu na mahali pa waliolipa"), <Ico d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM22 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8" />],
     ["receipts", L("Find a payment", "Tafuta malipo"), L("Receipt no. or transaction code", "Kumbukumbu Na. au muamala"), <Ico d="M4 3h16v18l-3-2-3 2-2-2-2 2-3-2-3 2V3ZM8 8h8M8 12h8M8 16h5" />],
     ["products", L("My products", "Bidhaa zangu"), L("Prices, photos, what sells", "Bei, picha, zinazouzwa"), <Ico d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" />],

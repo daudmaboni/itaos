@@ -2,6 +2,7 @@
 // staff assign / snooze / complete / dismiss tasks, and asks Kito for a DRAFT that a human reviews and
 // sends (copy to WhatsApp, or Send from itaOS). The Today tab (Today.tsx) merges all lists into one.
 import { useEffect, useMemo, useRef, useState } from "react";
+import Attention from "./Attention";
 import { enterCards, enterRows, usePageEnter, select } from "./motion";
 import { supabase, callFn, Workspace, Outcome, Task, L, when, ago, canEdit } from "./lib";
 import { KitoLoader } from "./KitoLoader";
@@ -34,7 +35,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const [loading, setLoading] = useState(!kept(K + ":loaded"));
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
-  const [tab, setTab] = useState<"today" | "promises" | "after_price" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : location.hash.includes("tab=after_price") ? "after_price" : location.hash.includes("tab=promises") ? "promises" : "today"));
+  const [tab, setTab] = useState<"today" | "attention" | "promises" | "after_price" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.startsWith("#attention") || location.hash.includes("tab=attention") ? "attention" : location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : location.hash.includes("tab=after_price") ? "after_price" : location.hash.includes("tab=promises") ? "promises" : "today"));
   const [reorderCount, setReorderCount] = useKept<number | null>(K + ":reorders", null);
   useEffect(() => {
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data }) => {
@@ -132,6 +133,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
         </div>
         <div className="seg" role="group" aria-label="View">
           <button className={tab === "today" ? "on" : ""} onClick={() => setTab("today")}>{T("Today", "Leo")}</button>
+          <button className={tab === "attention" ? "on" : ""} onClick={() => setTab("attention")}>{T("Payments & deliveries", "Malipo na usafirishaji")}</button>
           <button className={tab === "promises" ? "on" : ""} onClick={() => setTab("promises")}>{T("Promises", "Ahadi")}{promiseCount ? ` (${promiseCount})` : ""}</button>
           <button className={tab === "after_price" ? "on" : ""} onClick={() => setTab("after_price")}>{T("After price", "Baada ya bei")}{quietCount ? ` (${quietCount})` : ""}</button>
           <button className={tab === "reorders" ? "on" : ""} onClick={() => setTab("reorders")}>{T("Reorders", "Nunua tena")}{reorderCount ? ` (${reorderCount})` : ""}</button>
@@ -144,6 +146,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
       {!editor && <p className="small muted">{T("You have a viewer role: you can see the queue but not change tasks.", "Una nafasi ya kutazama tu: unaweza kuona foleni lakini si kubadilisha kazi.")}</p>}
       <p className="small muted page-note"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>{T("Nothing is sent without you. Ask Kito for a draft, edit it, then copy it to WhatsApp or tap Send from itaOS (an approved WhatsApp template after 24 hours).", "Hakuna kinachotumwa bila wewe. Muombe Kito rasimu, ihariri, kisha inakili WhatsApp au bonyeza Tuma kutoka itaOS (kiolezo kilichoidhinishwa na WhatsApp baada ya saa 24).")}</p>
 
+      {tab === "attention" && <Attention ws={ws} embedded />}
       {tab === "today" && <TodayList ws={ws} rows={rowsAP} tasks={tasks} promises={promises} queue={queue} hiddenReorder={hideReorder} editor={editor} onChange={refresh} onTake={createTask} />}
       {tab === "promises" && <PromiseList tasks={tasksShown} rows={rows} ws={ws} editor={editor} onChange={refresh} />}
       {tab === "after_price" && <AfterPriceList rows={rowsAP} tasks={tasks} ws={ws} editor={editor} onChange={refresh} />}

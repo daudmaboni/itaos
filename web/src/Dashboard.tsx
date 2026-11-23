@@ -1,5 +1,4 @@
 import type { ReactNode, FormEvent } from "react";
-import FixList from "./FixList";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { countTo, enterCards, enterRows, growBars, usePageEnter, select } from "./motion";
 import { Workspace, AdPerf, fmt, pct, dur, L, amt, money, ago, supabase, callFn, canManage, converter, displayCurrency, moneyInput } from "./lib";
@@ -16,6 +15,7 @@ import Recovered from "./Recovered";
 import AdMoney from "./AdMoney";
 import LostReasons from "./LostReasons";
 import HomeOverview from "./HomeOverview";
+import Report from "./Report";
 
 /** One data source, four places (23 Nov 2026, the Dashboard was ~23 blocks):
  *   home  money summary, "Do this now", Money itaOS brought back, tiles that open the pages below
@@ -222,10 +222,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
         </div>
 
         <div className="two dash-pair">
-          {page === "why" && (<section className="card">
-            <div className="row between"><h2>{T("What to fix this week", "Cha kurekebisha wiki hii")}</h2><a href="#report" className="small">{T("Full diagnosis →", "Uchunguzi kamili →")}</a></div>
-            <FixList findings={findings} lang={lang === "sw" ? "sw" : "en"} />
-          </section>)}
+          
           {page === "data" && (<section className="card">
             {(() => {
               const cov: { label: string; ok: boolean; note: string }[] = [
@@ -270,6 +267,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
 
         {page === "why" && (g.objByAd?.length ?? 0) > 0 && <ObjectionsByAd rows={g.objByAd!} names={Object.fromEntries(g.options.ads.map((x) => [x.id, x.name]))} lang={lang} T={T} />}
 
+        {page === "why" && <Report ws={ws} embedded range={range} filters={filters as Record<string, string>} />}
         {page === "ads" && <AdsTable ads={ads} daily={g.daily} today={g.today} adCur={adCur} A={A} T={T} />}
       </>)}
     </div>
