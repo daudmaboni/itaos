@@ -277,3 +277,4 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 .att-list li > a.att-who:hover b { text-decoration: underline; text-underline-offset: 3px; }
 .att-list .att-acts { display: flex; gap: 6px; flex: none; }
 .att-list li:has(> a.att-who) { flex-wrap: nowrap; }
+.pcard:has(.pc-more[open]) { overflow: visible; z-index: 5; position: relative; }
