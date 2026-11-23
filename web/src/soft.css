@@ -8,8 +8,9 @@
 @media (max-width: 760px) { :root { --soft-r: 24px; } }
 
 /* cards */
-.card, .dash-ia .card, .pcard, .ht-list, .ht-F, .kpi, .dash-ia .kpi { border: 0; border-radius: var(--soft-r); box-shadow: var(--soft-shadow); }
-:root:not([data-theme="light"]) :is(.card, .dash-ia .card, .pcard, .ht-list, .ht-F, .kpi, .dash-ia .kpi) { border: 1px solid var(--line); }
+/* 1px transparent border in light, coloured in dark: same size in both themes, so switching never shifts the page */
+.card, .dash-ia .card, .pcard, .ht-list, .ht-F, .kpi, .dash-ia .kpi { border: 1px solid transparent; border-radius: var(--soft-r); box-shadow: var(--soft-shadow); }
+:root:not([data-theme="light"]) :is(.card, .dash-ia .card, .pcard, .ht-list, .ht-F, .kpi, .dash-ia .kpi) { border-color: var(--line); }
 .kpi, .dash-ia .kpi { border-radius: calc(var(--soft-r) - 6px); }
 
 /* card titles: medium weight, with a small icon tile in front */
@@ -60,8 +61,8 @@
 .mh-num { gap: 6px; }
 
 /* ad spend: a white card with a green bar beside the figure */
-.mh-card.navy { background: var(--card); color: var(--ink); box-shadow: var(--soft-shadow); }
-:root:not([data-theme="light"]) .mh-card.navy { border: 1px solid var(--line); }
+.mh-card.navy { background: var(--card); color: var(--ink); box-shadow: var(--soft-shadow); border: 1px solid transparent; }
+:root:not([data-theme="light"]) .mh-card.navy { border-color: var(--line); }
 .mh-card.navy .mh-k { color: var(--ink); font-weight: 500; }
 .mh-card.navy .mh-s { color: var(--muted); }
 .mh-card.navy .mh-d { background: var(--raised); }
@@ -218,8 +219,8 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 .today-why { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding-left: 4px; }
 
 /* soft cards everywhere a .pcard is used (Today, Queue, Promises, After price, Reorders, Payment checks) */
-.pcard { border: 0; border-radius: 22px; box-shadow: 0 1px 2px #0f1c2a0d, 0 10px 26px -18px #0f1c2a4d; padding: 16px 18px 0; gap: 10px; }
-:root:not([data-theme="light"]) .pcard { border: 1px solid var(--line); }
+.pcard { border: 1px solid transparent; border-radius: 22px; box-shadow: 0 1px 2px #0f1c2a0d, 0 10px 26px -18px #0f1c2a4d; padding: 16px 18px 0; gap: 10px; }
+:root:not([data-theme="light"]) .pcard { border-color: var(--line); }
 .pcard .pc-foot { margin: auto -18px 0; padding: 14px 18px 16px; border-top: 0; background: color-mix(in srgb, var(--raised) 55%, transparent); }
 .pc-chips .chip, .pc-chips .temp { font-size: 11.5px; }
 @media (max-width: 760px) {
