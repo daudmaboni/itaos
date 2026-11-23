@@ -1,0 +1,59 @@
+/* Tighter cards on phones (23 Nov 2026): Daud found every card too big inside. Less padding, smaller
+   headline numbers, tighter rows. Loaded last (main.tsx) so it wins over styles.css / mobile.css / guards.css. */
+@media (max-width: 760px) {
+  /* every card */
+  .card, .dash-ia .card { padding: 13px 14px; border-radius: 18px; gap: 10px; }
+  .card h2, .dash-ia .card h2 { font-size: 15.5px; }
+  .two, .shell-grid { gap: 12px; }
+  .kpi, .dash-ia .kpi { padding: 11px 12px; border-radius: 14px; }
+  .kpi .v, .dash-ia .kpi .v { font-size: 18px; }
+
+  /* the money card */
+  .mh { gap: 8px; }
+  .mh-card { padding: 14px 15px; gap: 9px; border-radius: 18px; }
+  .mh-joined { border-radius: 18px; }
+  .mh-joined .mh-card.navy { padding-top: 18px; }
+  .mh-k { font-size: 12px; }
+  .mh-v { font-size: 26px; }
+  .mh-v.sm { font-size: 19px; }
+  .mh-s { font-size: 11.5px; }
+  .mh-d { font-size: 11px; padding: 1px 7px; }
+  .mh-legend { font-size: 12px; }
+  .mh-badge { font-size: 12px; padding: 5px 10px; }
+  .mh-joined > .mh-card.green + .mh-badge { margin: -13px 14px -13px 0; }
+  .pl-top { gap: 8px; }
+  .pl-right { padding: 0; }
+  .pl-right b { font-size: 24px; }
+  .pl-dots { margin-top: 3px; }
+  .pl-split { gap: 6px; }
+  .pl-segs { height: 10px; }
+  .pl-legend { font-size: 12px; gap: 2px; }
+  .pl-receipt { padding: 11px 13px 12px; gap: 4px; }
+  .pl-rl { font-size: 12.5px; }
+  .pl-rtotal b { font-size: 16px; }
+
+  /* Do this now */
+  .donow h2 { margin: 0 0 4px; }
+  .donow .dn-list { gap: 6px; }
+  .donow .dn-list a { padding: 10px 12px; gap: 10px; border-radius: 12px; font-size: 13.5px; line-height: 1.35; grid-template-columns: 8px minmax(0, 1fr) auto; }
+  .donow .dn-dot { width: 8px; height: 8px; }
+  .donow .dn-cta { font-size: 12.5px; }
+
+  /* home tiles (looks A, B, F, I) */
+  .ht { gap: 8px; }
+  .ht-list { border-radius: 18px; }
+  .ht-list > a, .ht-list > div { padding: 11px 13px; gap: 4px; }
+  .ht-B > a { grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 12px 13px; }
+  .ht-ico { width: 34px; height: 34px; border-radius: 10px; }
+  .ht-ico svg { width: 17px; height: 17px; }
+  .ht-name { font-size: 13.5px; }
+  .ht-row b, .ht-B .ht-row b { font-size: 16px; }
+  .ht-k { font-size: 12px; } .ht-s { font-size: 11.5px; }
+  .ht-hero { padding: 14px; gap: 8px; border-radius: 18px; }
+  .ht-big { font-size: 30px; }
+  .ht-A { gap: 8px; }
+  .ht-F { padding: 14px; gap: 12px; border-radius: 18px; }
+  .ht-F-grid { gap: 12px; }
+  .ht-btn { min-height: 40px; font-size: 12.5px; }
+  .ht-btn.wide { min-height: 42px; border-radius: 14px; font-size: 13px; }
+}
