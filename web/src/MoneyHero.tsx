@@ -1,4 +1,4 @@
-// The big money card(s) at the top of Home. Four looks, picked in Settings → Appearance (saved on this device):
+// The big money card(s) at the top of Home. Four looks, picked in Settings → App (saved on this device):
 //  A  one card: revenue big, the from-ads split, then ad spend · profit · return in a row
 //  B  two big cards: navy ad spend, green revenue with the from-ads split   (default)
 //  C  two tiles side by side, the split in a small card under them
@@ -41,7 +41,7 @@ export type HeroData = {
 };
 
 /** How profit shows inside the revenue card (23 Nov 2026): the where-each-shilling-went bar, or a receipt slip. Tapping the profit part moves to the next look;
- *  the choice is saved on this device, and can be picked in Settings → Appearance. */
+ *  the choice is saved on this device, and can be picked in Settings → App. */
 export type ProfitLook = "bar" | "receipt";
 export const PROFIT_LOOKS: ProfitLook[] = ["bar", "receipt"];
 const PKEY = "itaos-profit-look";

@@ -85,7 +85,7 @@ export function featureRows(f: FeatureUse, now = Date.now()): FRow[] {
     // App
     { key: "kito", group: "App", label: "Kito reading chats", state: f.kito_read_30d > 0 ? "ok" : "off", text: `${s(f.kito_read_30d, "chat")} read in 30 days` },
     { key: "push", group: "App", label: "Phone alerts", state: f.push_devices > 0 ? "ok" : "off", text: f.push_devices ? `${s(f.push_devices, "device")}` : "No phone gets alerts",
-      hint: f.push_devices ? undefined : "Install the app on their phone and allow alerts (Settings → App & notifications)." },
+      hint: f.push_devices ? undefined : "Install the app on their phone and allow alerts (Settings → App)." },
     { key: "voice", group: "App", label: "Voice notes in Chats", state: f.voice_30d > 0 ? "ok" : "off", text: `${s(f.voice_30d, "voice note")} saved in 30 days` },
     { key: "rules", group: "App", label: "Rules and look",
       state: f.rules_reviewed_at && f.branded ? "ok" : f.rules_reviewed_at || f.branded ? "warn" : "off",

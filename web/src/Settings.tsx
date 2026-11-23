@@ -11,13 +11,16 @@ import PhoneApp from "./PhoneApp";
 import { enterCards, enterRows, flash, shake, usePageEnter, select } from "./motion";
 import { useBackLayer, replaceEntry } from "./backStack";
 
-type Tab = "business" | "profile" | "appearance" | "rules" | "app" | "account";
-const TABS: [Tab, string, string][] = [["business", "Business", "Biashara"], ["profile", "Business profile", "Wasifu wa biashara"], ["appearance", "Appearance", "Muonekano"], ["rules", "Rules & rates", "Kanuni na viwango"], ["app", "App & notifications", "App na arifa"], ["account", "My profile", "Wasifu wangu"]];
+type Tab = "business" | "rules" | "app" | "account";
+// 23 Nov 2026: six tabs became four. Business holds the old Business profile; App holds Appearance and
+// App & notifications. Old links (#settings/profile, #settings/appearance) still land on the right tab.
+const TABS: [Tab, string, string][] = [["business", "Business", "Biashara"], ["rules", "Rules & rates", "Kanuni na viwango"], ["app", "App", "App"], ["account", "My profile", "Wasifu wangu"]];
+const OLD_TAB: Record<string, Tab> = { rates: "rules", profile: "business", appearance: "app" };
 const CURRENCIES: [string, string, string][] = [["TZS", "Tanzanian shillings", "Shilingi za Tanzania"], ["KES", "Kenyan shillings", "Shilingi za Kenya"], ["UGX", "Ugandan shillings", "Shilingi za Uganda"], ["RWF", "Rwandan francs", "Faranga za Rwanda"]];  // customers pay in local money; USD is for ad spend only, never for sales
 const TIMEZONES: [string, string][] = [["Africa/Dar_es_Salaam", "Tanzania (Dar es Salaam)"], ["Africa/Nairobi", "Kenya (Nairobi)"], ["Africa/Kampala", "Uganda (Kampala)"], ["Africa/Kigali", "Rwanda (Kigali)"], ["Africa/Johannesburg", "South Africa"], ["Europe/London", "UK (London)"], ["UTC", "UTC"]];
 
 export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; onWs: (w: Workspace) => void; theme: "graphite" | "dark" | "light"; onTheme: (t: "graphite" | "dark" | "light", from?: HTMLElement | null) => void }) {
-  const [tab, setTab] = useState<Tab>(() => { const t = location.hash.split("/")[1]; return t === "rates" ? "rules" : TABS.some(([k]) => k === t) ? (t as Tab) : "business"; });
+  const [tab, setTab] = useState<Tab>(() => { const t = location.hash.split("/")[1] ?? ""; return OLD_TAB[t] ?? (TABS.some(([k]) => k === t) ? (t as Tab) : "business"); });
   const [email, setEmail] = useState("");
   const lang = ws.language;
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
@@ -40,12 +43,10 @@ export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; 
       <nav className="tabs subtabs" aria-label="Settings sections">
         {TABS.map(([k, en, sw]) => <a key={k} href={"#settings/" + k} className={tab === k ? "on" : ""} onClick={(e) => { e.preventDefault(); setTab(k); }}>{T(en, sw)}</a>)}
       </nav>
-      {!canManage(ws) && tab !== "profile" && tab !== "account" && tab !== "appearance" && tab !== "app" && <p className="small muted">{T("Only an owner or admin can change these settings.", "Mmiliki au msimamizi tu anaweza kubadilisha mipangilio hii.")}</p>}
-      {tab === "business" && <><Business ws={ws} onWs={onWs} T={T} /><Dashboard ws={ws} onWs={onWs} page="data" /></>}
-      {tab === "profile" && <Profile ws={ws} T={T} />}
-      {tab === "appearance" && <Appearance ws={ws} onWs={onWs} theme={theme} onTheme={onTheme} T={T} />}
+      {!canManage(ws) && (tab === "business" || tab === "rules") && <p className="small muted">{T("Only an owner or admin can change these settings.", "Mmiliki au msimamizi tu anaweza kubadilisha mipangilio hii.")}</p>}
+      {tab === "business" && <><Business ws={ws} onWs={onWs} T={T} /><Profile ws={ws} T={T} /><Dashboard ws={ws} onWs={onWs} page="data" /></>}
       {tab === "rules" && <><PaymentsCurrency ws={ws} onWs={onWs} T={T} /><Rates ws={ws} onWs={onWs} T={T} /><ChatRules ws={ws} onWs={onWs} T={T} /><NameWords ws={ws} T={T} /><ReceiptLook ws={ws} onWs={onWs} T={T} /><Replying ws={ws} onWs={onWs} T={T} /><Templates ws={ws} T={T} /></>}
-      {tab === "app" && <PhoneApp ws={ws} T={T} />}
+      {tab === "app" && <><Appearance ws={ws} onWs={onWs} theme={theme} onTheme={onTheme} T={T} /><PhoneApp ws={ws} T={T} /></>}
       {tab === "account" && <><MyProfile ws={ws} T={T} /><Account email={email} T={T} /></>}
     </div>
   );
