@@ -2,15 +2,14 @@
    headline numbers, tighter rows. Loaded last (main.tsx) so it wins over styles.css / mobile.css / guards.css. */
 @media (max-width: 760px) {
   /* every card */
-  .card, .dash-ia .card { padding: 13px 14px; border-radius: 18px; gap: 10px; }
+  .card, .dash-ia .card { padding: var(--sp-card); border-radius: 18px; gap: var(--sp-in); }
   .card h2, .dash-ia .card h2 { font-size: 15.5px; }
-  .two, .shell-grid { gap: 12px; }
   .kpi, .dash-ia .kpi { padding: 11px 12px; border-radius: 14px; }
   .kpi .v, .dash-ia .kpi .v { font-size: 18px; }
 
   /* the money card */
   .mh { gap: 8px; }
-  .mh-card { padding: 14px 15px; gap: 9px; border-radius: 18px; }
+  .mh-card { padding: var(--sp-card); gap: 8px; border-radius: 18px; }
   .mh-joined { border-radius: 18px; }
   .mh-joined .mh-card.navy { padding-top: 18px; }
   .mh-k { font-size: 12px; }
@@ -20,7 +19,7 @@
   .mh-d { font-size: 11px; padding: 1px 7px; }
   .mh-legend { font-size: 12px; }
   .mh-badge { font-size: 12px; padding: 5px 10px; }
-  .mh-joined > .mh-card.green + .mh-badge { margin: -13px 14px -13px 0; }
+  .mh-joined > .mh-card.green + .mh-badge { margin: -13px 16px -13px 0; }
   .pl-top { gap: 8px; }
   .pl-right { padding: 0; }
   .pl-right b { font-size: 24px; }
@@ -58,12 +57,23 @@
   .ht-btn.wide { min-height: 42px; border-radius: 14px; font-size: 13px; }
 }
 
-/* Cards closer to the screen edges on phones (23 Nov 2026): page side margin 14px → 8px.
-   Everything that bleeds to the edge (top bar, sub-tabs, chip rows) moves with it. */
+/* ── One spacing scale for the whole app (23 Nov 2026), on a 4px/8px grid, in rem (1rem = 16px):
+   space between cards > padding inside cards, so what belongs together reads together.
+   Phones: page edge 12px · between cards 16px · inside cards 12px/16px.
+   Computers: page edge 16–40px · between cards 16px, 24px on wide screens · inside cards 20px, 24px on wide screens. ── */
+:root { --sp-edge: clamp(1rem, 3vw, 2.5rem); --sp-gap: 1rem; --sp-card: 1.25rem; --sp-in: 0.75rem; }
+@media (min-width: 1100px) { :root { --sp-gap: 1.5rem; --sp-card: 1.5rem 1.5rem; --sp-in: 1rem; } }
+@media (max-width: 760px) { :root { --sp-edge: 0.75rem; --sp-gap: 1rem; --sp-card: 0.75rem 1rem; --sp-in: 0.75rem; } }
+
+.shell { padding-left: var(--sp-edge); padding-right: var(--sp-edge); gap: var(--sp-gap); }
+.shell-grid, .two, .skeletons { gap: var(--sp-gap); }
+.card, .dash-ia .card { padding: var(--sp-card); gap: var(--sp-in); }
+.kpis, .dash-ia .kpis { gap: var(--sp-in); }
 @media (max-width: 760px) {
-  .shell { padding-left: 8px; padding-right: 8px; gap: 10px; }
-  .topbar { margin: 0 -8px; padding-left: 12px; padding-right: 12px; }
-  nav.subtabs { margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
-  .chats-tools .chips-tabs { margin: 0 -8px; padding: 0 8px; scroll-padding-inline: 8px; }
-  .dash-ia .hero, .hero { padding-left: 4px; padding-right: 4px; }
+  /* things that bleed to the screen edge follow the page edge */
+  .topbar { margin: 0 calc(-1 * var(--sp-edge)); padding-left: var(--sp-edge); padding-right: var(--sp-edge); }
+  nav.subtabs { margin: 0 calc(-1 * var(--sp-edge)); padding-left: var(--sp-edge); padding-right: var(--sp-edge); }
+  .chats-tools .chips-tabs { margin: 0 calc(-1 * var(--sp-edge)); padding: 0 var(--sp-edge); scroll-padding-inline: var(--sp-edge); }
+  .kpi, .dash-ia .kpi { padding: 0.75rem; }
 }
+.donow h2 { margin-bottom: 0; }
