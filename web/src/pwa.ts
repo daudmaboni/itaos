@@ -45,7 +45,8 @@ function installPopup() {
   el.setAttribute("aria-label", T("Install itaOS", "Sakinisha itaOS"));
   el.style.cssText = `position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:10000;max-width:440px;margin:0 auto;background:${bg};color:${fg};border:1px solid ${line};border-radius:20px;box-shadow:0 18px 50px rgba(0,0,0,.22);padding:16px;font:15px/1.4 Geist,Inter,system-ui,sans-serif;transform:translateY(130%);transition:transform .45s cubic-bezier(.22,1,.36,1)`;
   el.innerHTML = `
-    <div style="display:flex;gap:12px;align-items:center">
+    <button type="button" data-x aria-label="${T("Close", "Funga")}" style="position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;border:0;background:${dark ? "#ffffff14" : "#0f1c2a0d"};color:${muted};font:600 18px/1 system-ui;cursor:pointer;display:grid;place-items:center">×</button>
+    <div style="display:flex;gap:12px;align-items:center;padding-right:28px">
       <img src="/icons/icon-192.png" alt="" width="48" height="48" style="border-radius:12px;flex:none">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:16px">${T("Get the itaOS app", "Pakua app ya itaOS")}</div>
@@ -65,7 +66,10 @@ function installPopup() {
     el.style.transform = "translateY(130%)";
     setTimeout(() => el.remove(), 500);
   };
-  el.querySelector("[data-x]")?.addEventListener("click", () => close(true));
+  // A popup is a guest, so show it the door: × in the corner, "Not now", and the Esc key all close it.
+  el.querySelectorAll("[data-x]").forEach((b) => b.addEventListener("click", () => close(true)));
+  const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { close(true); window.removeEventListener("keydown", esc); } };
+  window.addEventListener("keydown", esc);
   el.querySelector("[data-go]")?.addEventListener("click", async () => { const ok = await promptInstall(); close(!ok); });
   document.body.appendChild(el);
   requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transform = "none"; }));

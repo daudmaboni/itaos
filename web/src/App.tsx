@@ -141,6 +141,24 @@ export default function App() {
     return () => { sub.subscription.unsubscribe(); window.removeEventListener("hashchange", onHash); };
   }, []);
 
+  // Give the page back to the reader (Glide): on phones the top bar slides away while you scroll down a page
+  // and comes back the moment you scroll up.
+  const topRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    let last = window.scrollY, raf = 0;
+    const run = () => {
+      raf = 0;
+      const y = window.scrollY, el = topRef.current;
+      if (!el) return;
+      if (y < 80 || y < last - 4) el.classList.remove("tb-away");
+      else if (y > last + 6 && window.innerWidth < 900) el.classList.add("tb-away");
+      last = y;
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(run); };
+    window.addEventListener("scroll", on, { passive: true });
+    return () => { window.removeEventListener("scroll", on); cancelAnimationFrame(raf); };
+  }, []);
+
   // Chats: load the list quietly in the background a moment after the app opens (only when nothing is saved
   // on the phone yet), so the first tap on Chats shows real chats at once.
   const wsId = ws?.id;
@@ -215,7 +233,7 @@ export default function App() {
       {createPortal(<div className={"app-curtain " + curtain.phase} aria-hidden="true">
         <div className="app-curtain-in"><Logo size={44} /><span>{curtain.label}</span></div>
       </div>, document.body)}
-      <header className="topbar">
+      <header className="topbar" ref={topRef}>
         <div className="brand"><a className="home" href="#dashboard" aria-label="itaOS, go to dashboard" onClick={() => window.scrollTo({ top: 0 })}><Logo size={34} /><span className="brand-text"><h1>itaOS</h1><span className="ws" title={ws.name}>{ws.name}</span></span></a></div>
         <GlassTabs view={view}>
           <a data-tab href="#dashboard" className={view === "dashboard" ? "on" : ""}><TabIco d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />Dashboard</a>
@@ -582,6 +600,13 @@ export function PageView({ view, children, refreshN = 0 }: { view: View; childre
 /** Phone navigation: four main sections plus "More". Hidden on wider screens, where the top tabs show. */
 export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badges?: Badges }) {
   const [open, setOpen] = useState(false);
+  // The sheet leaves the way it came: it sinks back into the More button instead of vanishing.
+  const [closing, setClosing] = useState(false);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) { setClosing(true); const t = window.setTimeout(() => setClosing(false), 200); wasOpen.current = false; return () => window.clearTimeout(t); }
+    wasOpen.current = open;
+  }, [open]);
   useBackLayer(open, () => setOpen(false)); // phone Back closes the More sheet
   useEffect(() => {
     const close = () => setOpen(false);
@@ -738,9 +763,9 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
 
   return (
     <>
-      {open && <div className="sheet-back" onClick={() => setOpen(false)} />}
-      {open && (
-        <div className="sheet" role="dialog" aria-label={L("More", "Zaidi")}>
+      {(open || closing) && <div className={"sheet-back" + (closing ? " closing" : "")} onClick={() => setOpen(false)} />}
+      {(open || closing) && (
+        <div className={"sheet" + (closing ? " closing" : "")} role="dialog" aria-label={L("More", "Zaidi")}>
           <span className="sheet-grip" aria-hidden="true" />
           {more.map(([v, label, note, icon]) => (
             <a key={v} href={"#" + moreHref(v)} className={"sheet-item" + (groupOf(view) === v ? " on" : "")} onClick={(e) => { e.preventDefault(); setOpen(false); window.scrollTo({ top: 0 }); phoneGo(moreHref(v)); }}>

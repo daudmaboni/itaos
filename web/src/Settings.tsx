@@ -40,6 +40,17 @@ export default function Settings({ ws, onWs, theme, onTheme }: { ws: Workspace; 
           <div className="sub"><span>{ws.name} · {T("changes apply to everyone in this workspace.", "mabadiliko yanawahusu wote kwenye workspace hii.")}</span></div>
         </div>
       </div>
+      <SettingsSearch T={T} onPick={(t, title) => {
+        setTab(t);
+        // Open the section and point at it once its tab has drawn.
+        window.setTimeout(() => {
+          const h = [...document.querySelectorAll<HTMLElement>(".card h2")].find((x) => x.textContent?.trim() === title);
+          const card = h?.closest<HTMLElement>(".card");
+          if (!card) return;
+          card.scrollIntoView({ behavior: "smooth", block: "start" });
+          card.classList.add("set-hit"); window.setTimeout(() => card.classList.remove("set-hit"), 1600);
+        }, 250);
+      }} />
       <nav className="tabs subtabs" aria-label="Settings sections">
         {TABS.map(([k, en, sw]) => <a key={k} href={"#settings/" + k} className={tab === k ? "on" : ""} onClick={(e) => { e.preventDefault(); setTab(k); }}>{T(en, sw)}</a>)}
       </nav>
@@ -785,6 +796,53 @@ function PhotoPicker({ u, name, T, onChange }: { u: any; name: string; T: Tr; on
       </div>
       <input ref={input} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0])} aria-label={T("Choose a profile photo", "Chagua picha ya wasifu")} />
       {err && <span className="err small">{err}</span>}
+    </div>
+  );
+}
+
+/** Search at the top of Settings (Glide: "Where is that one setting? Group by task, search at the top").
+ *  Each entry: the section's title as it appears on the card, its tab, and the words people type for it. */
+const SET_INDEX: [Tab, string, string, string][] = [
+  ["business", "Business", "Biashara", "name currency shillings dollars usd tzs money jina sarafu"],
+  ["business", "Business profile", "Wasifu wa biashara", "prices delivery location hours kito products about bei usafirishaji"],
+  ["business", "Data coverage & sources", "Ukamilifu wa data na vyanzo", "data sources coverage exchange rate"],
+  ["rules", "Payments from customers", "Malipo kutoka kwa wateja", "lipa namba mpesa m-pesa till payment numbers account malipo namba"],
+  ["rules", "Rates and counting rules", "Viwango na kanuni za kuhesabu", "exchange rate cost per order product cost follow up hours delivery fee viwango gharama"],
+  ["rules", "How itaOS reads your chats", "Jinsi itaOS inavyosoma chat zako", "words paid closing kito rules maneno"],
+  ["rules", "Customer names on receipts", "Majina ya wateja kwenye risiti", "names receipts majina risiti"],
+  ["rules", "Your receipts", "Risiti zako", "receipt logo colours print qr risiti nembo"],
+  ["rules", "Reply to customers from itaOS", "Jibu wateja kutoka itaOS", "send reply whatsapp from itaos tuma jibu"],
+  ["rules", "Messages after 24 hours", "Jumbe baada ya saa 24", "templates whatsapp 24 hours template jumbe"],
+  ["app", "Theme", "Mandhari", "dark light mode night giza"],
+  ["app", "Language", "Lugha", "swahili english kiswahili kiingereza"],
+  ["app", "Font", "Herufi", "font text size herufi"],
+  ["app", "Home money cards", "Kadi za pesa za Nyumbani", "money card look revenue ad spend home"],
+  ["app", "Notifications", "Arifa", "notifications alerts push sound arifa"],
+  ["app", "Pop-up inside the app", "Arifa ndani ya app", "popup island alert"],
+  ["account", "Password", "Nenosiri", "password change nenosiri"],
+  ["account", "Sign out", "Toka", "log out logout sign out toka"],
+];
+
+function SettingsSearch({ T, onPick }: { T: Tr; onPick: (t: Tab, title: string) => void }) {
+  const [q, setQ] = useState("");
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = !words.length ? [] : SET_INDEX.filter(([, en, sw, kw]) => {
+    const hay = `${en} ${sw} ${kw}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  }).slice(0, 6);
+  const tabName: Record<Tab, string> = { business: T("Business", "Biashara"), rules: T("Rules & rates", "Kanuni na viwango"), app: T("App", "App"), account: T("My profile", "Wasifu wangu") };
+  return (
+    <div className="set-search">
+      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={T("Search settings: Lipa namba, dark mode, password…", "Tafuta mipangilio: Lipa namba, giza, nenosiri…")} aria-label={T("Search settings", "Tafuta mipangilio")} />
+      {words.length > 0 && (
+        <div className="set-hits" role="listbox">
+          {hits.length ? hits.map(([t, en, sw]) => (
+            <button key={en} type="button" role="option" onClick={() => { setQ(""); onPick(t, T(en, sw)); }}>
+              <b>{T(en, sw)}</b><span className="small muted">{tabName[t]}</span>
+            </button>
+          )) : <span className="small muted set-none">{T("Nothing called that. Try “payment”, “receipt”, “language” or “password”.", "Hakuna kinachoitwa hivyo. Jaribu “malipo”, “risiti”, “lugha” au “nenosiri”.")}</span>}
+        </div>
+      )}
     </div>
   );
 }

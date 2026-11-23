@@ -314,3 +314,25 @@ img.mv-img.loaded { animation: img-in .35s ease; }
 /* Empty search: say what was searched, then the ways out */
 .dead-end { display: grid; gap: 8px; justify-items: center; text-align: center; }
 .dead-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+
+/* More sheet: rises from the More button, dims the page, and sinks back into the button when it closes */
+.sheet.closing { animation: sheet-away .2s ease-in forwards; pointer-events: none; }
+.sheet-back.closing { animation: sheet-back-away .2s ease-in forwards; pointer-events: none; }
+@keyframes sheet-away { to { opacity: 0; transform: scale(.85) translateY(14px); } }
+@keyframes sheet-back-away { to { opacity: 0; } }
+
+/* Phones: the top bar slides away while you scroll down, back as soon as you scroll up */
+@media (max-width: 899px) {
+  .topbar { transition: transform .28s cubic-bezier(.2,.8,.2,1), border-color .25s; will-change: transform; }
+  .topbar.tb-away { transform: translateY(calc(-100% - 2px)); }
+  .cc-held { top: calc(12px + env(safe-area-inset-top)); }
+}
+
+/* Settings search */
+.set-search { position: relative; margin: 2px 0 10px; }
+.set-search input { width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--card); box-shadow: var(--soft-ring); font: 500 15px var(--font); color: var(--ink); }
+.set-hits { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; display: grid; padding: 6px; border-radius: 18px; background: var(--card); box-shadow: 0 18px 40px -16px #0f1c2a59, 0 0 0 1px #0f1c2a12; }
+.set-hits button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; }
+.set-hits button:hover, .set-hits button:focus-visible { background: var(--raised); }
+.set-none { padding: 10px 12px; }
+.card.set-hit { box-shadow: 0 0 0 3px color-mix(in srgb, #0E8F5E 45%, transparent), var(--soft-shadow); transition: box-shadow .3s; }
