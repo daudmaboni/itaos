@@ -1,6 +1,7 @@
 // Action Centre: the follow-up queue. Surfaces chats that need a reply or a follow-up, lets
 // staff assign / snooze / complete / dismiss tasks, and asks Kito for a DRAFT that a human reviews and
 // sends (copy to WhatsApp, or Send from itaOS). The Today tab (Today.tsx) merges all lists into one.
+import { errText } from "./errText";
 import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -71,7 +72,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
       for (const x of (h.data as { conversation_id: string; kind: keyof Hidden }[] | null) ?? []) hd[x.kind]?.push(x.conversation_id);
       setHidden(hd);
       const e = c.error || t.error || m.error;
-      if (e) setErr(e.message);
+      if (e) setErr(errText(e));
       setRows((c.data as Outcome[]) ?? []); setTasks((t.data as Task[]) ?? []); setMembers((m.data as Member[]) ?? []); setMe(u.data.user?.id ?? "");
       setLoading(false); put(K + ":loaded", true);
       const w = waiters.current; waiters.current = []; w.forEach((f) => f());
@@ -121,7 +122,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
       draft: r.kito_next ? T("Suggested next step: ", "Hatua inayopendekezwa: ") + r.kito_next : null, draft_source: r.kito_next ? "kito" : null,
       due_at: new Date().toISOString(), created_by: me,
     });
-    if (error) setErr(error.code === "23505" ? T("A task already exists for this chat.", "Tayari kuna kazi ya chat hii.") : error.message); else refresh();
+    if (error) setErr(error.code === "23505" ? T("A task already exists for this chat.", "Tayari kuna kazi ya chat hii.") : errText(error)); else refresh();
   }
 
   if (loading) return <div className="skeletons" aria-busy="true"><div className="skeleton" style={{ minHeight: 90 }} /><div className="skeleton" style={{ minHeight: 300 }} /></div>;
@@ -217,7 +218,7 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
     const before = { status: t.status, snoozed_until: t.snoozed_until ?? null } as Partial<Task>;
     const { error } = await supabase.from("follow_up_tasks").update(p).eq("id", t.id).eq("workspace_id", ws.id);
     setBusy(false);
-    if (error) { setErr(error.message); return; }
+    if (error) { setErr(errText(error)); return; }
     if (okMsg) setErr(okMsg);
     onChange();
     // Closing or snoozing takes the card away: a slip can be undone.
@@ -233,7 +234,7 @@ export function TaskCard({ t, r, ws, members, me, editor, onChange, compact }: {
       setDraft(text);
       await supabase.from("follow_up_tasks").update({ draft: text, draft_source: "kito" }).eq("id", t.id).eq("workspace_id", ws.id);
       onChange();
-    } catch (e) { setErr((e as Error).message); }
+    } catch (e) { setErr(errText(e)); }
     setBusy(false); setAsking(false);
   }
   async function showChat() {

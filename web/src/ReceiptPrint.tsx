@@ -7,6 +7,7 @@
 // the customer sees the receipt is genuine and can order again on WhatsApp; the business's staff can open the
 // sale in itaOS. The code is random per sale (migration 0055), so receipts can't be guessed from the number.
 // The bar also sends the same link to the customer on WhatsApp, copies it, or gives the sale a new link.
+import { askConfirm } from "./confirmAsk";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "qrcode";
@@ -121,7 +122,11 @@ export default function ReceiptPrint({ ws, orderId, onClose }: { ws: Workspace; 
   const sendHref = r?.link && r.custWa ? `https://wa.me/${r.custWa}?text=${encodeURIComponent(sendText)}` : null;
   const newLink = async () => {
     if (!r?.link) return;
-    if (!window.confirm(T("Give this sale a new QR link? QR codes already printed for it will stop working.", "Weka link mpya ya QR kwa mauzo haya? QR zilizokwisha chapishwa hazitafanya kazi tena."))) return;
+    if (!(await askConfirm({
+      title: T("Give this sale a new QR link?", "Weka link mpya ya QR kwa mauzo haya?"),
+      warn: T("QR codes already printed for it will stop working.", "QR zilizokwisha chapishwa hazitafanya kazi tena."),
+      yes: T("Make a new link", "Weka link mpya"), no: T("Keep this link", "Baki na link hii"), danger: true,
+    }))) return;
     const { data, error } = await supabase.rpc("rotate_receipt_link", { p_order: orderId });
     if (error) { flash(error.code === "42501" ? T("Only the owner or an admin can do this", "Mmiliki au admin pekee") : T("Couldn't change the link", "Imeshindwa kubadilisha link")); return; }
     setR({ ...r, link: receiptLink(data as string) });

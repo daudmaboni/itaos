@@ -3,6 +3,8 @@
 // template Meta has approved. One template per Actions list (After price, Reorders, Promises), written in the
 // business's own words; itaOS submits it to Meta on the business's own WhatsApp account and shows the review result.
 // {{1}} = the customer's first name, {{2}} = the product they bought (Reorders). itaOS fills them when sending.
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import { useEffect, useState } from "react";
 import { callFn, Workspace, canManage, ago } from "./lib";
 import type { Template, Purpose } from "./SendNow";
@@ -35,7 +37,7 @@ export default function Templates({ ws, T }: { ws: Workspace; T: Tr }) {
   const load = async () => {
     setLoading(true); setErr("");
     try { setRes(await callFn<ListRes>("wa-templates", { workspace_id: ws.id, action: "list" })); }
-    catch (e) { setErr((e as Error).message); }
+    catch (e) { setErr(errText(e)); }
     setLoading(false);
   };
   useEffect(() => { void load(); }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -83,14 +85,18 @@ function Slot({ ws, T, purpose, title, where, items, manager, onChange }: { ws: 
     try {
       await callFn("wa-templates", { workspace_id: ws.id, action: "create", purpose, body: text, language: sw ? "sw" : "en" });
       setEditing(false); await onChange();
-    } catch (e) { setMsg((e as Error).message); }
+    } catch (e) { setMsg(errText(e)); }
     setBusy("");
   }
   async function remove(t: Template) {
-    if (!confirm(T("Delete this message from your WhatsApp account? You can write a new one after.", "Futa ujumbe huu kwenye akaunti yako ya WhatsApp? Unaweza kuandika mpya baadaye."))) return;
+    if (!(await askConfirm({
+      title: T(`Delete "${t.name}" from WhatsApp?`, `Futa "${t.name}" kwenye WhatsApp?`),
+      body: T("It's removed from your WhatsApp account. You can write a new one after.", "Utaondolewa kwenye akaunti yako ya WhatsApp. Unaweza kuandika mpya baadaye."),
+      yes: T("Delete message", "Futa ujumbe"), no: T("Keep message", "Acha ujumbe"), danger: true,
+    }))) return;
     setBusy("del:" + t.id); setMsg("");
     try { await callFn("wa-templates", { workspace_id: ws.id, action: "delete", id: t.id }); await onChange(); }
-    catch (e) { setMsg((e as Error).message); }
+    catch (e) { setMsg(errText(e)); }
     setBusy("");
   }
   const chip = (s: string) => s === "APPROVED" ? <span className="chip ok">{T("Approved", "Imeidhinishwa")}</span>

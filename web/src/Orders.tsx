@@ -1,4 +1,6 @@
 // Orders for one chat: record, correct, reverse. Every change is audited by the database.
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import ReceiptPrint from "./ReceiptPrint";
 import { useEffect, useState } from "react";
 import { supabase, Workspace, Order, Outcome, L, amt, when, orderNet, canEdit, moneyInput, moneyText } from "./lib";
@@ -98,7 +100,7 @@ export function OrderForm({ ws, r, onDone, onCancel }: { ws: Workspace; r: Outco
       provenance: "manual", inferred_from: inferredFrom(r), created_by: user.user?.id, cost: c, items,
     });
     setBusy(false);
-    if (error) setErr(error.message); else onDone();
+    if (error) setErr(errText(error)); else onDone();
   }
   return (
     <form className="card" style={{ background: "var(--paper)", gap: 8 }} onSubmit={save}>
@@ -145,20 +147,20 @@ export function OrderList({ ws, conversationId, onChange }: { ws: Workspace; con
       setBusy(o.id); setErr("");
       const { error } = await supabase.from("orders").update({ items: sendItems, product: itemsLabel(sendItems) }).eq("id", o.id).eq("workspace_id", ws.id);
       setBusy("");
-      if (error) return setErr(error.message);
+      if (error) return setErr(errText(error));
       setTick((t) => t + 1);
     }
     setPrintId(o.id);
   }
   useEffect(() => {
     supabase.from("orders").select("*").eq("workspace_id", ws.id).eq("conversation_id", conversationId).order("occurred_at", { ascending: false })
-      .then(({ data, error }) => { if (error) setErr(error.message); setOrders((data as Order[]) ?? []); });
+      .then(({ data, error }) => { if (error) setErr(errText(error)); setOrders((data as Order[]) ?? []); });
   }, [ws.id, conversationId, tick]);
   async function update(o: Order, patch: Partial<Order>) {
     setBusy(o.id); setErr("");
     const { error } = await supabase.from("orders").update(patch).eq("id", o.id).eq("workspace_id", ws.id);
     setBusy("");
-    if (error) setErr(error.message); else { setTick((t) => t + 1); onChange(); }
+    if (error) setErr(errText(error)); else { setTick((t) => t + 1); onChange(); }
   }
   async function toggleHistory(o: Order) {
     if (events[o.id]) { const e = { ...events }; delete e[o.id]; setEvents(e); return; }
@@ -202,7 +204,11 @@ export function OrderList({ ws, conversationId, onChange }: { ws: Workspace; con
               {o.status === "paid" && <button className="small" disabled={busy === o.id} onClick={() => { const v = prompt(T("What did this order cost you? (product + delivery)", "Oda hii ilikugharimu kiasi gani? (bidhaa + usafiri)"), o.cost != null ? moneyText(o.cost) : ""); if (v == null) return; const n = v.trim() === "" ? null : Number(v.replace(/[^\d.]/g, "")); if (n == null || n >= 0) update(o, { cost: n }); }}>{o.cost != null ? T("Change cost", "Badili gharama") : T("Add cost", "Ongeza gharama")}</button>}
               {o.status === "paid" && <button className="small" disabled={busy === o.id} onClick={() => { const v = prompt(T("Paid on (YYYY-MM-DD HH:MM, East Africa time)", "Alilipa lini (YYYY-MM-DD HH:MM)"), o.paid_at ? toLocalInput(o.paid_at).replace("T", " ") : ""); if (!v) return; const m = v.trim().match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{1,2}):(\d{2}))?$/); if (!m) return; const iso = fromLocalInput(`${m[1]}T${(m[2] ?? "12").padStart(2, "0")}:${m[3] ?? "00"}`); if (Date.parse(iso) <= Date.now() + 864e5) update(o, { paid_at: iso, occurred_at: iso }); }}>{T("Change date", "Badili tarehe")}</button>}
               {o.status === "paid" && <button className="small" disabled={busy === o.id} onClick={() => { const v = prompt(T("Refund amount", "Kiasi cha marejesho"), moneyText(orderNet(o))); const n = v == null ? NaN : Number(v.replace(/[^\d.]/g, "")); if (n >= 0 && n <= orderNet(o)) update(o, { status: "refunded", refund_amount: Number(o.refund_amount) + n }); }}>{T("Refund", "Rudisha pesa")}</button>}
-              {o.status !== "cancelled" && <button className="small" disabled={busy === o.id} onClick={() => confirm(T("Cancel this order? It stays in the history as cancelled.", "Ghairi oda hii? Itabaki kwenye historia kama iliyoghairiwa.")) && update(o, { status: "cancelled" })}>{T("Cancel order", "Ghairi oda")}</button>}
+              {o.status !== "cancelled" && <button className="small" disabled={busy === o.id} onClick={async () => { if (await askConfirm({
+                title: T("Cancel this order?", "Ghairi oda hii?"),
+                body: T("It stays in the history as cancelled.", "Itabaki kwenye historia kama iliyoghairiwa."),
+                yes: T("Cancel order", "Ghairi oda"), no: T("Keep order", "Acha oda"), danger: true,
+              })) void update(o, { status: "cancelled" }); }}>{T("Cancel order", "Ghairi oda")}</button>}
               <select value={o.fulfillment_status} disabled={busy === o.id} onChange={(e) => update(o, { fulfillment_status: e.target.value as any })} style={{ padding: "3px 8px" }}>{(["not_applicable", "not_shipped", "shipped", "delivered", "returned"] as const).map((s) => <option key={s} value={s}>{L[lang].fulfillment[s]}</option>)}</select>
               {o.status === "paid" && "delivery_issue" in o && (o.delivery_issue && !o.delivery_resolved_at
                 ? <button className="small" disabled={busy === o.id} onClick={() => update(o, { delivery_resolved_at: new Date().toISOString() })}>{T("Issue resolved", "Tatizo limetatuliwa")}</button>

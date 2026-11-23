@@ -1,5 +1,6 @@
 // "Who paid": the paid orders behind the Revenue card, for the dashboard's date range and filters.
 // Each row is one sale with everything known about the customer and how the sale came about.
+import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase, Workspace, Order, Outcome, L, amt, money, localDay, orderNet } from "./lib";
@@ -53,7 +54,7 @@ export default function PaidOrders({ ws, orders, period, adNames, onClose }: {
       const { data: cs, error } = convIds.length
         ? await supabase.from("conversation_outcomes").select("*").eq("workspace_id", ws.id).in("id", convIds)
         : { data: [], error: null };
-      if (error) setErr(error.message);
+      if (error) setErr(errText(error));
       const byId = Object.fromEntries(((cs ?? []) as Outcome[]).map((c) => [c.id, c]));
       const contactIds = [...new Set(((cs ?? []) as Outcome[]).map((c) => c.contact_id).filter(Boolean))];
       const { data: cts } = contactIds.length ? await supabase.from("contacts").select("id,wa_id").eq("workspace_id", ws.id).in("id", contactIds) : { data: [] };

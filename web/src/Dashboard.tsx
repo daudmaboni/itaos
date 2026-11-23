@@ -1,3 +1,4 @@
+import { errText } from "./errText";
 import type { ReactNode, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { countTo, enterCards, enterRows, growBars, usePageEnter, select } from "./motion";
@@ -388,7 +389,7 @@ function SetNumber({ ws, onWs, field, label, unit, placeholder, hint, T }: { ws:
     const patch = field === "fx_rate" ? { fx_rate: n, fx_auto: false, fx_source: "manual", fx_updated_at: new Date().toISOString() } : { [field]: n };
     const { error } = await supabase.from("workspaces").update(patch).eq("id", ws.id);
     setBusy(false);
-    if (error) setErr(error.message); else onWs?.({ ...ws, ...patch });
+    if (error) setErr(errText(error)); else onWs?.({ ...ws, ...patch });
   }
   return (
     <form className="kpi-set" onSubmit={save}>

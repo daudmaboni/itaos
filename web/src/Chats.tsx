@@ -1,6 +1,8 @@
 // Chats: one card per customer, written so anyone can read it at a glance.
 // Each card answers three questions: who is this, where do things stand, and what should I do now.
 // The technical detail (which rule or Kito reading decided the label) is still there, tucked away.
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import { useRemembered } from "./remember";
 import { enterRows, usePageEnter, select } from "./motion";
 import { takeChatReturn } from "./chatReturn";
@@ -241,7 +243,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
       supabase.from("follow_up_tasks").select("*").eq("workspace_id", ws.id).in("status", ["open", "snoozed"]),
     ]).then(async ([c, a, t]) => {
       if (!cur) return;   // a newer load (other tab, new search) has started: don't let this older one overwrite it
-      if (c.error) { setErr(c.error.message); setRefreshing(false); }
+      if (c.error) { setErr(errText(c.error)); setRefreshing(false); }
       let list = (c.data as Outcome[]) ?? [];
       if (byPaid && period) {
         const m = (await paidIds) ?? {};
@@ -312,7 +314,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
         setNote(T(`Kito has read ${total} chats, ${r.remaining} to go…`, `Kito amesoma chat ${total}, zimebaki ${r.remaining}…`));
       }
       setNote(total ? T(`Kito read ${total} chats.`, `Kito amesoma chat ${total}.`) : T("Kito is up to date. No new messages.", "Kito yuko sawa. Hakuna ujumbe mpya.")); refresh();
-    } catch (e) { setNote((e as Error).message); }
+    } catch (e) { setNote(errText(e)); }
     setRechecking(false);
   }
   useEffect(() => {
@@ -330,19 +332,23 @@ export default function Chats({ ws }: { ws: Workspace }) {
   async function recheck() {
     setRechecking(true); setNote("");
     try { const r = await callFn<{ reanalyzed: number }>("chat-import", { workspace_id: ws.id, action: "reanalyze" }); setNote(T(`Checked ${r.reanalyzed} chats again.`, `Chat ${r.reanalyzed} zimekaguliwa upya.`)); refresh(); }
-    catch (e) { setNote((e as Error).message); }
+    catch (e) { setNote(errText(e)); }
     setRechecking(false);
   }
   async function deleteImported() {
     const { data: imp } = await supabase.from("conversations").select("id").eq("workspace_id", ws.id).eq("phone_number_id", "import").limit(1000);
     const list = (imp ?? []).map((r) => r.id as string);
     if (!list.length) return;
-    if (!confirm(T(`Delete all ${list.length} imported chats and their messages? Recorded sales are kept. This cannot be undone.`,
-      `Futa chat ${list.length} zote zilizoingizwa pamoja na ujumbe wake? Mauzo yaliyorekodiwa yatabaki. Haiwezi kurudishwa.`))) return;
+    if (!(await askConfirm({
+      title: T(`Delete ${list.length} imported chats?`, `Futa chat ${list.length} zilizoingizwa?`),
+      body: T("Their messages go too. Recorded sales are kept.", "Ujumbe wake utafutika pia. Mauzo yaliyorekodiwa yatabaki."),
+      warn: T("This cannot be undone.", "Haiwezi kurudishwa."),
+      yes: T(`Delete ${list.length} chats`, `Futa chat ${list.length}`), no: T("Keep chats", "Acha chat"), danger: true,
+    }))) return;
     setDeleting(true); setErr("");
     const { data, error } = await supabase.rpc("delete_chats", { p_ws: ws.id, p_ids: list.slice(0, 1000), p_via: "chats_page", p_request: "Chats page: delete imported" });
     setDeleting(false);
-    if (error) setErr(error.message);
+    if (error) setErr(errText(error));
     else { setNote(T(`Deleted ${(data as any).deleted} imported chats.`, `Chat ${(data as any).deleted} zilizoingizwa zimefutwa.`)); setSrc("any"); refresh(); }
   }
 

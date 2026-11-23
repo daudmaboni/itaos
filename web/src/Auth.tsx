@@ -29,6 +29,9 @@ const T = {
   password: { en: "Password", sw: "Nenosiri" },
   newPassword: { en: "New password", sw: "Nenosiri jipya" },
   pwHint: { en: "At least 8 characters", sw: "Angalau herufi 8" },
+  pwMore: { en: "{n} more characters", sw: "Herufi {n} zaidi" },
+  pwOk: { en: "✓ Long enough", sw: "✓ Inatosha" },
+  emailOk: { en: "✓ Looks right", sw: "✓ Iko sawa" },
   show: { en: "Show", sw: "Onyesha" }, hide: { en: "Hide", sw: "Ficha" },
   forgot: { en: "Forgot password?", sw: "Umesahau nenosiri?" },
   useLink: { en: "Email me a sign-in link instead", sw: "Nitumie kiungo cha kuingia kwa barua pepe" },
@@ -257,11 +260,13 @@ function Brand({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   );
 }
 
-function Field({ id, label, icon, children, extra }: { id: string; label: string; icon: React.ReactNode; children: React.ReactNode; extra?: React.ReactNode }) {
+/** note: the problem with THIS field, shown right under it (Glide: "point at the fix", not a message at the end). */
+function Field({ id, label, icon, children, extra, note }: { id: string; label: string; icon: React.ReactNode; children: React.ReactNode; extra?: React.ReactNode; note?: string }) {
   return (
-    <div className="ax-field">
+    <div className={"ax-field" + (note ? " is-bad" : "")}>
       <div className="auth-label-row"><label htmlFor={id}>{label}</label>{extra}</div>
       <div className="ax-input"><span className="ax-ico">{icon}</span>{children}</div>
+      {note && <p className="err small ax-note" id={id + "-note"} role="alert">{note}</p>}
     </div>
   );
 }
@@ -308,7 +313,9 @@ export function AuthScreen() {
     if (error) fail(error.message); // on success the browser leaves for Google
   }
 
-  const go = (m: Mode) => { setMode(m); setErr(""); setCanResend(false); };
+  const [bad, setBad] = useState<"" | "biz" | "email" | "pw">(""); // which field the last check failed on
+  const go = (m: Mode) => { setMode(m); setErr(""); setBad(""); setCanResend(false); };
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const fail = (msg: string) => {
     setBusy(false); shake(formRef.current);
     setCanResend(/email not confirmed/i.test(msg));
@@ -317,12 +324,13 @@ export function AuthScreen() {
   };
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(""); setCanResend(false);
+    e.preventDefault(); setErr(""); setBad(""); setCanResend(false);
     const em = email.trim().toLowerCase();
-    if (mode === "signup" && !business.trim()) return fail(t("needName"));
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return fail(t("needEmail"));
-    if (mode === "signin" && !password) return fail(t("needPassword"));
-    if (mode === "signup" && password.length < 8) return fail(t("short"));
+    const at = (f: "biz" | "email" | "pw", m: string) => { setBad(f); fail(m); document.getElementById(f === "pw" ? "pw" : f)?.focus(); };
+    if (mode === "signup" && !business.trim()) return at("biz", t("needName"));
+    if (!EMAIL_RE.test(em)) return at("email", t("needEmail"));
+    if (mode === "signin" && !password) return at("pw", t("needPassword"));
+    if (mode === "signup" && password.length < 8) return at("pw", t("short"));
     setBusy(true);
     try {
       if (mode === "signin") {
@@ -397,18 +405,21 @@ export function AuthScreen() {
         <div className="ax-head"><h2>{title}</h2>{sub && <p className={mode === "signin" ? "ax-sub-opt" : undefined}>{sub}</p>}</div>
 
         {mode === "signup" && (
-          <Field id="biz" label={t("business")} icon={Icon.biz}>
-            <input id="biz" required autoComplete="organization" value={business} onChange={(e) => setBusiness(e.target.value)} placeholder={t("businessPh")} />
+          <Field id="biz" label={t("business")} icon={Icon.biz} note={bad === "biz" ? err : undefined}>
+            <input id="biz" required autoComplete="organization" aria-invalid={bad === "biz" || undefined} value={business} onChange={(e) => { setBusiness(e.target.value); if (bad === "biz") setBad(""); }} placeholder={t("businessPh")} />
           </Field>
         )}
-        <Field id="email" label={t("email")} icon={Icon.mail}>
-          <input id="email" type="email" required autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@business.co.tz" />
+        <Field id="email" label={t("email")} icon={Icon.mail} note={bad === "email" ? err : undefined}
+          extra={mode === "signup" && EMAIL_RE.test(email.trim()) ? <span className="ok small ax-yes">{t("emailOk")}</span> : undefined}>
+          <input id="email" type="email" required autoComplete="email" inputMode="email" aria-invalid={bad === "email" || undefined} value={email} onChange={(e) => { setEmail(e.target.value); if (bad === "email") setBad(""); }} placeholder="you@business.co.tz" />
         </Field>
         {tabbed && (
-          <Field id="pw" label={t("password")} icon={Icon.lock}
-            extra={mode === "signin" ? <button type="button" className="link-btn small" onClick={() => go("forgot")}>{t("forgot")}</button> : <span className="muted small">{t("pwHint")}</span>}>
-            <input id="pw" type={showPw ? "text" : "password"} placeholder="••••••••"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Field id="pw" label={t("password")} icon={Icon.lock} note={bad === "pw" ? err : undefined}
+            extra={mode === "signin" ? <button type="button" className="link-btn small" onClick={() => go("forgot")}>{t("forgot")}</button>
+              : password.length >= 8 ? <span className="ok small ax-yes">{t("pwOk")}</span>
+              : <span className="muted small" aria-live="polite">{password ? t("pwMore").replace("{n}", String(8 - password.length)) : t("pwHint")}</span>}>
+            <input id="pw" type={showPw ? "text" : "password"} placeholder="••••••••" aria-invalid={bad === "pw" || undefined}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => { setPassword(e.target.value); if (bad === "pw") setBad(""); }} />
             <button type="button" className="ax-eye" aria-pressed={showPw} aria-label={showPw ? t("hide") : t("show")} title={showPw ? t("hide") : t("show")} onClick={() => setShowPw(!showPw)}>{showPw ? Icon.eyeOff : Icon.eye}</button>
           </Field>
         )}
@@ -416,7 +427,7 @@ export function AuthScreen() {
         <button className="primary ax-cta" disabled={busy}>
           {busy ? t("wait") : mode === "signin" ? t("signIn") : mode === "signup" ? t("createAccount") : mode === "link" ? t("sendLink") : t("sendReset")}
         </button>
-        {err && <p className="err" role="alert" style={{ margin: 0 }}>{err === "LINK" ? t("linkExpired") : err}</p>}
+        {err && !bad && <p className="err" role="alert" style={{ margin: 0 }}>{err === "LINK" ? t("linkExpired") : err}</p>}
         {canResend && <button type="button" className="ax-ghost" disabled={busy} onClick={() => resend(email.trim().toLowerCase())}>{t("resend")}</button>}
         {resent && <p className="ok" role="status" style={{ margin: 0 }}>{t("resent")}</p>}
 

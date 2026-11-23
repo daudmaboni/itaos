@@ -3,6 +3,7 @@
 //   a business message asking to pay to a number that isn't the business's, a customer moved to another phone,
 //   a customer's screenshot paid to someone else, and customers who paid but have no recorded sale.
 // Plus each team member's numbers (assigned chats, bought, messages from itaOS, reply time).
+import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { supabase, Workspace, money, fmt, ago, canEdit } from "./lib";
 import { useKept } from "./keep";
@@ -25,7 +26,7 @@ export default function LeakGuard({ ws }: { ws: Workspace }) {
     let live = true;
     supabase.rpc("staff_leaks", { p_ws: ws.id, p_days: days }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(/does not exist|schema cache|could not find/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message);
+      if (error) setErr(/does not exist|schema cache|could not find/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(error));
       else { setErr(""); setR(data as LeakRes); }
     });
     return () => { live = false; };
@@ -46,7 +47,7 @@ export default function LeakGuard({ ws }: { ws: Workspace }) {
       ? await supabase.rpc("leak_ok_add_receiver", { p_ws: ws.id, p_num: num })
       : await supabase.rpc("guard_review", { p_ws: ws.id, p_kind: "leak", p_ref: `${flag}:${num}`, p_verdict: v });
     setBusy("");
-    if (res.error) setErr(res.error.message); else setTick((x) => x + 1);
+    if (res.error) setErr(errText(res.error)); else setTick((x) => x + 1);
   }
 
   return (

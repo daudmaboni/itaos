@@ -1,5 +1,6 @@
 // Team members and assignment: who on the business's team owns a chat or an order.
 // Tasks already had an owner (Actions page); 0033 adds the same for chats and orders.
+import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { supabase, Workspace, canEdit } from "./lib";
 
@@ -57,7 +58,7 @@ export function AssignChat({ ws, conversationId }: { ws: Workspace; conversation
         setBusy(true); setErr("");
         const { error } = await supabase.rpc("assign_chat", { p_conv: conversationId, p_user: u });
         setBusy(false);
-        if (error) setErr(error.message); else setValue(u);
+        if (error) setErr(errText(error)); else setValue(u);
       }} />
       {err && <span className="err small">{err}</span>}
     </div>

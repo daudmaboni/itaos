@@ -1,4 +1,5 @@
 // The open chat on the Chats page: messages, reply box, payment confirmation and photos (moved out of Chats.tsx, unchanged).
+import { errText } from "./errText";
 import { select } from "./motion";
 import { PayFlagBanner } from "./PaymentGuard";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -155,13 +156,13 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
     let { error } = await supabase.from("conversations").update({ source: yes ? "ad" : "organic", ad_signal: "owner" }).eq("id", r.id);
     // Until migration 0032 is on the database, 'owner' isn't an allowed ad_signal: save the answer without it.
     if (error?.code === "23514") ({ error } = await supabase.from("conversations").update({ source: yes ? "ad" : "organic", ...(yes ? {} : { ad_signal: null }) }).eq("id", r.id));
-    setBusy(false); if (error) { setSrc(r.source); setErr(error.message); } else onChange();
+    setBusy(false); if (error) { setSrc(r.source); setErr(errText(error)); } else onChange();
   }
   async function setOverride(v: "lost" | "open" | null) {
     setBusy(true); setErr("");
     const { error } = await supabase.from("conversations").update({ outcome_override: v, override_note: null }).eq("id", r.id);
     if (!error && v === "lost" && task) await supabase.from("follow_up_tasks").update({ status: "dismissed" }).eq("id", task.id).eq("workspace_id", ws.id);
-    setBusy(false); if (error) setErr(error.message); else onChange();
+    setBusy(false); if (error) setErr(errText(error)); else onChange();
   }
   async function remind() {
     setBusy(true); setErr("");
@@ -170,7 +171,7 @@ export function ChatPane({ r, ws, T, adName, phone, task, onChange, onClose, sta
       workspace_id: ws.id, conversation_id: r.id, title: `Follow up with ${name}`,
       draft: r.kito_next ?? null, draft_source: r.kito_next ? "kito" : null, due_at: new Date().toISOString(), created_by: user.user?.id,
     });
-    setBusy(false); if (error) setErr(error.code === "23505" ? T("A reminder already exists.", "Tayari kuna kikumbusho.") : error.message); else onChange();
+    setBusy(false); if (error) setErr(error.code === "23505" ? T("A reminder already exists.", "Tayari kuna kikumbusho.") : errText(error)); else onChange();
   }
 
   const dayKey = (iso: string) => fmt("d" + tz, () => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" })).format(new Date(iso));
@@ -494,7 +495,7 @@ export function Composer({ r, ws, T, phone, msgs, onSent, onPending, onFailed }:
       // (and re-check whether Meta blocked it, which turns the box into the "verify your business" note)
       window.setTimeout(() => { void onSent(); setBump((b) => b + 1); }, 5000); window.setTimeout(() => { void onSent(); setBump((b) => b + 1); }, 15000);
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(errText(e));
       if (tmp) { onFailed?.(tmp); setText((cur) => cur || t); }
     }
     setSending(false); box.current?.focus();
@@ -506,7 +507,7 @@ export function Composer({ r, ws, T, phone, msgs, onSent, onPending, onFailed }:
       const d = await callFn<{ draft_sw: string; draft_en: string; chat_lang?: "sw" | "en" }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: r.id });
       const lang = d.chat_lang ?? (ws.language === "en" ? "en" : "sw");
       setText(lang === "en" ? d.draft_en || d.draft_sw : d.draft_sw || d.draft_en); box.current?.focus();
-    } catch (e) { setErr((e as Error).message); }
+    } catch (e) { setErr(errText(e)); }
     setDrafting(false);
   }
   const hours = Math.floor(left / 3600e3), mins = Math.max(1, Math.round((left % 3600e3) / 60000));
@@ -624,7 +625,7 @@ export function ConfirmPayment({ r, ws, T, msgs, onDone, onLater }: { r: Outcome
       notes: [txn ? `Transaction ${txn}` : null, pm ? `Paid date read from the chat (${pm.kind}): "${pm.snippet.slice(0, 80)}"` : null].filter(Boolean).join("\n") || null,
     });
     setBusy(false);
-    if (error) setErr(error.code === "23505" ? T(`Transaction ${txn} is already recorded for another sale. The same payment can't count twice.`, `Muamala ${txn} tayari umerekodiwa kwa mauzo mengine. Malipo hayo hayawezi kuhesabiwa mara mbili.`) : error.message);
+    if (error) setErr(error.code === "23505" ? T(`Transaction ${txn} is already recorded for another sale. The same payment can't count twice.`, `Muamala ${txn} tayari umerekodiwa kwa mauzo mengine. Malipo hayo hayawezi kuhesabiwa mara mbili.`) : errText(error));
     else { setPaidDone(true); setTimeout(onDone, 1100); }
   }
   // "No, they never paid": take the chat off Check payment for good (back to All). The word-rules and Kito
@@ -632,7 +633,7 @@ export function ConfirmPayment({ r, ws, T, msgs, onDone, onLater }: { r: Outcome
   async function never() {
     setBusy(true); setErr("");
     const { error } = await supabase.from("conversations").update({ outcome_override: "open", override_note: "never paid" }).eq("id", r.id);
-    setBusy(false); if (error) setErr(error.message); else onDone();
+    setBusy(false); if (error) setErr(errText(error)); else onDone();
   }
 
   return (
@@ -760,7 +761,7 @@ function TempFix({ r, T, onChange }: { r: Outcome; T: Tr; onChange: () => void }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("conversations").update({ kito_temp: v, temp_override: v, temp_override_at: new Date().toISOString(), temp_override_by: u.user?.id ?? null }).eq("id", r.id);
     setSaving(null);
-    if (error) setNote(error.message);
+    if (error) setNote(errText(error));
     else { setNote(T("Saved. Kito keeps your answer until the customer writes again.", "Imehifadhiwa. Kito atabaki na jibu lako hadi mteja aandike tena.")); onChange(); }
   }
   const opts: ["hot" | "warm" | "cold", string][] = [["hot", T("Very", "Sana")], ["warm", T("Some", "Kiasi")], ["cold", T("Not very", "Kidogo")]];

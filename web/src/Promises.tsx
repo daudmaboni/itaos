@@ -2,6 +2,7 @@
 // Kito only PROPOSES; the owner confirms the day (or picks one) or dismisses. Confirmed promises ring the
 // phone when due (push-send, migration 0046). itaOS never messages the customer: drafts are copied and
 // sent by the owner from WhatsApp. A recorded paid order closes the chat's promises automatically.
+import { errText } from "./errText";
 import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useRef, useState } from "react";
@@ -107,7 +108,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
   async function run(which: string, p: PromiseLike<{ error: any }>, ok?: string) {
     setDoing(which); setMsg("");
     const { error } = await p;
-    if (error) { setDoing(null); setMsg(error.message); return; }
+    if (error) { setDoing(null); setMsg(errText(error)); return; }
     if (ok) setMsg(ok);
     try { await onChange(); } finally { setDoing(null); }
     // If this business has Google connected, push the change to Google Tasks now (the 5-minute job is the backup).
@@ -135,7 +136,7 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
       const text = sw ? d.draft_sw : d.draft_en;
       setDraft(text);
       await supabase.from("follow_up_tasks").update({ draft: text, draft_source: "kito" }).eq("id", t.id).eq("workspace_id", ws.id);
-    } catch (e) { setMsg((e as Error).message); }
+    } catch (e) { setMsg(errText(e)); }
     setWriting(false);
   }
 

@@ -1,6 +1,7 @@
 // Receipts → "Check your M-Pesa": paste payment SMS messages or upload the statement CSV, and see which
 // payments are already recorded as sales in itaOS and which are not (with the chat they most likely belong to).
 // Recording one is the owner's tap (wallet_record, migration 0077). Data: wallet_lines + wallet_check.
+import { errText } from "./errText";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, Workspace, money, fmt, localDay } from "./lib";
 import { parseWallet, type WalletLine } from "./walletParse";
@@ -31,7 +32,7 @@ export default function WalletCheck({ ws }: { ws: Workspace }) {
     const to = localDay(new Date(), tz), from = localDay(new Date(Date.now() - (DAYS - 1) * 864e5), tz);
     supabase.rpc("wallet_check", { p_ws: ws.id, p_from: from, p_to: to }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(/does not exist|schema cache|could not find/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message);
+      if (error) setErr(/does not exist|schema cache|could not find/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(error));
       else { setErr(""); setRes(data as Res); }
     });
     return () => { live = false; };
@@ -49,18 +50,18 @@ export default function WalletCheck({ ws }: { ws: Workspace }) {
     const rows = parsed.map(({ date_guessed: _g, ...x }) => ({ ...x, workspace_id: ws.id }));
     const { error } = await supabase.from("wallet_lines").upsert(rows, { onConflict: "workspace_id,txn_id", ignoreDuplicates: true });
     setBusy("");
-    if (error) { setNote(error.message); return; }
+    if (error) { setNote(errText(error)); return; }
     setText(""); setNote(T(`${parsed.length} payments checked.`, `Malipo ${parsed.length} yamekaguliwa.`)); setTick((x) => x + 1);
   }
   async function record(i: Item) {
     setBusy(i.id);
     const { error } = await supabase.rpc("wallet_record", { p_line: i.id, p_conv: i.conversation_id });
-    setBusy(""); if (error) setNote(error.message); else setTick((x) => x + 1);
+    setBusy(""); if (error) setNote(errText(error)); else setTick((x) => x + 1);
   }
   async function dismiss(i: Item, v: boolean) {
     setBusy(i.id);
     const { error } = await supabase.from("wallet_lines").update({ dismissed: v }).eq("id", i.id).eq("workspace_id", ws.id);
-    setBusy(""); if (error) setNote(error.message); else setTick((x) => x + 1);
+    setBusy(""); if (error) setNote(errText(error)); else setTick((x) => x + 1);
   }
 
   const howLabel = (m: Item["matched"]) => m === "screenshot" ? T("same code on a payment screenshot", "namba ile ile kwenye picha ya malipo")

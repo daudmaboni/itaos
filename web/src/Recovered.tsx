@@ -4,6 +4,7 @@
 //    closed the card says so and shows the observational "sales after your follow-ups" instead, labelled as not proof.
 //  - "Clear" only when the whole 95% range of the difference is above zero. Otherwise it is an estimate that may be zero.
 //  - Journeys (messaged → replied → paid), the business's past and customers nobody messaged are context, never added in.
+import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { supabase, Workspace, money, fmt } from "./lib";
 import { useKept } from "./keep";
@@ -51,7 +52,7 @@ export default function Recovered({ ws, period, conv, cur }: {
     setErr("");
     supabase.rpc("recovered_sales", { p_ws: ws.id, p_from: period.from, p_to: period.to }).then(({ data, error }) => {
       if (gone) return;
-      if (error) setErr(error.message); else setR(data as Res);
+      if (error) setErr(errText(error)); else setR(data as Res);
     });
     return () => { gone = true; };
   }, [ws.id, period.from, period.to]);

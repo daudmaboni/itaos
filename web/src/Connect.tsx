@@ -1,3 +1,5 @@
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import { enterCards, usePageEnter, select } from "./motion";
 import { useEffect, useRef, useState } from "react";
 import { supabase, callFn, Workspace, canManage, when, ago } from "./lib";
@@ -51,7 +53,7 @@ function ConnectSimple({ ws }: { ws: Workspace }) {
         : { ok: r.images_saved
             ? T(`${r.images_saved} images and voice notes fetched${r.images_failed ? `, ${r.images_failed} failed` : ""}.${r.images_saved >= 40 ? " Press again for more." : ""}`, `Picha na sauti ${r.images_saved} zimeletwa${r.images_failed ? `, ${r.images_failed} zimeshindwa` : ""}.${r.images_saved >= 40 ? " Bonyeza tena kwa zaidi." : ""}`)
             : T("Nothing missing: all images and voice notes from the last 7 days are saved.", "Hakuna kilichokosekana: picha na sauti zote za siku 7 zimehifadhiwa.") });
-    } catch (e) { setMsg({ err: (e as Error).message }); }
+    } catch (e) { setMsg({ err: errText(e) }); }
     setFetching(false);
   };
   const pageRef = usePageEnter<HTMLDivElement>((root) => { enterCards(select(root, ":scope > .card"), { stagger: 0.07 }); });
@@ -63,7 +65,7 @@ function ConnectSimple({ ws }: { ws: Workspace }) {
       const e = r.synced.find((x) => x.error);
       if (e) throw new Error(e.error);
       setMsg({ ok: T("Ads updated.", "Matangazo yamesasishwa.") });
-    } catch (e) { setMsg({ err: (e as Error).message }); }
+    } catch (e) { setMsg({ err: errText(e) }); }
     setBusy(false); setTick((t) => t + 1);
   };
   const Help = ({ what }: { what: string }) => (
@@ -145,7 +147,7 @@ function ConnectSetup({ ws }: { ws: Workspace }) {
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key); setMsg({});
-    try { await fn(); } catch (e) { setMsg({ err: (e as Error).message }); }
+    try { await fn(); } catch (e) { setMsg({ err: errText(e) }); }
     setBusy(""); setTick((t) => t + 1);
   };
 
@@ -400,7 +402,7 @@ function DisconnectAds({ c, onDone, onError, last }: { c: Conn; onDone: (t: stri
     setBusy(true);
     const { data, error } = await supabase.rpc("disconnect_ads", { p_conn: c.id, p_delete_data: wipe });
     setBusy(false);
-    if (error) return onError(error.message);
+    if (error) return onError(errText(error));
     const d = data as { ads_deleted: number; days_deleted: number };
     onDone(`${c.label ?? c.external_id} disconnected. itaOS no longer reads it${wipe && last ? ` and its past ad data was deleted (${d.ads_deleted} ads).` : "; past figures stay in your reports."} You can connect it again any time.`);
   }
@@ -436,7 +438,7 @@ function SalesToMeta({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => 
       setToken(""); setOpen(false);
       setMsg({ ok: T(`Connected. ${r.sent} recent sale${r.sent === 1 ? "" : "s"} sent to Meta${r.failed ? `, ${r.failed} failed` : ""}.`, `Imeunganishwa. Mauzo ${r.sent} ya karibuni yametumwa kwa Meta${r.failed ? `, ${r.failed} yameshindwa` : ""}.`) });
       load();
-    } catch (e) { setMsg({ err: (e as Error).message }); }
+    } catch (e) { setMsg({ err: errText(e) }); }
     setBusy(false);
   }
   const on = !!st?.connected;
@@ -504,25 +506,29 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
   async function connect() {
     setBusy("connect"); setMsg({});
     try { const r = await callFn<{ url: string }>("google", { action: "start", workspace_id: ws.id }); location.href = r.url; }
-    catch (e) { setMsg({ err: (e as Error).message }); setBusy(null); }
+    catch (e) { setMsg({ err: errText(e) }); setBusy(null); }
   }
   async function save(patch: Partial<Pick<GLink, "tasks_on" | "contacts_on" | "contacts_days">>, which: string) {
     setBusy(which); setMsg({});
     setLink((l) => (l ? { ...l, ...patch } : l));
     try { await callFn("google", { action: "settings", workspace_id: ws.id, ...patch }); load(); }
-    catch (e) { setMsg({ err: (e as Error).message }); load(); }
+    catch (e) { setMsg({ err: errText(e) }); load(); }
     setBusy(null);
   }
   async function disconnect() {
-    if (!window.confirm(T("Disconnect Google? Tasks and contacts already in Google stay there; itaOS just stops adding new ones.", "Tenganisha Google? Kazi na majina yaliyopo Google yatabaki; itaOS itaacha kuongeza mapya."))) return;
+    if (!(await askConfirm({
+      title: T("Disconnect Google?", "Tenganisha Google?"),
+      body: T("Tasks and contacts already in Google stay there; itaOS just stops adding new ones.", "Kazi na majina yaliyopo Google yatabaki; itaOS itaacha kuongeza mapya."),
+      yes: T("Disconnect Google", "Tenganisha Google"), no: T("Keep connected", "Acha imeunganishwa"), danger: true,
+    }))) return;
     setBusy("disconnect"); setMsg({});
     try { await callFn("google", { action: "disconnect", workspace_id: ws.id }); setMsg({ ok: T("Google disconnected.", "Google imetenganishwa.") }); load(); }
-    catch (e) { setMsg({ err: (e as Error).message }); }
+    catch (e) { setMsg({ err: errText(e) }); }
     setBusy(null);
   }
   async function syncNow() {
     setBusy("sync"); setMsg({});
-    try { await callFn("google", { action: "sync", workspace_id: ws.id }); load(); } catch (e) { setMsg({ err: (e as Error).message }); }
+    try { await callFn("google", { action: "sync", workspace_id: ws.id }); load(); } catch (e) { setMsg({ err: errText(e) }); }
     setBusy(null);
   }
 
@@ -530,7 +536,11 @@ function GoogleCard({ ws, T }: { ws: Workspace; T: (en: string, sw: string) => s
   const expired = link && link.status !== "active";
   const spin = (w: string) => busy === w && <span className="kito-spin sm" aria-hidden />;
   const sw = (on: boolean, onChange: () => void, label: string, which: string) => (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} className={"gsw" + (on ? " on" : "")} disabled={!manage || !!busy} onClick={onChange}>{busy === which ? <span className="kito-spin sm" aria-hidden /> : <i />}</button>
+    // Position + colour + a word: nobody has to guess whether it's on (Glide: "Is this switch on or off?")
+    <span className="gsw-wrap">
+      <span className={"gsw-word" + (on ? " on" : "")} aria-hidden>{on ? T("On", "Imewashwa") : T("Off", "Imezimwa")}</span>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} className={"gsw" + (on ? " on" : "")} disabled={!manage || !!busy} onClick={onChange}>{busy === which ? <span className="kito-spin sm" aria-hidden /> : <i />}</button>
+    </span>
   );
   return (
     <section className="card gcard">

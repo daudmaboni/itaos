@@ -1,5 +1,6 @@
 import { useNavBadges, chatsBadge, actionsBadge, NavBadge, Badges } from "./badges";
 import { UndoToast } from "./undo";
+import { ConfirmHost } from "./confirmAsk";
 import { whoosh } from "./sound";
 import { AppTip } from "./PhoneApp";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -252,6 +253,7 @@ export default function App() {
       <Island ws={ws} />
       <BottomNav view={view} sw={ws.language === "sw"} badges={badges} />
       <UndoToast />
+      <ConfirmHost />
       <PageView view={view} refreshN={refreshN}><Fragment key={refreshN}>
       {view === "dashboard" && <><AppTip sw={ws.language === "sw"} /><Dashboard ws={ws} onWs={setWs} /></>}
       {view === "kito" && <Kito ws={ws} staff={isPlatformAdmin} />}

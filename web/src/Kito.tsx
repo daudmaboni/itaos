@@ -1,6 +1,8 @@
 // Ask Kito: any question about the business, in Kiswahili or English. Kito answers from the
 // workspace's own data and shows the chats, ads and numbers behind the answer, with buttons to act.
 // Kito never sends WhatsApp messages. It can PREPARE a chat delete; only the owner's click runs it.
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import { useEffect, useRef, useState } from "react";
 import { enterCards, usePageEnter, select } from "./motion";
 import { supabase, callFn, Workspace, L, ago, money, fmt, canEdit } from "./lib";
@@ -153,7 +155,7 @@ export default function Kito({ ws, staff = false }: { ws: Workspace; staff?: boo
       setTurns((ts) => ts.map((t, i) => (i === ts.length - 1 ? { question: text, answer: a } : t)));
       setRecent((r) => [a, ...r.filter((x) => x.id !== a.id)].slice(0, 15));
     } catch (e) {
-      setTurns((ts) => ts.map((t, i) => (i === ts.length - 1 ? { question: text, error: (e as Error).message } : t)));
+      setTurns((ts) => ts.map((t, i) => (i === ts.length - 1 ? { question: text, error: errText(e) } : t)));
     }
     inputRef.current?.focus();
   }
@@ -366,7 +368,7 @@ function ChatCard({ c, ws }: { c: ChatItem; ws: Workspace }) {
   async function makeDraft() {
     setBusy(true); setErr("");
     try { setDraft(await callFn<Draft>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: c.chat_id })); }
-    catch (e) { setErr((e as Error).message); }
+    catch (e) { setErr(errText(e)); }
     setBusy(false);
   }
   async function copy() {
@@ -451,12 +453,15 @@ function DeleteBlock({ b, ws }: { b: Extract<Block, { kind: "delete_chats" }>; w
   const live = b.by_origin.live ?? 0;
 
   async function run() {
-    const msg = T(`Delete ${b.count} chats and ${b.messages} messages for good? This cannot be undone.`, `Futa chat ${b.count} na ujumbe ${b.messages} kabisa? Haiwezi kurudishwa.`)
-      + (live ? "\n\n" + T(`${live} of them came through your live WhatsApp connection and cannot be fetched again.`, `${live} kati yake zilikuja kupitia WhatsApp hai na haziwezi kupatikana tena.`) : "");
-    if (!confirm(msg)) return;
+    if (!(await askConfirm({
+      title: T(`Delete ${b.count} chats for good?`, `Futa chat ${b.count} kabisa?`),
+      body: T(`${b.count} chats and ${b.messages} messages will be removed.`, `Chat ${b.count} na ujumbe ${b.messages} zitaondolewa.`),
+      warn: T("This cannot be undone.", "Haiwezi kurudishwa.") + (live ? " " + T(`${live} of them came through your live WhatsApp connection and cannot be fetched again.`, `${live} kati yake zilikuja kupitia WhatsApp hai na haziwezi kupatikana tena.`) : ""),
+      yes: T(`Delete ${b.count} chats`, `Futa chat ${b.count}`), no: T("Keep chats", "Acha chat"), danger: true,
+    }))) return;
     setState("busy"); setErr("");
     const { data, error } = await supabase.rpc("delete_chats", { p_ws: ws.id, p_ids: b.chat_ids, p_via: "kito", p_request: b.request });
-    if (error) { setErr(error.message); setState("ready"); return; }
+    if (error) { setErr(errText(error)); setState("ready"); return; }
     setRes(data as any); setState("done");
   }
 

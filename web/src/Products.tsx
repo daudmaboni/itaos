@@ -4,6 +4,8 @@
 // the owner can still type a different number. Nothing is assumed for a new business.
 // Everything here belongs to one business (workspace): its products, its photos, its sales. Switching
 // business shows that business's list; nothing is shared between businesses.
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import { useRemembered } from "./remember";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImageViewer } from "./ImageViewer";
@@ -33,7 +35,7 @@ export function useProducts(wsId: string, tick = 0) {
   useEffect(() => {
     let live = true;
     supabase.from("products").select("*").eq("workspace_id", wsId).order("sort").order("name")
-      .then(({ data, error }) => { if (!live) return; if (error) setErr(error.message); setList((data as Product[]) ?? []); });
+      .then(({ data, error }) => { if (!live) return; if (error) setErr(errText(error)); setList((data as Product[]) ?? []); });
     return () => { live = false; };
   }, [wsId, tick]);
   return { products: list, err };
@@ -137,7 +139,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
       const blob = await shrink(f);
       const path = `${ws.id}/${id}/${crypto.randomUUID()}.jpg`;
       const { error } = await supabase.storage.from("product-photos").upload(path, blob, { contentType: blob.type || "image/jpeg" });
-      if (error) setErr(error.message); else added.push(path);
+      if (error) setErr(errText(error)); else added.push(path);
     }
     setPhotos((x) => [...x, ...added]);
     setBusy(false);
@@ -163,7 +165,7 @@ function ProductForm({ ws, p, onDone, onCancel, T }: { ws: Workspace; p: Product
       ? await supabase.from("products").update(row).eq("id", p.id).eq("workspace_id", ws.id)
       : await supabase.from("products").insert({ id, ...row, sort: 999 });
     setBusy(false);
-    if (error) { setErr(error.code === "23505" ? T("You already have a product with this name.", "Tayari una bidhaa yenye jina hili.") : error.message); shake(box.current); }
+    if (error) { setErr(error.code === "23505" ? T("You already have a product with this name.", "Tayari una bidhaa yenye jina hili.") : errText(error)); shake(box.current); }
     else { forgetPhotosReady(ws.id); onDone(); }
   }
   const pr = num(price), c = num(cost);
@@ -234,14 +236,18 @@ function ProductCard({ ws, p, editor, sold, spotted, best, rank, period, canMove
   async function toggle() {
     setBusy(true);
     const { error } = await supabase.from("products").update({ active: !p.active }).eq("id", p.id).eq("workspace_id", ws.id);
-    setBusy(false); if (error) setErr(error.message); else { forgetPhotosReady(ws.id); onChange(); }
+    setBusy(false); if (error) setErr(errText(error)); else { forgetPhotosReady(ws.id); onChange(); }
   }
   async function remove() {
-    if (!confirm(T(`Delete ${p.name}? Orders that already used it keep their cost.`, `Futa ${p.name}? Oda zilizokwisha itumia zinabaki na gharama yake.`))) return;
+    if (!(await askConfirm({
+      title: T(`Delete ${p.name}?`, `Futa ${p.name}?`),
+      body: T("Orders that already used it keep their cost.", "Oda zilizokwisha itumia zinabaki na gharama yake."),
+      yes: T("Delete product", "Futa bidhaa"), no: T("Keep product", "Acha bidhaa"), danger: true,
+    }))) return;
     setBusy(true);
     if (p.photos.length) await supabase.storage.from("product-photos").remove(p.photos);
     const { error } = await supabase.from("products").delete().eq("id", p.id).eq("workspace_id", ws.id);
-    setBusy(false); if (error) setErr(error.message); else { forgetPhotosReady(ws.id); onChange(); }
+    setBusy(false); if (error) setErr(errText(error)); else { forgetPhotosReady(ws.id); onChange(); }
   }
   const share = best > 0 && s.sales > 0 ? Math.max(0.04, s.sales / best) : 0;
   return (
@@ -327,7 +333,7 @@ function MissingCosts({ ws, products, editor, T }: { ws: Workspace; products: Pr
       const { data, error } = await supabase.from("orders").select("id,amount,discount,refund_amount,currency,paid_at,conversation_id")
         .eq("workspace_id", ws.id).eq("status", "paid").is("cost", null).order("paid_at", { ascending: false }).limit(300);
       if (!live) return;
-      if (error) { setErr(error.message); setRows([]); return; }
+      if (error) { setErr(errText(error)); setRows([]); return; }
       const list = (data as NoCost[]) ?? [];
       const ids = [...new Set(list.map((o) => o.conversation_id).filter(Boolean))] as string[];
       const names: Record<string, string | null> = {};
@@ -349,7 +355,7 @@ function MissingCosts({ ws, products, editor, T }: { ws: Workspace; products: Pr
     if (items.length) { patch.items = items; patch.product = itemsLabel(items); }
     const { error } = await supabase.from("orders").update(patch).eq("id", o.id).eq("workspace_id", ws.id);
     setBusy(false);
-    if (error) setErr(error.message); else { setOpen(null); setTick((t) => t + 1); }
+    if (error) setErr(errText(error)); else { setOpen(null); setTick((t) => t + 1); }
   }
   if (!rows) return null;
   const shown = all ? rows : rows.slice(0, 12);
@@ -432,7 +438,7 @@ function useSold(ws: Workspace, products: Product[] | null, from: string, to: st
         const { data, error } = await supabase.from("orders").select("id,paid_at,items,product,amount,discount,refund_amount,currency")
           .eq("workspace_id", ws.id).eq("status", "paid").gte("paid_at", lo).lt("paid_at", hi).order("paid_at").range(off, off + 999);
         if (!live) return;
-        if (error) { setErr(error.message); break; }
+        if (error) { setErr(errText(error)); break; }
         out.push(...((data as SaleRow[]) ?? []));
         if ((data ?? []).length < 1000) break;
       }

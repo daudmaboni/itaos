@@ -1,3 +1,4 @@
+import { errText } from "./errText";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { soundsOn, setSounds, whoosh } from "./sound";
 import Dashboard from "./Dashboard";
@@ -77,7 +78,7 @@ function useSave<T extends Partial<Workspace>>(ws: Workspace, onWs: (w: Workspac
     setBusy(true); setMsg({});
     const { error } = await supabase.from("workspaces").update(patch).eq("id", ws.id);
     setBusy(false);
-    if (error) { shake(form); setMsg({ err: error.message }); return false; }
+    if (error) { shake(form); setMsg({ err: errText(error) }); return false; }
     onWs({ ...ws, ...patch });
     setMsg({ ok: okText }); flash(form?.querySelector(".savemsg") ?? null);
     return true;
@@ -121,11 +122,16 @@ function PaymentsCurrency({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace)
     setBusy(true); setErr("");
     const { error } = await supabase.from("workspaces").update({ currency: pick }).eq("id", ws.id);
     setBusy(false);
-    if (error) { setErr(error.message); return; }
+    if (error) { setErr(errText(error)); return; }
     onWs({ ...ws, currency: pick }); setAsk(false);
   }
   function cancel() { setAsk(false); setPick(ws.currency); }
   useBackLayer(ask, cancel); // phone Back = "No, keep"
+  useEffect(() => { // Esc = "No, keep" too
+    if (!ask) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) cancel(); };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  });
   return (
     <section className="card">
       <div><h2>{T("Payments from customers", "Malipo kutoka kwa wateja")}</h2>
@@ -144,8 +150,8 @@ function PaymentsCurrency({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace)
         <div className="dr-layer" data-noswipe role="dialog" aria-modal="true" aria-labelledby="cur-ask-h">
           <div className="dr-scrim" onClick={cancel} aria-hidden />
           <div className="confirm-modal">
-            <h2 id="cur-ask-h">{T("Are you sure?", "Una uhakika?")}</h2>
-            <p style={{ margin: 0 }}>{T(`Change customer payments from ${ws.currency} to ${pick}?`, `Badilisha malipo ya wateja kutoka ${ws.currency} kwenda ${pick}?`)}</p>
+            <h2 id="cur-ask-h">{T(`Change payments to ${pick}?`, `Badilisha malipo kuwa ${pick}?`)}</h2>
+            <p style={{ margin: 0 }}>{T(`Customer payments are counted in ${ws.currency} now.`, `Malipo ya wateja yanahesabiwa kwa ${ws.currency} sasa.`)}</p>
             <p className="small muted" style={{ margin: 0 }}>{T(`Every sale, old and new, will be read as ${pick}. A sale typed as 205,000 will mean ${pick} 205,000. Only do this if your customers really pay in ${pick}.`, `Kila mauzo, ya zamani na mapya, yatasomwa kama ${pick}. Mauzo ya 205,000 yatamaanisha ${pick} 205,000. Fanya hivi tu kama wateja wanalipa kwa ${pick} kweli.`)}</p>
             <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
               <button type="button" onClick={cancel} disabled={busy}>{T("No, keep ", "Hapana, baki ")}{ws.currency}</button>
@@ -191,7 +197,7 @@ function Replying({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => void
     setBusy(true); setErr("");
     const { error } = await supabase.from("workspaces").update({ send_enabled: !on }).eq("id", ws.id);
     setBusy(false);
-    if (error) setErr(error.message); else onWs({ ...ws, send_enabled: !on });
+    if (error) setErr(errText(error)); else onWs({ ...ws, send_enabled: !on });
   }
   return (
     <section className="card">
@@ -274,7 +280,7 @@ function NameWords({ ws, T }: { ws: Workspace; T: Tr }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [allAuto, setAllAuto] = useState(false);
-  useEffect(() => { supabase.rpc("name_rules", { p_ws: ws.id }).then(({ data, error }) => { if (error) setErr(error.message); else setR(data as NameRules); }); }, [ws.id]);
+  useEffect(() => { supabase.rpc("name_rules", { p_ws: ws.id }).then(({ data, error }) => { if (error) setErr(errText(error)); else setR(data as NameRules); }); }, [ws.id]);
   const change = async (words: string[], kind: "tag" | "name" | null) => {
     if (!words.length) return;
     setBusy(true); setErr("");
@@ -397,7 +403,7 @@ function Rates({ ws, onWs, T }: { ws: Workspace; onWs: (w: Workspace) => void; T
       else if (first?.skipped === "no ad data") setFxErr(T("No ad account data yet, so there is nothing to convert.", "Bado hakuna data ya matangazo, hivyo hakuna cha kubadilisha."));
       const { data } = await supabase.from("workspaces").select("fx_rate,fx_auto,fx_updated_at,fx_source,fx_base").eq("id", ws.id).single();
       if (data) { onWs({ ...ws, ...data, fx_auto: true }); if (data.fx_rate) setRate(moneyText(data.fx_rate)); }
-    } catch (e) { setFxErr((e as Error).message); }
+    } catch (e) { setFxErr(errText(e)); }
     setFetching(false);
   }
   return (
@@ -451,7 +457,7 @@ function Profile({ ws, T }: { ws: Workspace; T: Tr }) {
   const editor = canEdit(ws);
   useEffect(() => {
     supabase.from("business_profiles").select("*").eq("workspace_id", ws.id).maybeSingle().then(({ data, error }) => {
-      if (error) setMsg({ err: error.message });
+      if (error) setMsg({ err: errText(error) });
       if (data) { setExists(true); setP({ products: (data.products ?? []).map((x: any) => ({ name: x.name ?? "", price: x.price == null ? "" : String(x.price), note: x.note ?? "" })), delivery_areas: data.delivery_areas ?? "", payment_methods: data.payment_methods ?? "", tone: data.tone ?? "", faqs: (data.faqs ?? []).map((x: any) => ({ q: x.q ?? "", a: x.a ?? "" })), constraints: data.constraints ?? "", updated_at: data.updated_at }); }
       else setP(emptyProfile());
     });
@@ -468,7 +474,7 @@ function Profile({ ws, T }: { ws: Workspace; T: Tr }) {
     };
     const { error } = exists ? await supabase.from("business_profiles").update(row).eq("workspace_id", ws.id) : await supabase.from("business_profiles").insert(row);
     setBusy(false);
-    if (error) { shake(e.currentTarget); setMsg({ err: error.message }); } else { setExists(true); setMsg({ ok: T("Saved. Kito uses this when drafting replies and content.", "Imehifadhiwa. Kito anatumia hii kuandika rasimu.") }); flash(e.currentTarget.querySelector(".savemsg")); }
+    if (error) { shake(e.currentTarget); setMsg({ err: errText(error) }); } else { setExists(true); setMsg({ ok: T("Saved. Kito uses this when drafting replies and content.", "Imehifadhiwa. Kito anatumia hii kuandika rasimu.") }); flash(e.currentTarget.querySelector(".savemsg")); }
   }
   return (
     <form className="card" onSubmit={submit}>
@@ -530,7 +536,7 @@ function MyProfile({ ws, T }: { ws: Workspace; T: Tr }) {
     setBusy(true);
     const { data, error } = await supabase.auth.updateUser({ data: { full_name: name.trim().slice(0, 80) || null, phone: p || null } });
     setBusy(false);
-    if (error) { shake(e.currentTarget); setMsg({ err: error.message }); } else { setU(data.user); flash(e.currentTarget); setMsg({ ok: T("Saved.", "Imehifadhiwa.") }); }
+    if (error) { shake(e.currentTarget); setMsg({ err: errText(error) }); } else { setU(data.user); flash(e.currentTarget); setMsg({ ok: T("Saved.", "Imehifadhiwa.") }); }
   }
   async function changeEmail() {
     setEmailMsg({});
@@ -539,7 +545,7 @@ function MyProfile({ ws, T }: { ws: Workspace; T: Tr }) {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ email: em }, { emailRedirectTo: location.origin + "/app#settings/account" });
     setBusy(false);
-    if (error) setEmailMsg({ err: error.message });
+    if (error) setEmailMsg({ err: errText(error) });
     else { setNewEmail(""); setEmailMsg({ ok: T(`Check ${em} (and your current inbox) for a confirmation link. The email changes once you confirm.`, `Angalia ${em} (na barua pepe ya sasa) kupata kiungo cha uthibitisho. Itabadilika ukithibitisha.`) }); }
   }
 
@@ -586,7 +592,7 @@ function Account({ email, T }: { email: string; T: Tr }) {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);
-    if (error) { shake(e.currentTarget); setMsg({ err: error.message }); } else { setPw(""); setMsg({ ok: T("Password changed.", "Nenosiri limebadilishwa.") }); }
+    if (error) { shake(e.currentTarget); setMsg({ err: errText(error) }); } else { setPw(""); setMsg({ ok: T("Password changed.", "Nenosiri limebadilishwa.") }); }
   }
   return (
     <>
@@ -785,7 +791,7 @@ function PhotoPicker({ u, name, T, onChange }: { u: any; name: string; T: Tr; on
     setBusy(true); setErr("");
     const old = photo?.split("/avatars/")[1];
     const { data, error } = await supabase.auth.updateUser({ data: { avatar_url: null } });
-    if (error) setErr(error.message);
+    if (error) setErr(errText(error));
     else { if (old) void supabase.storage.from("avatars").remove([decodeURIComponent(old)]); onChange(data.user); window.dispatchEvent(new Event(PROFILE_EVT)); }
     setBusy(false);
   }

@@ -380,3 +380,9 @@ html[data-screen="auth"]::-webkit-scrollbar { display: none; }
   .ax:has(#biz) .ax-form { gap: 8px; }
   .ax:has(#biz) .ax-side { padding-top: 18px; }
 }
+
+/* field-level answers (23 Nov 2026): a tick as each field becomes right, the problem under the field that's wrong */
+.ax-note { margin: 0; font-size: 13px; animation: ax-note-in .22s ease-out both; }
+.ax-field.is-bad .ax-input input, .ax-field.is-bad .ax-input input:focus-visible { border-color: var(--bad, #c0331c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad, #c0331c) 16%, transparent); }
+.ax-yes { font-weight: 600; animation: ax-note-in .2s ease-out both; }
+@keyframes ax-note-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }

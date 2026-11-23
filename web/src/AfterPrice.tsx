@@ -3,6 +3,7 @@
 // the message filled in and sends it themselves, or taps "Send from itaOS" (SendNow: the draft inside
 // WhatsApp's 24 hours, the approved template after). "Sent" records it, so the list
 // can show who replied and who bought afterwards.
+import { errText } from "./errText";
 import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useMemo, useState } from "react";
@@ -73,7 +74,7 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
       const x = await callFn<{ chat_lang: string; draft_sw: string; draft_en: string; why: string; missing: string[] }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: r.id });
       // Send in the language the customer writes in.
       setD({ text: x.chat_lang === "en" ? x.draft_en : x.draft_sw, why: x.why, missing: x.missing ?? [] });
-    } catch (e) { setMsg((e as Error).message); }
+    } catch (e) { setMsg(errText(e)); }
     setWriting(false);
   }
   async function record(status: "done" | "dismissed", sentText?: string) {
@@ -85,7 +86,7 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
       title: T("Follow-up after the price", "Ufuatiliaji baada ya bei"), draft: sentText ?? d?.text ?? null, draft_source: sentText && sentText !== d?.text ? "edited" : d ? "kito" : null,
       result: status === "done" ? "called" : "not_interested", completed_at: now, due_at: now, created_by: u.user?.id ?? null,
     }).select("id").single();
-    if (error) { setDoing(""); setMsg(/check constraint/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message); return; }
+    if (error) { setDoing(""); setMsg(/check constraint/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(error)); return; }
     setD(null); await onDone(); setDoing("");
     // A slip can be undone: the toast removes the record and the card comes back.
     if (made?.id) showUndo(status === "done" ? T("Marked as sent", "Imewekwa: umetuma") : T("Hidden: not now", "Imefichwa: si sasa"), async () => {

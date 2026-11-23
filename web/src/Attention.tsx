@@ -2,6 +2,8 @@
 // Overdue follow-ups, payments detected but not confirmed, deliveries, failed syncs/imports and
 // what is assigned to you. Data from needs_attention (0033) + webhook_health. Payment signals stay
 // signals: confirming one happens in the chat, where the owner checks the money first.
+import { errText } from "./errText";
+import { askConfirm } from "./confirmAsk";
 import { showUndo } from "./undo";
 import { useEffect, useState } from "react";
 import { useKept } from "./keep";
@@ -41,7 +43,7 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
     let live = true;
     Promise.all([supabase.rpc("needs_attention", { p_ws: ws.id }), supabase.rpc("webhook_health", { p_ws: ws.id })]).then(([a, h]) => {
       if (!live) return;
-      if (a.error) setErr(/function .* does not exist|schema cache|could not find/i.test(a.error.message) ? T("This page needs the latest itaOS update. Try again in a few minutes.", "Ukurasa huu unahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : a.error.message);
+      if (a.error) setErr(/function .* does not exist|schema cache|could not find/i.test(a.error.message) ? T("This page needs the latest itaOS update. Try again in a few minutes.", "Ukurasa huu unahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(a.error));
       else { setErr(""); setD(a.data as Data); }
       setHealth((h.data as Health[]) ?? []);
     });
@@ -64,7 +66,7 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
     setBusy(key); setErr("");
     const { error } = await fn();
     setBusy("");
-    if (error) setErr(error.message); else refresh();
+    if (error) setErr(errText(error)); else refresh();
   }
   const updateOrder = (id: string, patch: Record<string, unknown>) => run("o" + id, () => supabase.from("orders").update(patch).eq("id", id).eq("workspace_id", ws.id));
   const updateTask = async (id: string, patch: Record<string, unknown>) => {
@@ -147,8 +149,12 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
       {d && (
         <section className="card">
           <div className="row between"><h2>{T("Deliveries", "Usafirishaji")} <span className="chip">{d.fulfil.length}</span></h2>
-            {editor && toShip.length > 3 && <button className="small" disabled={!!busy} onClick={() => {
-              if (!confirm(T(`Mark all ${toShip.length} "not shipped" orders as delivered? Use this if you deliver the same day and didn't record it.`, `Weka oda zote ${toShip.length} "haijatumwa" kuwa zimefika? Tumia kama unafikisha siku hiyo hiyo na hukurekodi.`))) return;
+            {editor && toShip.length > 3 && <button className="small" disabled={!!busy} onClick={async () => {
+              if (!(await askConfirm({
+                title: T(`Mark ${toShip.length} orders as delivered?`, `Weka oda ${toShip.length} kuwa zimefika?`),
+                body: T("All the orders marked \"not shipped\" become delivered. Use this if you deliver the same day and didn't record it.", "Oda zote zenye \"haijatumwa\" zitakuwa zimefika. Tumia kama unafikisha siku hiyo hiyo na hukurekodi."),
+                yes: T(`Mark ${toShip.length} delivered`, `Weka ${toShip.length} zimefika`), no: T("Not now", "Si sasa"),
+              }))) return;
               void run("bulk", () => supabase.from("orders").update({ fulfillment_status: "delivered" }).in("id", toShip.map((f) => f.id)).eq("workspace_id", ws.id));
             }}>{T("Mark all delivered", "Zote zimefika")}</button>}</div>
           <p className="small muted">{T("Paid orders still waiting to go out, in transit for more than 5 days, returned, or with a delivery problem.", "Oda zilizolipwa ambazo bado hazijatumwa, ziko njiani zaidi ya siku 5, zimerudishwa, au zina tatizo la usafirishaji.")}</p>

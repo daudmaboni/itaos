@@ -3,6 +3,7 @@
 // last purchase. Locations (and names / phones from "Name 07xx… Town" delivery messages) are suggested
 // from the chat and marked "suggested" until the owner saves them. Data: list_buyers / save_customer
 // (migration 0054). The saved details feed Find a payment and printed receipts.
+import { errText } from "./errText";
 import { useRemembered } from "./remember";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -56,7 +57,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
     const my = ++seq.current;
     const { data, error } = await supabase.rpc("list_buyers", { p_ws: ws.id, p_q: q.trim() || null, p_region: region || null });
     if (my !== seq.current) return;
-    if (error) { setErr(error.message); setRows([]); return; }
+    if (error) { setErr(errText(error)); setRows([]); return; }
     setErr(""); setRows((data as Buyer[]) ?? []);
   };
   useEffect(() => { const t = window.setTimeout(load, q ? 300 : 0); return () => window.clearTimeout(t); }, [q, region, ws.id]);

@@ -1,5 +1,6 @@
 // Ad money manager card (Dashboard). Data: ad_money() (migration 0075). Logic: adMoney.ts.
 // Says, in plain words, which running ad to add money to, keep, fix or stop, judged on PAID sales.
+import { errText } from "./errText";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, Workspace, money, fmt, converter, displayCurrency } from "./lib";
 import { useKept } from "./keep";
@@ -24,7 +25,7 @@ export default function AdMoney({ ws }: { ws: Workspace }) {
     setErr("");
     supabase.rpc("ad_money", { p_ws: ws.id, p_days: days }).then(({ data, error }) => {
       if (gone) return;
-      if (error) setErr(error.message); else setR(data as AdMoneyRes);
+      if (error) setErr(errText(error)); else setR(data as AdMoneyRes);
     });
     return () => { gone = true; };
   }, [ws.id, days]);

@@ -1,6 +1,7 @@
 // Reorders (Step 3): customers who bought 45–120 days ago and haven't bought since. Kito writes a short
 // "how are you getting on / want more?" draft; the owner copies it and sends it from WhatsApp themselves,
 // or taps "Send from itaOS" (the approved reorder template, since these are always past the 24 hours). "Sent" records the contact so itaOS can show who replied and who bought again.
+import { errText } from "./errText";
 import CopyBtn from "./CopyBtn";
 import { showUndo } from "./undo";
 import { useEffect, useState } from "react";
@@ -32,7 +33,7 @@ export function ReorderList({ ws, editor, onCount, hidden }: { ws: Workspace; ed
     let live = true;
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(/function .* does not exist|schema cache|could not find/i.test(error.message) ? T("This page needs the latest itaOS update. Try again in a few minutes.", "Ukurasa huu unahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message);
+      if (error) setErr(/function .* does not exist|schema cache|could not find/i.test(error.message) ? T("This page needs the latest itaOS update. Try again in a few minutes.", "Ukurasa huu unahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(error));
       else { setErr(""); setRows((data as Row[]) ?? []); }
     });
     return () => { live = false; };
@@ -84,7 +85,7 @@ export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspac
     try {
       const x = await callFn<{ draft_sw: string; draft_en: string; why: string; missing: string[] }>("reorder", { workspace_id: ws.id, conversation_id: r.conversation_id });
       setD({ text: sw ? x.draft_sw : x.draft_en, why: x.why, missing: x.missing ?? [] });
-    } catch (e) { setMsg((e as Error).message); }
+    } catch (e) { setMsg(errText(e)); }
     setWriting(false);
   }
   async function record(status: "done" | "dismissed", sentText?: string) {
@@ -97,7 +98,7 @@ export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspac
       result: status === "done" ? "called" : "not_interested", completed_at: now, due_at: now, created_by: u.user?.id ?? null,
     }).select("id").single();
     setDoing("");
-    if (error) { setMsg(error.message); return; }
+    if (error) { setMsg(errText(error)); return; }
     setD(null); onDone();
     // A slip can be undone: the toast removes the record and the card comes back.
     if (made?.id) showUndo(status === "done" ? T("Marked as sent", "Imewekwa: umetuma") : T("Hidden: not now", "Imefichwa: si sasa"), async () => {

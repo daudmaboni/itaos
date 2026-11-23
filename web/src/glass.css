@@ -406,6 +406,9 @@ button.gsw.on { background: var(--accent); }
 button.gsw.on i { transform: translateX(18px); }
 button.gsw:disabled { cursor: default; opacity: .6; }
 button.gsw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gsw-wrap { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.gsw-word { font-size: 13px; font-weight: 600; color: var(--muted); min-width: 2.2em; text-align: right; }
+.gsw-word.on { color: var(--accent-text, var(--accent)); }
 
 /* Promise quote: the customer's own words in green frosted glass (22 Nov) */
 .pc-quote {

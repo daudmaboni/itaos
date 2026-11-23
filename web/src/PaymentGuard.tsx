@@ -6,6 +6,7 @@
 //   PaymentSummary  the overview card on the Dashboard and Receipts: counts only, opens the page
 //   PayFlagBanner   the strip at the top of a chat with an unchecked suspicious screenshot
 //   PayCheckCard    one screenshot to check (also used in Actions → Today)
+import { errText } from "./errText";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, Workspace, money, fmt, ago, canEdit } from "./lib";
 import { useKept } from "./keep";
@@ -27,7 +28,7 @@ export default function PaymentGuard({ ws }: { ws: Workspace }) {
     let live = true;
     supabase.rpc("payment_checks", { p_ws: ws.id, p_days: days }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(needsUpdate(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message);
+      if (error) setErr(needsUpdate(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(error));
       else { setErr(""); setR(data as PayRes); }
     });
     return () => { live = false; };
@@ -88,7 +89,7 @@ export function PaymentSummary({ ws }: { ws: Workspace }) {
     let live = true;
     supabase.rpc("payment_checks", { p_ws: ws.id, p_days: 30 }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(needsUpdate(error.message) ? T("This needs the latest itaOS update.", "Hii inahitaji sasisho jipya.") : error.message);
+      if (error) setErr(needsUpdate(error.message) ? T("This needs the latest itaOS update.", "Hii inahitaji sasisho jipya.") : errText(error));
       else { setErr(""); setR(data as PayRes); }
     });
     return () => { live = false; };
@@ -137,7 +138,7 @@ function Receivers({ ws, r, editor, open, onToggle, onSaved, T }: {
     setBusy(true); setMsg("");
     const { data, error } = await supabase.rpc("set_pay_receivers", { p_ws: ws.id, p_list: next });
     setBusy(false);
-    if (error) { setMsg(error.message); return; }
+    if (error) { setMsg(errText(error)); return; }
     setList((data as string[]) ?? next); setAdd(""); onSaved();
   }
 
@@ -191,7 +192,7 @@ export function PayCheckCard({ it, ws, editor, onDone, flat = false }: { it: Pay
     setBusy(true); setErr("");
     const { error } = await supabase.rpc("guard_review", { p_ws: ws.id, p_kind: "payment", p_ref: it.message_id, p_verdict: v, p_amount: v === "fake" ? (it.amount ?? it.expected) : null, p_conv: it.conversation_id });
     setBusy(false);
-    if (error) setErr(error.message); else onDone();
+    if (error) setErr(errText(error)); else onDone();
   }
   const body = (
     <>

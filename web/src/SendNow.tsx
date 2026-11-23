@@ -3,6 +3,7 @@
 // Outside it, WhatsApp only accepts a template Meta approved, so it shows the business's approved template for
 // this list with the customer's name filled in, and sends that after the owner confirms. Either way, onSent
 // runs so the card can record the follow-up as Sent (and the Home "Money itaOS brought back" card can count it).
+import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, canManage, canSend } from "./lib";
 import { useKept } from "./keep";
@@ -66,7 +67,7 @@ export function SendNow({ ws, conversationId, purpose, draft, name, product, T, 
       if ((r as any)?.error) throw new Error((r as any).error);
       setOpen(null);
       await onSent(r?.body ?? (open === "text" ? String(draft) : preview));
-    } catch (e) { setMsg((e as Error).message); }
+    } catch (e) { setMsg(errText(e)); }
     setBusy(false);
   }
 

@@ -1,5 +1,6 @@
 // "Why people didn't buy" (Dashboard). Data: lost_reasons() (migration 0079), from what Kito already read
 // plus what the chat shows (never answered, a late reply, quiet before/after the price). No extra AI reads.
+import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { supabase, Workspace, money, fmt } from "./lib";
 import { useKept } from "./keep";
@@ -22,7 +23,7 @@ export default function LostReasons({ ws }: { ws: Workspace }) {
     setErr("");
     supabase.rpc("lost_reasons", { p_ws: ws.id, p_days: days }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(/does not exist|schema cache|could not find/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : error.message);
+      if (error) setErr(/does not exist|schema cache|could not find/i.test(error.message) ? T("This needs the latest itaOS update. Try again in a few minutes.", "Hii inahitaji sasisho jipya. Jaribu tena baada ya dakika chache.") : errText(error));
       else setR(data as LostRes);
     });
     return () => { live = false; };

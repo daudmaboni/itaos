@@ -742,6 +742,20 @@ html, body { overscroll-behavior-x: none; }
 /* "are you sure?" dialog (Settings → Rules & rates) */
 /* sits above the blurred scrim (an un-positioned box would be painted under it and look blurred) */
 .confirm-modal { position: relative; z-index: 1; width: 100%; max-width: 420px; display: grid; gap: 12px; padding: 22px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 22px; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .12); animation: dr-pop-in .32s cubic-bezier(.2, .9, .3, 1.15) both; }
+/* askConfirm(): named buttons, the dangerous one solid red (23 Nov 2026) */
+.ask-layer { z-index: 300; } /* above the receipt viewer (200) */
+.ask-layer .confirm-modal h2 { margin: 0; font-size: 19px; line-height: 1.25; }
+.ask-btns { gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+.ask-btns button { min-height: 44px; }
+button.danger-solid, :where(html:not(.hp-page)) button.danger-solid { background: var(--bad); background-image: none; border-color: transparent; color: #fff; font-weight: 700; }
+button.danger-solid:hover:not(:disabled) { filter: brightness(1.08); background: var(--bad); }
+@media (max-width: 640px) {
+  .ask-layer .confirm-modal { max-width: none; border-radius: 24px 24px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .ask-layer .confirm-modal::before { display: none; }
+  /* thumb zone: the main action sits last, at the bottom, full width */
+  .ask-btns { flex-direction: column; }
+  .ask-btns button { width: 100%; }
+}
 /* "Came from an ad? Yes / No" in the chat's side panel */
 .cc-fromad { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
