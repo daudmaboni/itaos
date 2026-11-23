@@ -282,3 +282,7 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 /* Grey badge: still open, but you've already seen it (badges tell the truth) */
 .navbadge.grey { background: #8a909b; color: #fff; animation: none; }
 :root:not([data-theme="light"]) .navbadge.grey { background: #4a4f58; color: #d7dae0; }
+
+/* Sales (Buyers · Find a payment · My products): one set of tabs above the three pages */
+.sales-tabs { margin: 0 0 14px; }
+.sales-tabs .seg { width: max-content; max-width: 100%; }

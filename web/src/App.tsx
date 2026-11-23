@@ -237,14 +237,14 @@ export default function App() {
       {view === "attention" && <Actions ws={ws} />}
       {view === "report" && <Dashboard ws={ws} onWs={setWs} page="why" />}
       {view === "actions" && <Actions ws={ws} />}
-      {view === "receipts" && <Receipts ws={ws} />}
+      {view === "receipts" && <><SalesTabs view={view} sw={ws.language === "sw"} /><Receipts ws={ws} /></>}
       {view === "payments" && <PaymentGuard ws={ws} />}
       {view === "ads" && <Dashboard ws={ws} onWs={setWs} page="ads" />}
       {view === "why" && <Dashboard ws={ws} onWs={setWs} page="why" />}
       {view === "leaks" && <LeakGuard ws={ws} />}
-      {view === "buyers" && <Buyers ws={ws} />}
+      {view === "buyers" && <><SalesTabs view={view} sw={ws.language === "sw"} /><Buyers ws={ws} /></>}
       {view === "chats" && <Chats ws={ws} />}
-      {view === "products" && <Products key={ws.id} ws={ws} />}
+      {view === "products" && <><SalesTabs view={view} sw={ws.language === "sw"} /><Products key={ws.id} ws={ws} /></>}
       {view === "connect" && <Connect ws={ws} />}
       {view === "settings" && <Settings ws={ws} onWs={setWs} theme={theme} onTheme={setThemeFrom} />}
       </Fragment></PageView>
@@ -420,15 +420,36 @@ function TabIco({ d }: { d: string }) {
   return <svg className="tab-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>;
 }
 
+/** Buyers, Find a payment and My products live together under one "Sales" item (23 Nov 2026), with tabs
+ *  at the top of each of those pages (SalesTabs). The "buyers" entry in More stands for the whole group. */
+const SALES: View[] = ["buyers", "receipts", "products"];
+const groupOf = (v: View): View => (SALES.includes(v) ? "buyers" : v);
+const SALES_KEY = "itaos-sales-tab";
+const lastSales = (): View => { try { const v = localStorage.getItem(SALES_KEY) as View | null; return v && SALES.includes(v) ? v : "buyers"; } catch { return "buyers"; } };
+/** Where a More item opens: Sales opens the tab you used last. */
+const moreHref = (v: View) => (v === "buyers" ? lastSales() : v);
+
+/** Tabs at the top of the three Sales pages. */
+function SalesTabs({ view, sw }: { view: View; sw: boolean }) {
+  useEffect(() => { try { localStorage.setItem(SALES_KEY, view); } catch { /* storage blocked */ } }, [view]);
+  const L = (en: string, s: string) => (sw ? s : en);
+  const tabs: [View, string][] = [["buyers", L("Buyers", "Wanunuzi")], ["receipts", L("Find a payment", "Tafuta malipo")], ["products", L("My products", "Bidhaa zangu")]];
+  return (
+    <div className="sales-tabs">
+      <div className="seg act-tabs" role="tablist" aria-label={L("Sales", "Mauzo")}>
+        {tabs.map(([v, label]) => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? "on" : ""} onClick={() => { if (view !== v) { window.scrollTo({ top: 0 }); phoneGo(v); } }}>{label}</button>)}
+      </div>
+    </div>
+  );
+}
+
 /** Sections that live under "More" (top bar on computers, sheet on phones). */
 function moreItems(sw: boolean): [View, string, string, JSX.Element][] {
   const L = (en: string, s: string) => (sw ? s : en);
   return [
     ["why", L("Why people didn't buy", "Kwa nini hawakununua"), L("Reasons, diagnosis and what to fix", "Sababu, uchunguzi na cha kurekebisha"), <Ico d="M3 12h4l3-8 4 16 3-8h4" />],
     ["actions", L("Actions", "Vitendo"), L("Today, payments, deliveries, promises", "Leo, malipo, usafirishaji, ahadi"), <Ico d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" />],
-    ["buyers", L("Buyers", "Wateja walionunua"), L("Names, phones and locations of everyone who paid", "Majina, simu na mahali pa waliolipa"), <Ico d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM22 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8" />],
-    ["receipts", L("Find a payment", "Tafuta malipo"), L("Receipt no. or transaction code", "Kumbukumbu Na. au muamala"), <Ico d="M4 3h16v18l-3-2-3 2-2-2-2 2-3-2-3 2V3ZM8 8h8M8 12h8M8 16h5" />],
-    ["products", L("My products", "Bidhaa zangu"), L("Prices, photos, what sells", "Bei, picha, zinazouzwa"), <Ico d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" />],
+    ["buyers", L("Sales", "Mauzo"), L("Buyers, find a payment, my products", "Wanunuzi, tafuta malipo, bidhaa zangu"), <Ico d="M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6M9 21h.01M18 21h.01" />],
     ["connect", L("Connections", "Miunganisho"), L("Ads and WhatsApp", "Matangazo, WhatsApp"), <Ico d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />],
     ["settings", L("Settings", "Mipangilio"), L("Business and rules", "Biashara na kanuni"), <GearIcon />],
   ];
@@ -449,7 +470,7 @@ function TopMore({ view, sw, badges }: { view: View; sw: boolean; badges: Badges
     return () => { document.removeEventListener("pointerdown", away); window.removeEventListener("keydown", esc); };
   }, [open]);
   const items = moreItems(sw).filter(([v]) => v !== "settings"); // Settings keeps its gear button
-  const cur = items.find(([v]) => v === view);
+  const cur = items.find(([v]) => v === groupOf(view));
   return (
     <span className="more-wrap" ref={wrap}>
       <button type="button" data-tab className={"more-btn" + (cur ? " on" : "")} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
@@ -462,7 +483,7 @@ function TopMore({ view, sw, badges }: { view: View; sw: boolean; badges: Badges
       {open && (
         <div className="more-menu" role="menu">
           {items.map(([v, label, note, icon]) => (
-            <a key={v} role="menuitem" href={"#" + v} className={"more-item" + (view === v ? " on" : "")} onClick={() => { setOpen(false); window.scrollTo({ top: 0 }); }}>
+            <a key={v} role="menuitem" href={"#" + moreHref(v)} className={"more-item" + (groupOf(view) === v ? " on" : "")} onClick={() => { setOpen(false); window.scrollTo({ top: 0 }); }}>
               <span className="more-ico">{icon}</span>
               <span><b>{label}</b><span className="small muted">{note}</span></span>
               {v === "actions" && <NavBadge badge={actionsBadge(badges, sw)} />}
@@ -524,7 +545,7 @@ if (typeof document !== "undefined") {
 }
 const setViewRef: { current: ((v: View) => void) | null } = { current: null };
 /** Every page in bar order: Home, Kito, Chats, then the More menu's pages top to bottom. */
-const swipeOrder = (sw: boolean): View[] => [...ORDER, ...moreItems(sw).map(([v]) => v)];
+const swipeOrder = (sw: boolean): View[] => [...ORDER, ...moreItems(sw).flatMap(([v]) => (v === "buyers" ? SALES : [v]))];
 
 /** Wraps the current page. On phones, a new section slides in from the side it lives on
  *  (iOS-style), or rises in gently when it isn't one of the bottom-nav sections. */
@@ -574,7 +595,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
     ["chats", "Chats", <Ico d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z" />],
   ];
   const more = moreItems(sw);
-  const moreOn = more.some(([v]) => v === view);
+  const moreOn = more.some(([v]) => v === groupOf(view));
   // Pages opened from the Home cards (Ads, Payment checks, Staff leak guard …) belong to Home: Home stays lit,
   // instead of the pill sitting on Home with nothing active.
   const tab: View = ORDER.includes(view) || moreOn ? view : "dashboard";
@@ -720,7 +741,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
         <div className="sheet" role="dialog" aria-label={L("More", "Zaidi")}>
           <span className="sheet-grip" aria-hidden="true" />
           {more.map(([v, label, note, icon]) => (
-            <a key={v} href={"#" + v} className={"sheet-item" + (view === v ? " on" : "")} onClick={(e) => { e.preventDefault(); setOpen(false); window.scrollTo({ top: 0 }); phoneGo(v); }}>
+            <a key={v} href={"#" + moreHref(v)} className={"sheet-item" + (groupOf(view) === v ? " on" : "")} onClick={(e) => { e.preventDefault(); setOpen(false); window.scrollTo({ top: 0 }); phoneGo(moreHref(v)); }}>
               <span className="sheet-ico">{icon}</span>
               <span className="sheet-text"><b>{label}</b><span className="small muted">{note}</span></span>
               {v === "actions" && badges && <NavBadge badge={actionsBadge(badges, sw)} />}
