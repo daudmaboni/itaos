@@ -455,7 +455,7 @@ function TopMore({ view, sw, badges }: { view: View; sw: boolean; badges: Badges
       <button type="button" data-tab className={"more-btn" + (cur ? " on" : "")} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         {cur ? cur[1] : sw ? "Zaidi" : "More"}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-        {!open && (() => { const b = actionsBadge(badges, sw); return b ? <span className="navdot" title={b.title} aria-label={b.title} /> : null; })()}
+        {!open && (() => { const b = actionsBadge(badges, sw); return b && b.tone !== "grey" ? <span className="navdot" title={b.title} aria-label={b.title} /> : null; })()}
       </button>
       {/* Blur everything behind the open menu; the bar and menu stay sharp above it (nav.tabs is z-index 30). */}
       {open && createPortal(<div className="more-back" aria-hidden="true" onClick={() => setOpen(false)} />, document.body)}

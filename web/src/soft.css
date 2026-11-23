@@ -278,3 +278,7 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 .att-list .att-acts { display: flex; gap: 6px; flex: none; }
 .att-list li:has(> a.att-who) { flex-wrap: nowrap; }
 .pcard:has(.pc-more[open]) { overflow: visible; z-index: 5; position: relative; }
+
+/* Grey badge: still open, but you've already seen it (badges tell the truth) */
+.navbadge.grey { background: #8a909b; color: #fff; animation: none; }
+:root:not([data-theme="light"]) .navbadge.grey { background: #4a4f58; color: #d7dae0; }
