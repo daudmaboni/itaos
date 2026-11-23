@@ -575,7 +575,10 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
   ];
   const more = moreItems(sw);
   const moreOn = more.some(([v]) => v === view);
-  const idx = open || moreOn ? SLOTS - 1 : Math.max(0, ORDER.indexOf(view));
+  // Pages opened from the Home cards (Ads, Payment checks, Staff leak guard …) belong to Home: Home stays lit,
+  // instead of the pill sitting on Home with nothing active.
+  const tab: View = ORDER.includes(view) || moreOn ? view : "dashboard";
+  const idx = open || moreOn ? SLOTS - 1 : Math.max(0, ORDER.indexOf(tab));
   const navRef = useRef<HTMLElement>(null);
   const suppressClick = useRef(false);
   const setLens = (i: number, dragging: boolean) => {
@@ -729,10 +732,10 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
         onClickCapture={(e) => { if (suppressClick.current) { e.preventDefault(); e.stopPropagation(); } }}>
         <span className="lens" aria-hidden="true" />
         {main.map(([v, label, icon]) => (
-          <a key={v} href={"#" + v} className={view === v && !open ? "on" : ""} aria-current={view === v ? "page" : undefined}
+          <a key={v} href={"#" + v} className={tab === v && !open ? "on" : ""} aria-current={view === v ? "page" : undefined}
             aria-label={label} onClick={(e) => { e.preventDefault(); go(ORDER.indexOf(v)); }}>{icon}<span className="bn-label">{label}</span>{v === "chats" && badges && <NavBadge badge={chatsBadge(badges, sw)} />}</a>
         ))}
-        <button type="button" className={moreOn || open ? "on" : ""} aria-expanded={open} onClick={() => (open ? (setOpen(false), setLens(Math.max(0, ORDER.indexOf(view)), false)) : setOpen(true))}>
+        <button type="button" className={moreOn || open ? "on" : ""} aria-expanded={open} onClick={() => (open ? (setOpen(false), setLens(Math.max(0, ORDER.indexOf(tab)), false)) : setOpen(true))}>
           <Ico d="M5 12h.01M12 12h.01M19 12h.01" w={3} /><span className="bn-label">{L("More", "Zaidi")}</span>{badges && <NavBadge badge={actionsBadge(badges, sw)} />}
         </button>
       </nav>

@@ -257,3 +257,11 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
   .pc-acts2 > .pc-pick { flex: 1; }
   .pc-more { flex: 1; } .pc-more > summary { display: flex; justify-content: center; }
 }
+
+/* Ads page on phones (23 Nov 2026): the number tiles read cleaner — one line of note each, the second note
+   (all-time / only-new-chats detail) left for wider screens, equal heights per row */
+@media (max-width: 760px) {
+  .kpis .kpi .s { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .kpis .kpi .kpi-s2 { display: none; }
+  .kpis .kpi { align-content: start; }
+}
