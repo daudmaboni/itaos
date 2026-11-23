@@ -107,15 +107,96 @@ a.g-sumcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .donow .dn-bad a { background: var(--bad-soft); }
 .donow .dn-cta { font-weight: 600; font-size: 13px; white-space: nowrap; color: var(--accent-text, var(--accent)); }
 .donow .dn-clear { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--good-soft); color: var(--good); }
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.tiles .tile { display: grid; align-content: start; gap: 3px; padding: 16px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; position: relative; transition: border-color .2s, transform .15s; }
-.tiles .tile::after { content: "›"; position: absolute; top: 12px; right: 14px; font-size: 22px; line-height: 1; color: var(--muted); }
-.tiles .tile:hover { border-color: var(--line-2, var(--line)); }
-.tiles .tile:active { transform: scale(.98); }
-.tiles .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tiles .tl-k { font-size: 13px; font-weight: 600; color: var(--muted); padding-right: 18px; }
-.tiles .tl-v { font-size: 26px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
-.tiles .tl-s { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
-.tiles .tl-note { color: var(--ink); margin-top: 4px; }
-.tiles .tile.bad .tl-v { color: var(--bad); } .tiles .tile.warn .tl-v { color: var(--warn); }
-@media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Home tiles in four looks that rotate (HomeTiles.tsx): A ads hero + list, B list with meters, F health bars, I needs you / all good */
+.ht { display: grid; gap: 10px; min-width: 0; }
+.ht-stage { min-width: 0; }
+.ht-anim { animation: ht-in .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes ht-in { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
+.ht-dots { display: flex; justify-content: center; gap: 2px; }
+.ht-dots button { all: unset; box-sizing: border-box; cursor: pointer; width: 28px; height: 22px; display: grid; place-items: center; }
+.ht-dots button::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: var(--line-2, #c9ced8); transition: width .25s, background .25s; }
+.ht-dots button.on::before { width: 18px; background: var(--ink); }
+.ht-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 8px; }
+.ht a { color: inherit; text-decoration: none; }
+.ht a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ht-k { font-size: 13px; color: var(--muted); }
+.ht-s { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.ht-name { font-size: 14.5px; font-weight: 600; min-width: 0; }
+.ht-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; }
+.ht-row b { font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ht-row em { font-style: normal; font-weight: 700; white-space: nowrap; }
+.ht-col { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.ht-chev { color: var(--muted); flex: none; }
+.c-ok { color: var(--good); } .c-bad { color: var(--bad); } .c-warn { color: var(--warn); } .c-why { color: #B4530E; }
+:root:not([data-theme="light"]) .c-why { color: #FFB27A; }
+/* meters */
+.ht-m { position: relative; display: flex; gap: 2px; height: 8px; border-radius: 999px; background: var(--raised); }
+.ht-m i { display: block; border-radius: 999px; }
+.ht-m-ads i { background: var(--good); }
+.ht-m-ads b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); }
+.ht-m-why { background: none; }
+.ht-m-why i:first-child { background: var(--good); } .ht-m-why i:last-child { flex: 1; background: #F2C3A1; }
+:root:not([data-theme="light"]) .ht-m-why i:last-child { background: #FFB27A55; }
+.ht-m-ok { background: var(--warn); } .ht-m-ok.red { background: var(--bad); }
+.ht-m-ok i { background: var(--good); }
+/* buttons */
+.ht-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.ht-btn.dark { background: var(--ink); color: var(--card) !important; }
+.ht-btn.yellow { background: #F7C948; color: #141a33 !important; }
+.ht-btn.red { background: var(--bad); color: #fff !important; }
+.ht-btn.wide { justify-content: space-between; border-radius: 16px; min-height: 48px; padding: 0 18px; font-size: 14px; }
+/* white list card used by A, B, I */
+.ht-list { display: flex; flex-direction: column; border-radius: 22px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+.ht-list > a, .ht-list > div { display: grid; gap: 6px; padding: 14px 16px; border-bottom: 1px solid var(--line); min-width: 0; }
+.ht-list > :last-child { border-bottom: 0; }
+/* A */
+.ht-A { display: grid; gap: 12px; }
+.ht-hero { display: grid; gap: 10px; padding: 18px; border-radius: 22px; color: #fff; background: radial-gradient(120% 140% at 100% 0%, #2d4290 0%, transparent 55%), linear-gradient(160deg, #22336B, #16224A 70%); }
+.ht-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ht-hero-top > div { display: grid; gap: 2px; min-width: 0; }
+.ht-hero .ht-k { color: #ffffffb3; } .ht-hero .ht-s { color: #ffffffa6; }
+.ht-big { font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; color: #F7C948; font-variant-numeric: tabular-nums; }
+.ht-hero .ht-m { background: #ffffff26; } .ht-hero .ht-m-ads i { background: #6CF2A8; } .ht-hero .ht-m-ads b { background: #fff; }
+/* B */
+.ht-B > a { grid-template-columns: 40px minmax(0, 1fr); align-items: start; gap: 12px; padding: 16px; }
+.ht-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; }
+.ht-ico.i-ads { background: #E8ECFA; color: #22336B; } .ht-ico.i-why { background: #FCEEE3; color: #A4520A; }
+.ht-ico.i-pay { background: #E3F6EC; color: #12734a; } .ht-ico.i-leak { background: #E6F1FB; color: #1D5C96; }
+:root:not([data-theme="light"]) .ht-ico { background: var(--raised); }
+.ht-B .ht-row b { font-size: 20px; }
+/* F */
+.ht-F { display: grid; gap: 16px; padding: 18px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); }
+.ht-F-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ht-F-head b { font-size: 16px; }
+.ht-F-grid { display: grid; gap: 16px; }
+.ht-F-grid > a { display: grid; gap: 6px; }
+.ht-F .ht-m { height: 12px; }
+.ht-F .ht-name { font-size: 13.5px; }
+.ht-clear { display: block; padding: 12px 14px; border-radius: 14px; background: var(--good-soft); color: var(--good); font-size: 13.5px; font-weight: 600; }
+/* I */
+.ht-I { display: grid; gap: 12px; }
+.ht-group { display: grid; gap: 8px; min-width: 0; }
+.ht-gl { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; padding-left: 6px; }
+.ht-need { grid-template-columns: minmax(0, 1fr) auto !important; align-items: center; gap: 10px 12px !important; }
+.ht-need .ht-m { grid-column: 1 / -1; }
+.ht-mid { font-size: 22px; font-variant-numeric: tabular-nums; }
+.ht-mid small { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.ht-good { grid-template-columns: 20px minmax(0, 1fr) auto !important; align-items: center; gap: 10px !important; }
+.ht-good svg { color: var(--good); }
+/* computers: use the width */
+@media (min-width: 900px) {
+  .ht-A { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: stretch; }
+  .ht-hero { align-content: space-between; }
+  .ht-B { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ht-B > a { border-right: 1px solid var(--line); }
+  .ht-B > a:nth-child(2n) { border-right: 0; }
+  .ht-B > a:nth-last-child(-n+2) { border-bottom: 0; }
+  .ht-F-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; }
+  .ht-F .ht-btn.wide { justify-self: end; min-width: 320px; }
+  .ht-I { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
+  .ht-I > .ht-group:only-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) { .ht-anim { animation: none; } }
+.ht-A .ht-list .ht-row { justify-content: flex-start; align-items: center; }
+.ht-A .ht-list .ht-row b { margin-left: auto; }

@@ -189,7 +189,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
         </div>}
         {showPaid && <PaidOrders ws={ws} orders={g.orders} period={mx.period} adNames={adNames} onClose={() => setShowPaid(false)} />}
         {page === "home" && <>
-          <HomeOverview ws={ws} spend={money(A(mx.spend.value), adCur)} roas={mx.returnOnAdSpendAllAdCustomers.value == null ? null : mx.returnOnAdSpendAllAdCustomers.value.toFixed(1) + "×"} period={periodText(mx.period, lang)} />
+          <HomeOverview ws={ws} spend={money(A(mx.spend.value), adCur)} roasN={mx.returnOnAdSpendAllAdCustomers.value ?? null} />
           <Recovered ws={ws} period={mx.period} conv={W} cur={wsCur} />
         </>}
         {page === "ads" && <AdMoney ws={ws} />}

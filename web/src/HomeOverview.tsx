@@ -7,11 +7,12 @@ import { useKept } from "./keep";
 import { planAdMoney, type AdMoneyRes, type Advice } from "./adMoney";
 import { openLeaks, reasonLabel, type LeakRes, type LostRes, type PayRes } from "./guards";
 import { pickDoNow } from "./doNow";
+import HomeTiles from "./HomeTiles";
 
 type Counts = { waiting: number; overdue: number; proposed: number };
 type Data = { pay: PayRes | null; leak: LeakRes | null; lost: LostRes | null; ad: AdMoneyRes | null; counts: Counts | null };
 
-export default function HomeOverview({ ws, spend, roas, period }: { ws: Workspace; spend: string; roas: string | null; period: string }) {
+export default function HomeOverview({ ws, spend, roasN }: { ws: Workspace; spend: string; roasN: number | null }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
   const [d, setD] = useKept<Data>("home-overview:" + ws.id, { pay: null, leak: null, lost: null, ad: null, counts: null });
 
@@ -62,32 +63,12 @@ export default function HomeOverview({ ws, spend, roas, period }: { ws: Workspac
           ))}</ol>}
       </section>
 
-      <div className="tiles">
-        <a className="tile" href="#ads">
-          <span className="tl-k">{T("Ads", "Matangazo")}</span>
-          <b className="tl-v">{roas ?? spend}</b>
-          <span className="tl-s">{roas ? T(`return on ad spend · ${spend} spent`, `mapato kwa tangazo · ${spend} zimetumika`) : T(`spent · ${period}`, `zimetumika · ${period}`)}</span>
-          {plan?.advice[0] && plan.advice[0].k !== "none_running" && plan.advice[0].k !== "no_sales_yet" && <span className="tl-s tl-note">{T(`${plan.advice.length} to do`, `${plan.advice.length} za kufanya`)}</span>}
-        </a>
-        <a className={"tile" + (d.pay?.to_check_red ? " bad" : d.pay?.to_check ? " warn" : "")} href="#payments">
-          <span className="tl-k">{T("Payment checks", "Ukaguzi wa malipo")}</span>
-          <b className="tl-v">{d.pay ? fmt(d.pay.to_check) : "–"}</b>
-          <span className="tl-s">{d.pay ? T(`to look at · ${fmt(d.pay.checked)} checked`, `za kuangalia · ${fmt(d.pay.checked)} zimekaguliwa`) : "…"}</span>
-          {d.pay && d.pay.fakes > 0 && <span className="tl-s tl-note">{T(`${fmt(d.pay.fakes)} fake caught · ${M(d.pay.fakes_amount)} kept`, `feki ${fmt(d.pay.fakes)} · ${M(d.pay.fakes_amount)} zimeokolewa`)}</span>}
-        </a>
-        <a className="tile" href="#why">
-          <span className="tl-k">{T("Why people didn't buy", "Kwa nini hawakununua")}</span>
-          <b className="tl-v">{d.lost ? fmt(d.lost.lost) : "–"}</b>
-          <span className="tl-s">{d.lost ? T("didn't buy · 30 days", "hawakununua · siku 30") : "…"}</span>
-          {top && <span className="tl-s tl-note">{T("Most: ", "Wengi: ")}{reasonLabel(top.reason, T).toLowerCase()}</span>}
-        </a>
-        <a className={"tile" + (leakN ? " warn" : "")} href="#leaks">
-          <span className="tl-k">{T("Staff leak guard", "Kinga ya uvujaji")}</span>
-          <b className="tl-v">{leakN == null ? "–" : fmt(leakN)}</b>
-          <span className="tl-s">{leakN == null ? "…" : leakN ? T("to look at · 30 days", "za kuangalia · siku 30") : T("no leaks found", "hakuna uvujaji")}</span>
-          {d.leak && d.leak.unrecorded > 0 && <span className="tl-s tl-note">{T(`${M(d.leak.unrecorded_amount)} paid, not recorded`, `${M(d.leak.unrecorded_amount)} zimelipwa, hazijarekodiwa`)}</span>}
-        </a>
-      </div>
+      <HomeTiles ws={ws} input={{
+        roas: roasN, spend, adTodo: plan ? plan.advice.filter((a) => a.k !== "none_running" && a.k !== "no_sales_yet").length : 0,
+        lost: d.lost?.lost ?? null, sold: d.lost?.sold ?? null, topReason: top ? reasonLabel(top.reason, T) : null,
+        checked: d.pay?.checked ?? null, toCheck: d.pay?.to_check ?? null, toCheckRed: d.pay?.to_check_red ?? null,
+        leaks: leakN, messages: d.leak?.phone_messages ?? null,
+      }} />
     </>
   );
 }
