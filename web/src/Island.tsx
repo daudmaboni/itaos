@@ -80,7 +80,7 @@ export default function Island({ ws }: { ws: Workspace }) {
   // Live: a chat's summary changes whenever a message lands, so watch chats (messages aren't streamed).
   useEffect(() => {
     seen.current.clear();
-    const ch = supabase.channel("island-" + ws.id)
+    const ch = supabase.channel(`island-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, async (p: any) => {
         const c = p?.new;
         if (!c?.id || c.last_dir !== "in" || !c.last_message_at || c.phone_number_id === "import") return;

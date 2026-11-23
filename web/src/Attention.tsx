@@ -50,7 +50,7 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
   useEffect(() => {
     let t: number | undefined;
     const soon = () => { if (t === undefined) t = window.setTimeout(() => { t = undefined; refresh(); }, 6000); };
-    const ch = supabase.channel("attention-" + ws.id)
+    const ch = supabase.channel(`attention-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `workspace_id=eq.${ws.id}` }, soon)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, soon)
       .subscribe();

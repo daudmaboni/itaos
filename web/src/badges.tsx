@@ -28,7 +28,7 @@ export function useNavBadges(wsId: string, view: string): Badges {
     let t: number | undefined;
     // Throttled (one per 5 s) and only while the tab is visible; the visibility handler below catches up.
     const soon = () => { if (t !== undefined || document.visibilityState !== "visible") return; t = window.setTimeout(() => { t = undefined; load(); }, 5000); };
-    const ch = supabase.channel("badges-" + wsId)
+    const ch = supabase.channel(`badges-${wsId}-${Math.random().toString(36).slice(2, 10)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${wsId}` }, soon)
       .subscribe();
     const iv = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);

@@ -120,7 +120,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
       const wait = Math.max(800, 5000 - (Date.now() - last));
       timer = window.setTimeout(() => { timer = undefined; last = Date.now(); setQuiet(true); refresh(); window.dispatchEvent(new Event("itaos:live")); }, wait);
     };
-    const ch = supabase.channel("chats-" + ws.id)
+    const ch = supabase.channel(`chats-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, (p: any) => {
         // A chat changes whenever a message lands (its summary is recomputed), so this covers new messages too.
         // The messages table itself is not streamed: backfills write thousands of rows at once.
