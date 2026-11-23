@@ -15,33 +15,44 @@ const q = <T extends Element = HTMLElement>(root: Element | null, sel: string) =
 
 /* ---------- page enter ---------- */
 
+/* Page-enter animations (23 Nov 2026): built on the browser's own animations (element.animate) instead of
+   GSAP. GSAP read every element's computed style before animating it, which forced a layout per card: on
+   Actions that froze a phone for 1-2 s. The browser runs these on the graphics chip with no style reads, and
+   only what's on (or just below) the screen animates; the rest simply appears. Same look as before. */
+const EASE = { expo: "cubic-bezier(.16, 1, .3, 1)", power3: "cubic-bezier(.215, .61, .355, 1)", back: "cubic-bezier(.34, 1.56, .64, 1)" };
+const MAX_ANIMATED = 14;
+function onScreen(targets: Targets): HTMLElement[] {
+  const list = (Array.isArray(targets) ? targets : targets instanceof NodeList ? Array.from(targets) : [targets])
+    .filter((t): t is HTMLElement => t instanceof HTMLElement);
+  if (reduced.matches || !list.length || typeof list[0].animate !== "function") return [];
+  const limit = window.innerHeight + 120;
+  const out: HTMLElement[] = [];
+  for (const el of list) {                       // one layout for the whole pass (reads only)
+    if (out.length >= MAX_ANIMATED) break;
+    const r = el.getBoundingClientRect();
+    if (r.top < limit && r.bottom > -40) out.push(el);
+  }
+  return out;
+}
+function play(els: HTMLElement[], frames: (i: number) => Keyframe[], duration: number, easing: string, stagger: number, delay: number) {
+  els.forEach((el, i) => {
+    try { el.animate(frames(i), { duration: duration * 1000, easing, delay: (delay + i * stagger) * 1000, fill: "backwards" }); } catch { /* old browser: no animation */ }
+  });
+}
+
 /** Cards / panels: fade + lift + slight scale. Amplo uses this for the dashboard grid. */
 export function enterCards(targets: Targets, { y = 26, stagger = 0.06, delay = 0 } = {}) {
-  const tl = gsap.timeline({ delay: d(delay) });
-  tl.fromTo(
-    targets,
-    { opacity: 0, y, scale: 0.985 },
-    { opacity: 1, y: 0, scale: 1, duration: d(0.8), ease: "expo.out", stagger: d(stagger), clearProps: "transform,opacity" },
-  );
-  return tl;
+  play(onScreen(targets), () => [{ opacity: 0, transform: `translateY(${y}px) scale(.985)` }, { opacity: 1, transform: "none" }], 0.8, EASE.expo, stagger, delay);
 }
 
 /** Rows, chips, list items: quick fade + small slide. Used for table rows, notifications. */
 export function enterRows(targets: Targets, { x = 0, y = 12, stagger = 0.04, delay = 0 } = {}) {
-  return gsap.fromTo(
-    targets,
-    { opacity: 0, x, y },
-    { opacity: 1, x: 0, y: 0, duration: d(0.55), ease: "power3.out", stagger: d(stagger), delay: d(delay), clearProps: "transform,opacity" },
-  );
+  play(onScreen(targets), () => [{ opacity: 0, transform: `translate(${x}px, ${y}px)` }, { opacity: 1, transform: "none" }], 0.55, EASE.power3, stagger, delay);
 }
 
 /** Playful tiles (sign-in card children, empty states): bigger lift + alternate tilt + back ease. */
 export function enterTiles(targets: Targets, { delay = 0, stagger = 0.07 } = {}) {
-  return gsap.fromTo(
-    targets,
-    { opacity: 0, y: 40, rotation: (i: number) => (i % 2 ? 2.5 : -2.5), scale: 0.95 },
-    { opacity: 1, y: 0, rotation: 0, scale: 1, duration: d(0.85), ease: "back.out(1.4)", stagger: d(stagger), delay: d(delay), clearProps: "transform,opacity" },
-  );
+  play(onScreen(targets), (i) => [{ opacity: 0, transform: `translateY(40px) rotate(${i % 2 ? 2.5 : -2.5}deg) scale(.95)` }, { opacity: 1, transform: "none" }], 0.85, EASE.back, stagger, delay);
 }
 
 /** Bars grow from 0 (set transform-origin: bottom for y, left for x in CSS). */

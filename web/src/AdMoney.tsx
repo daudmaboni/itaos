@@ -2,6 +2,7 @@
 // Says, in plain words, which running ad to add money to, keep, fix or stop, judged on PAID sales.
 import { useEffect, useMemo, useState } from "react";
 import { supabase, Workspace, money, fmt, converter, displayCurrency } from "./lib";
+import { useKept } from "./keep";
 import { planAdMoney, adsManagerUrl, type AdMoneyRes, type AdLine, type Advice, type Verdict, type Reason } from "./adMoney";
 
 const DAYS = [7, 14, 30] as const;
@@ -11,7 +12,8 @@ const KEY = "itaos:admoney-days";
 export default function AdMoney({ ws }: { ws: Workspace }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
   const [days, setDays] = useState<Days>(() => { try { const v = Number(localStorage.getItem(KEY)); return (DAYS as readonly number[]).includes(v) ? (v as Days) : 14; } catch { return 14; } });
-  const [r, setR] = useState<AdMoneyRes | null>(null);
+  // Kept while the app is open: coming back to the Dashboard shows the last figures at once, refreshed quietly.
+  const [r, setR] = useKept<AdMoneyRes | null>(`admoney:${ws.id}:${days}`, null);
   const [err, setErr] = useState("");
   const [all, setAll] = useState(false);
   const [how, setHow] = useState(false);

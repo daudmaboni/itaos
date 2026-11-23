@@ -444,3 +444,6 @@ button.gsw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
    stop painting the text while you tap products (only the buttons stayed on screen). Same for weak phones. */
 :where(html:not(.hp-page)) :is(.wa-side, .pp) :is(button, .btn) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 html.glass-lite :is(button, .btn, nav.subtabs a, .seg) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Follow-up cards off screen are skipped when drawing and laying out (Actions → Today can list dozens). */
+.pcard { content-visibility: auto; contain-intrinsic-size: auto 260px; }

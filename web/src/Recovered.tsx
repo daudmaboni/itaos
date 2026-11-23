@@ -6,6 +6,7 @@
 //  - Journeys (messaged → replied → paid), the business's past and customers nobody messaged are context, never added in.
 import { useEffect, useState } from "react";
 import { supabase, Workspace, money, fmt } from "./lib";
+import { useKept } from "./keep";
 import type { Period } from "./metrics";
 
 type Kind = "promise" | "after_price" | "reorder";
@@ -39,7 +40,8 @@ export default function Recovered({ ws, period, conv, cur }: {
 }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
   const tz = ws.timezone || "Africa/Dar_es_Salaam";
-  const [r, setR] = useState<Res | null>(null);
+  // Kept while the app is open: coming back to the Dashboard shows the last figures at once, refreshed quietly.
+  const [r, setR] = useKept<Res | null>(`recovered:${ws.id}:${period.from}:${period.to}`, null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState(false);
   const [how, setHow] = useState(false);

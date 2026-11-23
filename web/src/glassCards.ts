@@ -13,6 +13,10 @@ function isWeakDevice(): boolean {
   } catch { /* storage unavailable */ }
   const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
   if (nav.connection?.saveData) return true;
+  // Phones and tablets (23 Nov 2026): live blur under every card and the top bar is redrawn on each scroll
+  // frame, and most Android GPUs can't keep up (WhatsApp uses solid bars for the same reason). The
+  // see-through look stays; only the live blur goes. "itaos-glass" = "full" brings it back.
+  if (matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) <= 900) return true;
   if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 4) return true;
   if (typeof nav.hardwareConcurrency === "number" && nav.hardwareConcurrency <= 4) return true;
   return false;

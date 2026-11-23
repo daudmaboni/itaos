@@ -196,3 +196,8 @@ html[data-font="urbanist"] .shell.dash-ia, html[data-font="inter"] .shell.dash-i
 @keyframes dr-sheet-up { from { transform: translateY(100%); } }
 @keyframes dr-sheet-down { to { transform: translateY(100%); } }
 .dr-sheet-h { display: none; }
+
+/* Phones (html.glass-lite, glassCards.ts): solid top bar, no live blur over the page scrolling under it. */
+@media (max-width: 760px) {
+  html.glass-lite .topbar { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--paper); }
+}
