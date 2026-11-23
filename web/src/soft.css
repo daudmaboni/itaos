@@ -253,7 +253,7 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 .pc-more-menu .pc-pick { justify-content: flex-start; width: 100%; box-sizing: border-box; }
 @media (max-width: 760px) {
   .pc-acts2 { flex-wrap: wrap; }
-  .pcard .pc-acts2 > .primary { flex: 1 1 100%; order: 3; }
+  .pcard .pc-acts.pc-acts2 > button.primary { flex: 1 1 100%; order: 3; white-space: nowrap; }
   .pc-acts2 > .pc-pick { flex: 1; }
   .pc-more { flex: 1; } .pc-more > summary { display: flex; justify-content: center; }
 }
