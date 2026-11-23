@@ -59,6 +59,9 @@ export default function Buyers({ ws }: { ws: Workspace }) {
     setErr(""); setRows((data as Buyer[]) ?? []);
   };
   useEffect(() => { const t = window.setTimeout(load, q ? 300 : 0); return () => window.clearTimeout(t); }, [q, region, ws.id]);
+  // Pull-to-refresh: reload quietly (pullRefresh.ts tags new rows).
+  const pullRef = useRef(load); pullRef.current = load;
+  useEffect(() => { const f = () => { void pullRef.current(); }; window.addEventListener("itaos-refresh", f); return () => window.removeEventListener("itaos-refresh", f); }, []);
 
   const shown = useMemo(() => (rows ?? []).filter((b) =>
     only === "all" ? true : only === "nolocation" ? !b.region && !b.delivery_place : toCheck(b)), [rows, only]);
@@ -157,7 +160,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
             const prods = (b.products ?? "").split(",").map((x) => x.trim()).filter(Boolean);
             const toggle = () => setOpen(isOpen ? null : b.contact_id);
             return (
-              <div key={b.contact_id} className="by-item">
+              <div key={b.contact_id} className="by-item" data-rid={b.contact_id}>
                 <div role="button" tabIndex={0} className="by-row" aria-haspopup="dialog" onClick={toggle}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}>
                   <span className="by-av" style={{ ["--h" as any]: hue(b.contact_id) }} aria-hidden>{b.full_name && initials(b.full_name) ||

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { fmt } from "./lib";
 
 export const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)", "var(--c6)"];
@@ -14,27 +15,29 @@ export function TrendChart({ days, cur, prev, weekly = false, partialLast = fals
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   const every = Math.max(1, Math.ceil(days.length / 7));
   const last = cur.length - 1;
+  // Line coloured by height (23 Nov 2026, the soft-cards look): yellow at the top of the chart, green at the bottom.
+  const id = useId().replace(/:/g, "");
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${weekly ? "Weekly" : "Daily"} ad spend, this period against the previous one`}>
+    <svg className="chart chart-soft" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${weekly ? "Weekly" : "Daily"} ad spend, this period against the previous one`}>
       <defs>
-        <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--c2)" stopOpacity="0.35" /><stop offset="1" stopColor="var(--c2)" stopOpacity="0" />
+        <linearGradient id={"gl" + id} gradientUnits="userSpaceOnUse" x1="0" y1={T} x2="0" y2={H - B}>
+          <stop offset="0" stopColor="#F7C23C" /><stop offset="0.55" stopColor="#9ED049" /><stop offset="1" stopColor="#1DB97A" />
         </linearGradient>
+        <filter id={"gs" + id} x="-5%" y="-20%" width="110%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="5" floodColor="#1DB97A" floodOpacity="0.22" /></filter>
       </defs>
       {ticks.map((t) => (
         <g key={t}>
-          <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeWidth="1" />
-          <text x={L - 8} y={y(t) + 4} textAnchor="end">{short(t)}</text>
+          <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeWidth="1" opacity="0.6" />
+          <text x={L - 10} y={y(t) + 4} textAnchor="end">{short(t)}</text>
         </g>
       ))}
-      {days.map((d, i) => (i % every === 0 ? <text key={d} x={x(i)} y={H - 8} textAnchor="middle">{label(d)}</text> : null))}
-      {prev.some((v) => v > 0) && <path d={line(prev)} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="4 4" />}
+      {days.map((d, i) => (i % every === 0 ? <text key={d} x={x(i)} y={H - 6} textAnchor="middle">{label(d)}</text> : null))}
+      {prev.some((v) => v > 0) && <path d={line(prev)} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="4 5" opacity="0.6" />}
       {cur.length > 0 && <>
-        <path d={`${line(cur)} L${x(last).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`} fill="url(#gfill)" />
-        <path d={line(partialLast && last > 0 ? cur.slice(0, last) : cur)} fill="none" stroke="var(--c2)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line(partialLast && last > 0 ? cur.slice(0, last) : cur)} fill="none" stroke={`url(#gl${id})`} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" filter={`url(#gs${id})`} />
         {/* Today is still filling up: dotted last step and a hollow dot, so a low "so far" figure doesn't look like a crash. */}
-        {partialLast && last > 0 && <path d={`M${x(last - 1).toFixed(1)},${y(cur[last - 1]).toFixed(1)} L${x(last).toFixed(1)},${y(cur[last]).toFixed(1)}`} fill="none" stroke="var(--c2)" strokeWidth="2" strokeDasharray="2 4" strokeLinecap="round" opacity="0.8" />}
-        <circle cx={x(last)} cy={y(cur[last])} r="4.5" fill={partialLast ? "var(--card)" : "var(--c2)"} stroke={partialLast ? "var(--c2)" : "var(--card)"} strokeWidth="2"><title>{partialLast ? "Today, so far" : ""}</title></circle>
+        {partialLast && last > 0 && <path d={`M${x(last - 1).toFixed(1)},${y(cur[last - 1]).toFixed(1)} L${x(last).toFixed(1)},${y(cur[last]).toFixed(1)}`} fill="none" stroke={`url(#gl${id})`} strokeWidth="2.5" strokeDasharray="2 5" strokeLinecap="round" opacity="0.9" />}
+        <circle cx={x(last)} cy={y(cur[last])} r="5" fill={partialLast ? "var(--card)" : `url(#gl${id})`} stroke={partialLast ? "#1DB97A" : "var(--card)"} strokeWidth="2.5"><title>{partialLast ? "Today, so far" : ""}</title></circle>
       </>}
     </svg>
   );

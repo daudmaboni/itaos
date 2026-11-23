@@ -2,6 +2,8 @@
 // their own pages (Ads, Payment checks, Why people didn't buy, Staff leak guard). Everything in full lives on
 // those pages; here it's one number and one line each.
 import { useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
+import { CardMenu, refreshPage } from "./CardMenu";
 import { supabase, Workspace, money, fmt, converter } from "./lib";
 import { useKept } from "./keep";
 import { planAdMoney, type AdMoneyRes, type Advice } from "./adMoney";
@@ -12,7 +14,7 @@ import HomeTiles from "./HomeTiles";
 type Counts = { waiting: number; overdue: number; proposed: number };
 type Data = { pay: PayRes | null; leak: LeakRes | null; lost: LostRes | null; ad: AdMoneyRes | null; counts: Counts | null };
 
-export default function HomeOverview({ ws, spend, roasN }: { ws: Workspace; spend: string; roasN: number | null }) {
+export default function HomeOverview({ ws, spend, roasN, insight }: { ws: Workspace; spend: string; roasN: number | null; insight?: ReactNode }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
   const [d, setD] = useKept<Data>("home-overview:" + ws.id, { pay: null, leak: null, lost: null, ad: null, counts: null });
 
@@ -56,12 +58,19 @@ export default function HomeOverview({ ws, spend, roasN }: { ws: Workspace; spen
     <>
       <section className="card donow" aria-busy={!items}>
         <h2>{T("Do this now", "Fanya hivi sasa")}</h2>
+        <CardMenu label={T("Do this now options", "Chaguo za Fanya hivi sasa")} items={[
+          { label: T("Refresh the list", "Sasisha orodha"), onClick: refreshPage },
+          { label: T("Open chats waiting for a reply", "Fungua chats zinazosubiri jibu"), href: "#chats" },
+          { label: T("Open all actions", "Fungua vitendo vyote"), href: "#actions" },
+        ]} />
         {!items ? <div className="skeleton" style={{ minHeight: 90 }} />
           : items.length === 0 ? <p className="dn-clear">{T("All clear. Nobody is waiting and nothing looks wrong.", "Kila kitu kiko sawa. Hakuna anayesubiri na hakuna kinachoonekana kibaya.")}</p>
           : <ol className="dn-list">{items.map((i) => (
             <li key={i.key} className={"dn-" + i.tone}><a href={i.href}><span className="dn-dot" aria-hidden /><span className="dn-text">{i.text}</span><span className="dn-cta">{i.cta} ›</span></a></li>
           ))}</ol>}
       </section>
+
+      {insight}
 
       <HomeTiles ws={ws} input={{
         roas: roasN, spend, adTodo: plan ? plan.advice.filter((a) => a.k !== "none_running" && a.k !== "no_sales_yet").length : 0,

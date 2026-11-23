@@ -182,8 +182,10 @@ export default function App() {
   // Pull-to-refresh (pullRefresh.ts): reload the open page in place instead of the whole app. The page is
   // remounted; each page shows its kept data straight away and fetches fresh data behind it.
   const [refreshN, setRefreshN] = useState(0);
+  const curView = useRef(view); curView.current = view; // the page on screen now, whatever changed it
   useEffect(() => {
-    const on = (e: Event) => { if (!ws) return; e.preventDefault(); setRefreshN((n) => n + 1); };
+    // Chats and Buyers reload their own lists quietly (they keep the open chat, filters and scroll), so they aren't remounted.
+    const on = (e: Event) => { if (!ws) return; e.preventDefault(); if (!SELF_REFRESH.has(curView.current)) setRefreshN((n) => n + 1); };
     window.addEventListener(REFRESH_EVT, on);
     return () => window.removeEventListener(REFRESH_EVT, on);
   }, [ws]);
@@ -344,6 +346,8 @@ function CreateWorkspace({ onDone }: { onDone: (w: Workspace) => void }) {
 
 const ORDER: View[] = ["dashboard", "kito", "chats"];
 const SLOTS = ORDER.length + 1; // + More
+/** Pages that answer pull-to-refresh themselves instead of being remounted. */
+const SELF_REFRESH = new Set(["chats", "buyers"]);
 
 // The nav bars (computer top bar and phone bottom bar) get their own colour so they stand out from the
 // page: picked at random on each visit, the same for both. "green" is the homepage green; "alt" is black

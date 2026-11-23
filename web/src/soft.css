@@ -80,3 +80,62 @@
 .mh-joined > .mh-card.green + .mh-badge { align-self: center; height: 30px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 13px; }
 .dash-ia .donow > h2::before, .donow > h2::before { background-image: var(--ico-tasks) !important; }
 :root:not([data-theme="light"]) .mh-card.navy .mh-num > .mh-k:first-child::before { background-color: var(--raised); }
+
+/* New rows after a pull-to-refresh (pullRefresh.ts): slide in one after another, a soft green wash and a "New" tag */
+[data-rid].is-new { position: relative; animation: new-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--new-i, 0) * 60ms); }
+[data-rid].is-new::after { content: attr(data-new-label); position: absolute; top: 8px; right: 10px; z-index: 2; padding: 2px 8px; border-radius: 999px;
+  background: #2F6BFF; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; pointer-events: none; transition: opacity .5s; }
+[data-rid].is-new > :first-child { background-color: color-mix(in srgb, var(--mint) 12%, transparent); transition: background-color .6s; }
+[data-rid].is-new-fade::after { opacity: 0; }
+[data-rid].is-new-fade > :first-child { background-color: transparent; }
+@keyframes new-in { from { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) { [data-rid].is-new { animation: none; } }
+.chart-soft text { fill: var(--muted); font-size: 12px; opacity: .8; }
+.dash-ia .card .big { font-weight: 500; letter-spacing: -0.035em; }
+
+/* ── Insight card (Insight.tsx) ── */
+.card.insight { position: relative; color: #fff; border: 0; overflow: hidden; gap: 14px; min-height: 260px; align-content: space-between;
+  background: radial-gradient(160px 120px at 0% 0%, #fff6c440, transparent 70%), radial-gradient(70% 90% at 100% 100%, #ffffff14, transparent 60%), linear-gradient(155deg, #1DA673 0%, #12955F 55%, #0D8455 100%);
+  box-shadow: 0 22px 44px -24px #0e8f5e99; }
+.card.insight::after { content: ""; position: absolute; right: -60px; top: 30px; width: 260px; height: 260px; border-radius: 50%; border: 38px solid #ffffff0d; pointer-events: none; }
+.in-head { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.in-head b { font-weight: 500; font-size: 16px; }
+.in-ico { width: 34px; height: 34px; border-radius: 10px; background: #fff; color: #12A06A; display: grid; place-items: center; flex: none; box-shadow: 0 2px 8px -2px #0000002e; }
+.in-period { margin-left: auto; padding: 7px 14px; border-radius: 999px; background: #fff; color: #141a1f; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.in-body { display: grid; gap: 8px; position: relative; z-index: 1; animation: in-slide .35s cubic-bezier(.2, .8, .2, 1); }
+@keyframes in-slide { from { opacity: 0; transform: translateX(14px); } }
+.in-big { font-size: 64px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #0a5a3a40; }
+.in-line { margin: 0; font-size: 19px; line-height: 1.3; font-weight: 400; max-width: 30ch; }
+.in-note { margin: 0; font-size: 13.5px; color: #ffffffcc; max-width: 46ch; }
+.in-foot { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.in-arrow { all: unset; cursor: pointer; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #fff; }
+.in-arrow:hover { background: #ffffff1f; } .in-arrow:focus-visible { outline: 2px solid #fff; }
+.in-dots { display: flex; justify-content: center; gap: 6px; }
+.in-dots button { all: unset; cursor: pointer; height: 20px; width: 34px; display: grid; align-items: center; }
+.in-dots button::before { content: ""; height: 4px; border-radius: 2px; background: #ffffff38; transition: background .25s; }
+.in-dots button.on::before { background: #fff; }
+.in-dots button:focus-visible { outline: 2px solid #fff; border-radius: 4px; }
+@media (max-width: 760px) { .in-big { font-size: 52px; } .in-line { font-size: 17px; } .card.insight { min-height: 240px; } .in-dots button { width: 24px; } }
+@media (prefers-reduced-motion: reduce) { .in-body { animation: none; } }
+
+/* ── "…" card menu (CardMenu.tsx) ── */
+.cm { position: relative; flex: none; }
+.cm-btn { all: unset; box-sizing: border-box; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--card); color: var(--ink); box-shadow: var(--soft-ring); }
+.cm-light .cm-btn { background: #fff; color: #141a1f; box-shadow: none; }
+.cm-btn:hover { filter: brightness(.97); } .cm-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cm-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; padding: 6px; border-radius: 16px; background: var(--card); color: var(--ink); box-shadow: 0 18px 40px -16px #0f1c2a59, 0 0 0 1px #0f1c2a12; display: grid; animation: pm-in .16s ease-out both; }
+.cm-menu > a, .cm-menu > button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; min-height: 42px; padding: 0 12px; border-radius: 10px; font-size: 14px; color: var(--ink); text-decoration: none; }
+.cm-menu > a:hover, .cm-menu > button:hover { background: var(--raised); }
+.cm-menu > a:focus-visible, .cm-menu > button:focus-visible { outline: 2px solid var(--accent); }
+/* card heads that carry a menu: title on the left, menu on the right */
+.donow > .dn-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mh-card.green > .cm { position: absolute; top: 14px; right: 14px; z-index: 3; }
+.donow { position: relative; }
+.donow > .cm { position: absolute; top: 12px; right: 14px; }
+@media (min-width: 761px) { .donow > .cm { top: 16px; right: 18px; } }
+/* leave room so the revenue line doesn't run under the … button */
+.mh-card.green:has(> .cm) .mh-num:first-child, .mh-card.green:has(> .cm) .pl-rc > .mh-num { padding-right: 44px; }
+@media (min-width: 761px) { .donow > .cm { top: 20px; right: 20px; } }
+@media (min-width: 1100px) { .donow > .cm { top: 24px; right: 24px; } }
+/* computers: the receipt sits in the top right, so it drops a little to make room for the … button */
+@media (min-width: 900px) { .mh-card:has(> .cm) > .pl-rc > .pl-receipt { margin-top: 34px; } .mh-card.green > .cm { top: 18px; right: 22px; } }

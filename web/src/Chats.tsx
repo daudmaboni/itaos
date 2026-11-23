@@ -400,6 +400,9 @@ export default function Chats({ ws }: { ws: Workspace }) {
   }, [openId, loading, found, ws.id]);
   // After a change in the open chat, refresh in place: no loading skeleton, the list keeps its scroll position.
   const refreshQuiet = () => { setQuiet(true); refresh(); };
+  // Pull-to-refresh: reload the list quietly, keeping the open chat and filters (pullRefresh.ts tags new rows).
+  const pullRef = useRef(refreshQuiet); pullRef.current = refreshQuiet;
+  useEffect(() => { const f = () => pullRef.current(); window.addEventListener("itaos-refresh", f); return () => window.removeEventListener("itaos-refresh", f); }, []);
   const tabs: [Filter, string, string][] = [
     ["all", T("All", "Wote"), T("Every customer", "Wateja wote")],
     ["follow", T("Follow up", "Wafuatilie"), T("Interested — talk to them again", "Wana hamu — waongeleshe tena")],
@@ -559,7 +562,7 @@ function Card({ r, ws, T, adName, phone, task, selected, onOpen, onChange }: { r
     : phone ? <a className="btn small primary" href={waLink(phone)} target="_blank" rel="noopener noreferrer">{st.key === "waiting" ? T("Reply on WhatsApp ↗", "Mjibu WhatsApp ↗") : T("Message on WhatsApp ↗", "Mtumie ujumbe WhatsApp ↗")}</a>
     : null;
   return (
-    <article className={"cc " + st.tone + (selected ? " sel" : "")} aria-current={selected || undefined}>
+    <article className={"cc " + st.tone + (selected ? " sel" : "")} aria-current={selected || undefined} data-rid={r.id}>
       <div className="cc-top" onClick={() => onOpen()} onPointerDown={() => prefetchMsgs(r.id)} role="button" tabIndex={0}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}>
         <div className="cc-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</div>

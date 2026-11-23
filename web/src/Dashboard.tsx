@@ -15,6 +15,9 @@ import Recovered from "./Recovered";
 import AdMoney from "./AdMoney";
 import LostReasons from "./LostReasons";
 import HomeOverview from "./HomeOverview";
+import Insight from "./Insight";
+import { buildInsights } from "./insights";
+import { CardMenu, copyText, refreshPage } from "./CardMenu";
 import Report from "./Report";
 
 /** One data source, four places (23 Nov 2026, the Dashboard was ~23 blocks):
@@ -140,7 +143,15 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
       {noData ? (
         <div className="empty">{T("No data yet. Connect the ad account and WhatsApp, or upload chats and import orders, in ", "Bado hakuna data. Unganisha matangazo na WhatsApp, au pakia chats na uingize oda, kwenye ")}<a href="#connect">{T("Connections", "Connections")}</a>.</div>
       ) : (<>
-        {page === "home" && <MoneyHero style={hero} T={T} onRevenue={() => setShowPaid((x) => !x)} revenueOpen={showPaid} data={{
+        {page === "home" && <MoneyHero style={hero} T={T} onRevenue={() => setShowPaid((x) => !x)} revenueOpen={showPaid}
+          menu={<CardMenu light label={T("Money card options", "Chaguo za kadi ya pesa")} items={[
+            { label: showPaid ? T("Hide paid orders", "Ficha oda zilizolipwa") : T("Show paid orders", "Onyesha oda zilizolipwa"), onClick: () => setShowPaid((x) => !x) },
+            { label: T("Copy summary", "Nakili muhtasari"), done: T("Copied ✓", "Imenakiliwa ✓"), onClick: () => copyText(
+              `${T("Money in", "Pesa iliyoingia")}: ${money(W(mx.revenue.value), wsCur)} · ${T("Profit", "Faida")}: ${mx.contribution.value == null ? "–" : money(W(mx.contribution.value), wsCur)} · ${T("Ad spend", "Matangazo")}: ${money(A(mx.spend.value), adCur)} · ${periodText(mx.period, lang)}`) },
+            { label: T("Refresh numbers", "Sasisha namba"), onClick: refreshPage },
+            { label: T("Change the card's look", "Badilisha mwonekano wa kadi"), href: "#settings/app" },
+          ]} />}
+          data={{
           revenue: money(W(mx.revenue.value), wsCur), revenueD: delta(mx.revenue, prev.revenue),
           revenueSub: `${mx.ordersPaid.value} ${mx.ordersPaid.value === 1 ? T("paid order", "oda iliyolipwa") : T("paid orders", "oda zilizolipwa")} · ${periodText(mx.period, lang)}`,
           spend: money(A(mx.spend.value), adCur), spendD: delta(mx.spend, prev.spend),
@@ -189,7 +200,15 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
         </div>}
         {showPaid && <PaidOrders ws={ws} orders={g.orders} period={mx.period} adNames={adNames} onClose={() => setShowPaid(false)} />}
         {page === "home" && <>
-          <HomeOverview ws={ws} spend={money(A(mx.spend.value), adCur)} roasN={mx.returnOnAdSpendAllAdCustomers.value ?? null} />
+          <HomeOverview ws={ws} spend={money(A(mx.spend.value), adCur)} roasN={mx.returnOnAdSpendAllAdCustomers.value ?? null}
+            insight={<Insight T={T} period={periodText(mx.period, lang)} slides={buildInsights({
+              revenue: W(mx.revenue.value) ?? null, revenueD: delta(mx.revenue, prev.revenue),
+              profit: canConvert ? W(mx.contribution.value) ?? null : null, spend: A(mx.spend.value) ?? null,
+              roas: mx.returnOnAdSpendAllAdCustomers.value ?? null,
+              costPerChat: A(mx.costPerPlatformConversation.value) ?? null, chats: mx.platformConversations.value ?? null,
+              paidOrders: mx.ordersPaid.value ?? null, adOrders: mx.adCustomerOrders.value ?? null,
+              money: (n) => money(n, wsCur), adMoney: (n) => money(n, adCur),
+            }, T)} />} />
           <Recovered ws={ws} period={mx.period} conv={W} cur={wsCur} />
         </>}
         {page === "ads" && <AdMoney ws={ws} />}

@@ -4,6 +4,7 @@
 // How it behaves (23 Nov 2026), following the four rules of a good pull-to-refresh:
 //  1. Respond at once: a pill drops in under your finger the moment you pull.
 //  2. Say when: while you pull it says how old the page is ("Updated 12 min ago"), then "Let go to refresh".
+//  (A newer version of itaOS on the server? Then the pull reloads everything, so it gets installed.)
 //  3. Refresh in place: the open page reloads its data behind what's on screen (App.tsx remounts it; every
 //     page keeps its last data, so nothing blanks). The whole app only reloads if no page answers.
 //  4. Tell them it worked: the pill turns into "✓ Updated just now", then slides away.
@@ -31,11 +32,39 @@ function settled(minMs: number, maxMs: number) {
   });
 }
 
+/** Is a newer itaOS on the server than the one running? Compares the app's main script file name, which changes
+ *  with every build. A pull then reloads everything instead, so the new version is installed. */
+async function newVersionWaiting(): Promise<boolean> {
+  const mine = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/"]')?.getAttribute("src");
+  if (!mine) return false;
+  try {
+    const ctl = new AbortController();
+    const t = window.setTimeout(() => ctl.abort(), 2500);
+    const html = await fetch("/app?v=" + Date.now(), { cache: "no-store", signal: ctl.signal }).then((r) => (r.ok ? r.text() : ""));
+    window.clearTimeout(t);
+    const live = html.match(/<script[^>]+type="module"[^>]+src="(\/assets\/[^"]+)"/)?.[1] ?? html.match(/src="(\/assets\/index-[^"]+\.js)"/)?.[1];
+    return !!live && live !== mine;
+  } catch { return false; }
+}
+
 const sw = () => document.documentElement.lang === "sw";
 function ago(ms: number) {
   const m = Math.floor(ms / 60000);
   if (sw()) return m < 1 ? "Imesasishwa sasa hivi" : m < 60 ? `Imesasishwa dakika ${m} zilizopita` : `Imesasishwa saa ${Math.floor(m / 60)} zilizopita`;
   return m < 1 ? "Updated just now" : m < 60 ? `Updated ${m} min ago` : `Updated ${Math.floor(m / 60)} h ago`;
+}
+
+/** Rows (chats, buyers) that weren't on screen before the pull slide in with a "New" tag. */
+function markNew(before: Set<string | undefined>) {
+  if (!before.size) return; // nothing to compare with (page was empty or remounted)
+  const fresh = Array.from(document.querySelectorAll<HTMLElement>("[data-rid]")).filter((n) => !before.has(n.dataset.rid));
+  fresh.slice(0, 20).forEach((n, i) => {
+    n.style.setProperty("--new-i", String(i));
+    n.classList.add("is-new");
+    n.dataset.newLabel = sw() ? "Mpya" : "New";
+    window.setTimeout(() => n.classList.add("is-new-fade"), 9000);
+    window.setTimeout(() => { n.classList.remove("is-new", "is-new-fade"); n.style.removeProperty("--new-i"); }, 9600);
+  });
 }
 
 export function startPullRefresh() {
@@ -86,12 +115,16 @@ export function startPullRefresh() {
     busy = true;
     setState("spin"); txt.textContent = sw() ? "Inasasisha…" : "Refreshing…";
     el.classList.add("back"); el.style.transform = `translate(-50%, ${PULL * 0.9 - 44}px)`;
+    // A newer version of itaOS is out: reload everything so it gets installed.
+    if (await newVersionWaiting()) { txt.textContent = sw() ? "Toleo jipya…" : "Getting the new version…"; window.setTimeout(() => location.reload(), 300); return; }
     // Ask the app to reload the open page in place. If nothing answers (sign-in, error screens), reload everything.
+    const before = new Set(Array.from(document.querySelectorAll<HTMLElement>("[data-rid]"), (n) => n.dataset.rid));
     const ev = new CustomEvent(REFRESH_EVT, { cancelable: true });
     window.dispatchEvent(ev);
     if (!ev.defaultPrevented) { window.setTimeout(() => location.reload(), 150); return; }
     await settled(700, 10_000);
     updated = Date.now();
+    markNew(before);
     setState("done"); txt.textContent = ago(0);
     navigator.vibrate?.(10);
     window.setTimeout(() => { hide(); busy = false; }, 1300);
