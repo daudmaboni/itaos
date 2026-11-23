@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Insight as Slide } from "./insights";
 import { CardMenu, copyText, refreshPage } from "./CardMenu";
+import { whoosh } from "./sound";
 
 type T = (en: string, sw: string) => string;
 const PEEK = 0.86, GAP = 14, SPRING = "transform .6s cubic-bezier(.2, 1.25, .35, 1), opacity .45s ease";
@@ -38,7 +39,7 @@ export default function Insight({ slides, period, T }: { slides: Slide[]; period
 
   if (!n) return null;
   const s = slides[k]!;
-  const go = (j: number) => setI(Math.max(0, Math.min(n - 1, j)));
+  const go = (j: number) => { const to = Math.max(0, Math.min(n - 1, j)); if (to !== k) whoosh(); setI(to); };
 
   const down = (e: React.PointerEvent) => {
     if (n < 2 || (e.target as HTMLElement).closest("button, a, .cm")) return;

@@ -82,7 +82,7 @@
 /* New rows after a pull-to-refresh (pullRefresh.ts): slide in one after another, a soft green wash and a "New" tag */
 [data-rid].is-new { position: relative; animation: new-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--new-i, 0) * 60ms); }
 [data-rid].is-new::after { content: attr(data-new-label); position: absolute; top: 8px; right: 10px; z-index: 2; padding: 2px 8px; border-radius: 999px;
-  background: #2F6BFF; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; pointer-events: none; transition: opacity .5s; }
+  background: #0E8F5E; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; pointer-events: none; transition: opacity .5s; }
 [data-rid].is-new > :first-child { background-color: color-mix(in srgb, var(--mint) 12%, transparent); transition: background-color .6s; }
 [data-rid].is-new-fade::after { opacity: 0; }
 [data-rid].is-new-fade > :first-child { background-color: transparent; }
@@ -305,7 +305,7 @@ img.mv-img.loaded { animation: img-in .35s ease; }
 /* Undo toast: a card was taken away, one tap puts it back */
 .undo-toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); padding: 10px 10px 10px 18px; border-radius: 999px; background: #141a2a; color: #fff; font-size: 14px; box-shadow: 0 14px 30px -12px #0f1c2a99; animation: undo-in .3s cubic-bezier(.2,.8,.2,1); }
 .undo-toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.undo-toast button { flex: none; border: 0; border-radius: 999px; padding: 7px 14px; background: #ffffff1f; color: #F7C948; font: 700 13.5px var(--font); box-shadow: none; }
+.undo-toast button { flex: none; border: 0; border-radius: 999px; padding: 7px 14px; background: #ffffff1f; color: var(--mint); font: 700 13.5px var(--font); box-shadow: none; }
 @keyframes undo-in { from { opacity: 0; transform: translate(-50%, 12px); } }
 @media (min-width: 900px) { .undo-toast { bottom: 28px; } }
 /* Buttons that delete something look different from everything else (red words, never the main button) */
@@ -336,3 +336,11 @@ img.mv-img.loaded { animation: img-in .35s ease; }
 .set-hits button:hover, .set-hits button:focus-visible { background: var(--raised); }
 .set-none { padding: 10px 12px; }
 .card.set-hit { box-shadow: 0 0 0 3px color-mix(in srgb, #0E8F5E 45%, transparent), var(--soft-shadow); transition: box-shadow .3s; }
+
+/* Spend chart: the old line draws first, then this period, then the latest point and its figure */
+.chart .ch-old { animation: ch-draw .7s ease-out both; }
+.chart .ch-new { animation: ch-draw .8s ease-out .55s both; }
+.chart .ch-mark { animation: ch-pop .35s cubic-bezier(.3,1.5,.5,1) 1.3s both; transform-box: fill-box; transform-origin: center; }
+@keyframes ch-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ch-pop { from { opacity: 0; transform: scale(.4); } }
+@media (prefers-reduced-motion: reduce) { .chart .ch-old, .chart .ch-new, .chart .ch-mark { animation: none; } }

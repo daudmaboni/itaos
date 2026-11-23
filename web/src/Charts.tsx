@@ -32,12 +32,15 @@ export function TrendChart({ days, cur, prev, weekly = false, partialLast = fals
         </g>
       ))}
       {days.map((d, i) => (i % every === 0 ? <text key={d} x={x(i)} y={H - 6} textAnchor="middle">{label(d)}</text> : null))}
-      {prev.some((v) => v > 0) && <path d={line(prev)} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="4 5" opacity="0.6" />}
+      {/* Drawn in order (Glide: "Draw the old line first. Then the one that matters. Then mark one point."):
+          the dashed last period, then this period, then the latest point with its figure. */}
+      {prev.some((v) => v > 0) && <path className="ch-old" d={line(prev)} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="4 5" opacity="0.6" />}
       {cur.length > 0 && <>
-        <path d={line(partialLast && last > 0 ? cur.slice(0, last) : cur)} fill="none" stroke={`url(#gl${id})`} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" filter={`url(#gs${id})`} />
+        <path className="ch-new" d={line(partialLast && last > 0 ? cur.slice(0, last) : cur)} fill="none" stroke={`url(#gl${id})`} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" filter={`url(#gs${id})`} />
         {/* Today is still filling up: dotted last step and a hollow dot, so a low "so far" figure doesn't look like a crash. */}
-        {partialLast && last > 0 && <path d={`M${x(last - 1).toFixed(1)},${y(cur[last - 1]).toFixed(1)} L${x(last).toFixed(1)},${y(cur[last]).toFixed(1)}`} fill="none" stroke={`url(#gl${id})`} strokeWidth="2.5" strokeDasharray="2 5" strokeLinecap="round" opacity="0.9" />}
-        <circle cx={x(last)} cy={y(cur[last])} r="5" fill={partialLast ? "var(--card)" : `url(#gl${id})`} stroke={partialLast ? "#1DB97A" : "var(--card)"} strokeWidth="2.5"><title>{partialLast ? "Today, so far" : ""}</title></circle>
+        {partialLast && last > 0 && <path className="ch-new" d={`M${x(last - 1).toFixed(1)},${y(cur[last - 1]).toFixed(1)} L${x(last).toFixed(1)},${y(cur[last]).toFixed(1)}`} fill="none" stroke={`url(#gl${id})`} strokeWidth="2.5" strokeDasharray="2 5" strokeLinecap="round" opacity="0.9" />}
+        <text className="ch-mark" x={Math.min(x(last), W - R - 4)} y={Math.max(y(cur[last]) - 14, T + 10)} textAnchor="end" style={{ fontWeight: 700, fill: "var(--ink)", opacity: 1 }}>{short(Math.round(cur[last]))}</text>
+        <circle className="ch-mark" cx={x(last)} cy={y(cur[last])} r="5" fill={partialLast ? "var(--card)" : `url(#gl${id})`} stroke={partialLast ? "#1DB97A" : "var(--card)"} strokeWidth="2.5"><title>{partialLast ? "Today, so far" : ""}</title></circle>
       </>}
     </svg>
   );

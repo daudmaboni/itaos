@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
+import { soundsOn, setSounds, whoosh } from "./sound";
 import Dashboard from "./Dashboard";
 import { Avatar, PROFILE_EVT } from "./ProfileMenu";
 import Templates from "./Templates";
@@ -167,6 +168,7 @@ function Appearance({ ws, onWs, theme, onTheme, T }: { ws: Workspace; onWs: (w: 
           <button type="button" className={theme !== "light" ? "on" : ""} aria-pressed={theme !== "light"} onClick={(e) => onTheme("graphite", e.currentTarget)}>{T("Dark", "Giza")}</button>
         </div>
       </section>
+      <SoundsCard T={T} />
       <FontPicker T={T} />
       <HeroPicker T={T} />
       <form className="card" onSubmit={(e) => e.preventDefault()}>
@@ -815,6 +817,7 @@ const SET_INDEX: [Tab, string, string, string][] = [
   ["rules", "Messages after 24 hours", "Jumbe baada ya saa 24", "templates whatsapp 24 hours template jumbe"],
   ["app", "Theme", "Mandhari", "dark light mode night giza"],
   ["app", "Language", "Lugha", "swahili english kiswahili kiingereza"],
+  ["app", "Sounds", "Sauti", "sound sounds click mute silent quiet sauti kimya"],
   ["app", "Font", "Herufi", "font text size herufi"],
   ["app", "Home money cards", "Kadi za pesa za Nyumbani", "money card look revenue ad spend home"],
   ["app", "Notifications", "Arifa", "notifications alerts push sound arifa"],
@@ -844,5 +847,20 @@ function SettingsSearch({ T, onPick }: { T: Tr; onPick: (t: Tab, title: string) 
         </div>
       )}
     </div>
+  );
+}
+
+/** Soft sounds on presses and arrivals (sound.ts). Saved on this device; the switch answers as it changes. */
+function SoundsCard({ T }: { T: Tr }) {
+  const [on, setOn] = useState(soundsOn);
+  return (
+    <section className="card">
+      <div><h2>{T("Sounds", "Sauti")}</h2><span className="small muted">{T("A soft click when you press, a quiet whoosh when something opens. Saved on this device only.", "Mbofyo laini ukibonyeza, sauti ndogo kitu kikifunguka. Inahifadhiwa kwenye kifaa hiki tu.")}</span></div>
+      <div className="seg" role="group" aria-label={T("Sounds", "Sauti")}>
+        <button type="button" className={on ? "on" : ""} aria-pressed={on} onClick={() => { setSounds(true); setOn(true); whoosh(); }}>{T("On", "Washa")}</button>
+        <button type="button" className={!on ? "on" : ""} aria-pressed={!on} onClick={() => { setSounds(false); setOn(false); }}>{T("Off", "Zima")}</button>
+      </div>
+      <span className="small muted" aria-live="polite">{on ? T("On — you'll hear it now.", "Imewashwa — utaisikia sasa.") : T("Off — itaOS stays silent.", "Imezimwa — itaOS iko kimya.")}</span>
+    </section>
   );
 }

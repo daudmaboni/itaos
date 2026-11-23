@@ -1,5 +1,6 @@
 import { useNavBadges, chatsBadge, actionsBadge, NavBadge, Badges } from "./badges";
 import { UndoToast } from "./undo";
+import { whoosh } from "./sound";
 import { AppTip } from "./PhoneApp";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { REFRESH_EVT } from "./pullRefresh";
@@ -603,6 +604,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
   // The sheet leaves the way it came: it sinks back into the More button instead of vanishing.
   const [closing, setClosing] = useState(false);
   const wasOpen = useRef(false);
+  useEffect(() => { if (open) whoosh(); }, [open]);
   useEffect(() => {
     if (wasOpen.current && !open) { setClosing(true); const t = window.setTimeout(() => setClosing(false), 200); wasOpen.current = false; return () => window.clearTimeout(t); }
     wasOpen.current = open;
