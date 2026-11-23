@@ -195,9 +195,9 @@ export default function App() {
       <header className="topbar">
         <div className="brand"><a className="home" href="#dashboard" aria-label="itaOS, go to dashboard" onClick={() => window.scrollTo({ top: 0 })}><Logo size={34} /><span className="brand-text"><h1>itaOS</h1><span className="ws" title={ws.name}>{ws.name}</span></span></a></div>
         <GlassTabs view={view}>
-          <a data-tab href="#dashboard" className={view === "dashboard" ? "on" : ""}>Dashboard</a>
-          <a data-tab href="#chats" className={view === "chats" ? "on" : ""}>Chats<NavBadge badge={chatsBadge(badges, ws.language === "sw")} /></a>
-          <a data-tab href="#kito" className={view === "kito" ? "on" : ""}>{ws.language === "sw" ? "Muulize Kito" : "Ask Kito"}</a>
+          <a data-tab href="#dashboard" className={view === "dashboard" ? "on" : ""}><TabIco d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />Dashboard</a>
+          <a data-tab href="#chats" className={view === "chats" ? "on" : ""}><TabIco d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />Chats<NavBadge badge={chatsBadge(badges, ws.language === "sw")} /></a>
+          <a data-tab href="#kito" className={view === "kito" ? "on" : ""}><TabIco d="M12 3l1.8 4.9L19 9.7l-4.2 3.1 1.5 5.2L12 15l-4.3 3 1.5-5.2L5 9.7l5.2-1.8z" />{ws.language === "sw" ? "Muulize Kito" : "Ask Kito"}</a>
           <TopMore view={view} sw={ws.language === "sw"} badges={badges} />
         </GlassTabs>
         <div className="actions">
@@ -337,7 +337,7 @@ const SLOTS = ORDER.length + 1; // + More
 
 // The nav bars (computer top bar and phone bottom bar) get their own colour so they stand out from the
 // page: picked at random on each visit, the same for both. "green" is the homepage green; "alt" is black
-// in light mode and white in dark mode (see styles.css).
+// in light mode and green again in dark mode, where black would vanish (see styles.css).
 const NAV_TONE = Math.random() < 0.5 ? "green" : "alt";
 
 /** Top tabs with the ponditech.com "liquid glass" pill: it rests on the current page and glides
@@ -391,6 +391,11 @@ function GlassTabs({ view, children }: { view: string; children: import("react")
   );
 }
 
+/** Small line icon in front of a top-bar tab name. */
+function TabIco({ d }: { d: string }) {
+  return <svg className="tab-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>;
+}
+
 /** Sections that live under "More" (top bar on computers, sheet on phones). */
 function moreItems(sw: boolean): [View, string, string, JSX.Element][] {
   const L = (en: string, s: string) => (sw ? s : en);
@@ -426,7 +431,7 @@ function TopMore({ view, sw, badges }: { view: View; sw: boolean; badges: Badges
       <button type="button" data-tab className={"more-btn" + (cur ? " on" : "")} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         {cur ? cur[1] : sw ? "Zaidi" : "More"}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-        {!open && <NavBadge badge={actionsBadge(badges, sw)} />}
+        {!open && (() => { const b = actionsBadge(badges, sw); return b ? <span className="navdot" title={b.title} aria-label={b.title} /> : null; })()}
       </button>
       {/* Blur everything behind the open menu; the bar and menu stay sharp above it (nav.tabs is z-index 30). */}
       {open && createPortal(<div className="more-back" aria-hidden="true" onClick={() => setOpen(false)} />, document.body)}

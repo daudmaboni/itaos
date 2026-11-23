@@ -1809,3 +1809,17 @@ html.ps-on::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .ps.drag { opacity: 1; }
 html:has(.ps.drag) { user-select: none; -webkit-user-select: none; }
 @media (prefers-reduced-motion: reduce) { .ps, .ps i { transition: none; } }
+
+/* ── Computer top bar, options 1 + 5 (23 Nov 2026): icon before each name, the Chats count sits inside the tab,
+   More shows a dot (its count is inside the menu). Light mode: green or black at random; dark mode: green. ── */
+:root:not([data-theme="light"]) :is(nav.tabs.glass-tabs, .bottomnav)[data-tone="alt"] { --tb-bg: #0f7a4f; --tb-ink: #ffffffb8; --tb-hi: #fff; --tb-pill: #fff; --tb-on: #0b5c3b; }
+:root:not([data-theme="light"]) nav.tabs.glass-tabs[data-tone="alt"] { box-shadow: 0 12px 30px -14px color-mix(in srgb, #0f7a4f 70%, #000), inset 0 1px 0 #ffffff26; }
+@media (min-width: 761px) {
+  nav.tabs.glass-tabs { padding: 5px; }
+  nav.tabs.glass-tabs [data-tab] { display: inline-flex; align-items: center; gap: 8px; padding: 10px 17px; font-size: 15px; font-weight: 650; }
+  nav.tabs.glass-tabs .tab-ico { flex: none; }
+  nav.tabs.glass-tabs [data-tab] .navbadge { position: static; animation: none; height: 20px; min-width: 22px; padding: 0 7px; font-size: 12px; box-shadow: none; border: 0; margin-left: 1px; }
+  nav.tabs.glass-tabs [data-tab].lensed .navbadge.red { background: #E5484D; color: #fff; }
+  nav.tabs.glass-tabs .navdot { width: 8px; height: 8px; border-radius: 50%; background: #F7C948; flex: none; }
+  nav.tabs.glass-tabs [data-tab].lensed .navdot { background: #D98A00; }
+}
