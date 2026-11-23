@@ -270,3 +270,10 @@ a.mh-card .mh-go { position: absolute; top: 18px; right: 18px; width: 30px; heig
 @media (max-width: 640px) { .kpis:not(.has-hero) > :first-child:nth-last-child(even) { grid-column: auto; } }
 /* Bottom bar: no hover fill on the More button (on phones a tap leaves :hover stuck, which hid the icon under a white blob) */
 .bottomnav a:hover:not(:disabled), .bottomnav button:hover:not(:disabled), :where(html:not(.hp-page)) .bottomnav button:hover:not(:disabled) { background: none; }
+
+/* Payments & deliveries → overdue follow-ups: name (opens the chat) and the two buttons on one line */
+.att-list li > a.att-who { display: grid; gap: 2px; min-width: 0; flex: 1 1 0; color: inherit; text-decoration: none; }
+.att-list li > a.att-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-list li > a.att-who:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.att-list .att-acts { display: flex; gap: 6px; flex: none; }
+.att-list li:has(> a.att-who) { flex-wrap: nowrap; }

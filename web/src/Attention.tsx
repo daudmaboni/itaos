@@ -104,9 +104,9 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
             <ul className="att-list">
               {d.overdue.map((t) => (
                 <li key={t.id}>
-                  <span><b>{t.contact_name ?? t.title}</b><span className="small muted">{T("was due", "ilitakiwa")} {ago(t.due_at)}{t.assigned_to ? ` · ${who(t.assigned_to)}` : ""}</span></span>
-                  <span className="row" style={{ gap: 6 }}>
-                    <a className="btn small" href={chatLink([t.conversation_id])}>{T("Open chat", "Fungua chat")}</a>
+                  {/* The name opens the chat, so the row keeps just two buttons on the same line (23 Nov 2026) */}
+                  <a className="att-who" href={chatLink([t.conversation_id])}><b>{t.contact_name ?? t.title}</b><span className="small muted">{T("was due", "ilitakiwa")} {ago(t.due_at)}{t.assigned_to ? ` · ${who(t.assigned_to)}` : ""}</span></a>
+                  <span className="att-acts">
                     {editor && <button className="small" disabled={busy === "t" + t.id} onClick={() => updateTask(t.id, { status: "snoozed", snoozed_until: new Date(Date.now() + 864e5).toISOString() })}>{T("Tomorrow", "Kesho")}</button>}
                     {editor && <button className="small primary" disabled={busy === "t" + t.id} onClick={() => updateTask(t.id, { status: "done", completed_at: new Date().toISOString() })}>{T("Done", "Imekamilika")}</button>}
                   </span>
