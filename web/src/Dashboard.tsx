@@ -14,6 +14,7 @@ import PaidOrders from "./PaidOrders";
 import MoneyHero, { useHeroStyle, heroCovers } from "./MoneyHero";
 import Recovered from "./Recovered";
 import AdMoney from "./AdMoney";
+import AutoAds from "./AutoAds";
 import LostReasons from "./LostReasons";
 import HomeOverview from "./HomeOverview";
 import Insight from "./Insight";
@@ -212,6 +213,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
           <Recovered ws={ws} period={mx.period} conv={W} cur={wsCur} />
         </>}
         {page === "ads" && <AdMoney ws={ws} />}
+        {page === "ads" && <AutoAds ws={ws} />}
         {page === "why" && <LostReasons ws={ws} />}
 
         <div className="two dash-pair">

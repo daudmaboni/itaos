@@ -189,3 +189,25 @@ body:has(.dash-ia) { background: #F1F2F6; }
   .admoney .am-stats { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admoney .am-act { grid-column: 2; grid-row: 1; }
 }
+
+/* New ads (AutoAds.tsx): clean rows, thin dividers, one main button per ad. */
+.autoads .aa-new { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.autoads .aa-new .input { flex: 1 1 240px; min-width: 0; }
+.autoads .aa-rows { display: grid; border-top: 1px solid var(--line); }
+.autoads .aa-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.autoads .aa-row:last-child { border-bottom: 0; }
+.autoads .aa-row:not(:has(.aa-media)) { grid-template-columns: minmax(0, 1fr); }
+.autoads .aa-media { width: 88px; height: 88px; object-fit: cover; border-radius: 12px; background: var(--line); }
+.autoads .aa-body { display: grid; gap: 6px; min-width: 0; }
+.autoads .aa-text { margin: 0; white-space: pre-wrap; line-height: 1.5; }
+.autoads .aa-greet { margin: 0; white-space: pre-wrap; }
+.autoads .aa-warn { margin: 0; padding-left: 18px; color: var(--warn, #b26b00); }
+.autoads .aa-edit { display: grid; gap: 8px; }
+.autoads .aa-edit label { display: grid; gap: 4px; }
+.autoads .aa-act { gap: 14px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.autoads .chip.ok { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.autoads .chip.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.autoads .linkish.danger { color: var(--bad); }
+@media (max-width: 560px) { .autoads .aa-row { grid-template-columns: 64px minmax(0, 1fr); } .autoads .aa-media { width: 64px; height: 64px; } }
+.autoads .chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.autoads .aa-edit .input { width: 100%; }

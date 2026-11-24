@@ -126,7 +126,7 @@ export type ApiUsage = {
 
 export const FEATURE_LABEL: Record<string, string> = {
   ask_kito: 'Ask Kito', chat_analysis: 'Chat analysis (Kito labels)', reply_draft: 'Reply drafts',
-  content_ideas: 'Content ideas', receipt_reading: 'Payment screenshots', product_matching: 'Product photos', voice_transcription: 'Voice notes to text', name_reading: 'Buyer names for receipts',
+  content_ideas: 'Content ideas', receipt_reading: 'Payment screenshots', product_matching: 'Product photos', voice_transcription: 'Voice notes to text', name_reading: 'Buyer names for receipts', ad_writing: 'Writing new ads',
 };
 
 /** Straight-line month-end projection from spend so far. */
@@ -199,6 +199,7 @@ export function explainToday(u: ApiUsage): TodayExplain | null {
         break;
       case 'receipt_reading': why += ' Payment screenshots read to confirm sales. It scales with sales, which is good spend.'; break;
       case 'name_reading': why += ' Kito reading each paying customer\'s chat once for their real name, so receipts don\'t print contact tags. It scales with sales.'; break;
+      case 'ad_writing': why += ' Claude writing new ad text when an owner taps New ad. One call per draft.'; break;
       case 'product_matching': why += ' Product photos matched to your products.'; break;
       case 'reply_draft': why += ' Reply drafts written for owners.'; break;
       case 'content_ideas': why += ' Content ideas generated.'; break;

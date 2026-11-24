@@ -1,5 +1,5 @@
 // Pure helpers for api_usage rows (no imports, so web tests can load them too).
-export type Feature = "ask_kito" | "chat_analysis" | "reply_draft" | "content_ideas" | "receipt_reading" | "product_matching" | "voice_transcription" | "name_reading";
+export type Feature = "ask_kito" | "chat_analysis" | "reply_draft" | "content_ideas" | "receipt_reading" | "product_matching" | "voice_transcription" | "name_reading" | "ad_writing";
 export type UsageMeta = { feature: Feature; workspaceId: string | null; attempt?: number };
 
 const int = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0);
