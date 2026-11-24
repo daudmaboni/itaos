@@ -14,6 +14,7 @@ import { enterCards, enterRows, enterTiles, growBars, countTo, shake, usePageEnt
 import { supabase, Workspace, amt, money, fmt, when, orderNet, canEdit, moneyInput, moneyText, localDay } from "./lib";
 import { RangeSel, resolveRange, presetLabel, rangeText, loadRange, saveRange, addDays } from "./ranges";
 import { useKept } from "./keep";
+import { useLive } from "./live";
 
 export type Product = {
   id: string; workspace_id: string; name: string; aliases: string[]; price: number | null; cost: number | null;
@@ -326,6 +327,7 @@ function MissingCosts({ ws, products, editor, T }: { ws: Workspace; products: Pr
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [all, setAll] = useState(false);
   useEffect(() => {
     let live = true;
@@ -520,6 +522,7 @@ export default function Products({ ws }: { ws: Workspace }) {
   const lang = ws.language; const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   const tz = ws.timezone || "Africa/Dar_es_Salaam";
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const { products: fresh, err } = useProducts(ws.id, tick);
   // Kept per business: coming back shows the list at once, and one business never sees another's.
   const [kept, setKept] = useKept<Product[] | null>("products:" + ws.id, null);

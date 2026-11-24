@@ -15,6 +15,7 @@ import { AfterPriceList, afterPriceCount } from "./AfterPrice";
 import { avaText, DoneRow } from "./ActionBits";
 import { useKept, kept, put } from "./keep";
 import { TodayList, QueueCard } from "./Today";
+import { useLive } from "./live";
 
 type Member = { user_id: string; role: string; email: string };
 type Hidden = { after_price: string[]; promise: string[]; reorder: string[] };
@@ -38,6 +39,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
   const [loading, setLoading] = useState(!kept(K + ":loaded"));
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [tab, setTab] = useState<"today" | "attention" | "promises" | "after_price" | "reorders" | "queue" | "tasks" | "done">(() => (location.hash.startsWith("#attention") || location.hash.includes("tab=attention") ? "attention" : location.hash.includes("tab=queue") ? "queue" : location.hash.includes("tab=reorders") ? "reorders" : location.hash.includes("tab=after_price") ? "after_price" : location.hash.includes("tab=promises") ? "promises" : "today"));
   const [reorderCount, setReorderCount] = useKept<number | null>(K + ":reorders", null);
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function Actions({ ws }: { ws: Workspace }) {
       const out = new Set(hidden.reorder);
       if (Array.isArray(data)) setReorderCount(data.filter((r: { state: string; conversation_id: string }) => r.state === "todo" && !out.has(r.conversation_id)).length);
     });
-  }, [ws.id, hidden.reorder.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ws.id, hidden.reorder.join(), tick]); // eslint-disable-line react-hooks/exhaustive-deps
   // Refresh quietly: after the first load the page stays on screen while new data comes in
   // (no skeleton flash). The returned promise resolves once the new data is shown, so a button
   // can keep its spinner until its card has moved.

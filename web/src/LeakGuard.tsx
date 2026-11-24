@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { supabase, Workspace, money, fmt, ago, canEdit } from "./lib";
 import { useKept } from "./keep";
 import { prettyNum, openLeaks, type LeakRes } from "./guards";
+import { useLive } from "./live";
 
 const DAYS = [7, 30, 90] as const;
 type Days = (typeof DAYS)[number];
@@ -18,6 +19,7 @@ export default function LeakGuard({ ws }: { ws: Workspace }) {
   const [r, setR] = useKept<LeakRes | null>(`leaks:${ws.id}:${days}`, null);
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [busy, setBusy] = useState("");
   const [showOk, setShowOk] = useState(false);
   const editor = canEdit(ws);

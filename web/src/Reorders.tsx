@@ -10,6 +10,7 @@ import { KitoLoader } from "./KitoLoader";
 import { avaText, DoneRow } from "./ActionBits";
 import { useKept } from "./keep";
 import { SendNow } from "./SendNow";
+import { useLive } from "./live";
 
 export type ReorderRow = Row;
 type Row = {
@@ -29,6 +30,7 @@ export function ReorderList({ ws, editor, onCount, hidden }: { ws: Workspace; ed
   const [rows, setRows] = useKept<Row[] | null>("reorders:" + ws.id, null);
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   useEffect(() => {
     let live = true;
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data, error }) => {

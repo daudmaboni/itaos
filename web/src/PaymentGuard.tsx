@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, Workspace, money, fmt, ago, canEdit } from "./lib";
 import { useKept } from "./keep";
 import { flagText, flagShort, receiverSuggestions, type PayItem, type PayRes } from "./guards";
+import { useLive } from "./live";
 
 const needsUpdate = (m: string) => /does not exist|schema cache|could not find/i.test(m);
 
@@ -20,6 +21,7 @@ export default function PaymentGuard({ ws }: { ws: Workspace }) {
   const [r, setR] = useKept<PayRes | null>(`paycheck:${ws.id}:${days}`, null);
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [all, setAll] = useState(false);
   const [editRecv, setEditRecv] = useState(false);
   const editor = canEdit(ws);
@@ -228,6 +230,7 @@ export function PayFlagBanner({ ws, convId }: { ws: Workspace; convId: string })
   const M = (n: number | null | undefined) => money(n, ws.currency);
   const [items, setItems] = useState<PayItem[]>([]);
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true;

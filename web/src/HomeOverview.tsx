@@ -1,7 +1,7 @@
 // Dashboard home, under the money summary: "Do this now" (the 3 most urgent things) and four tiles that open
 // their own pages (Ads, Payment checks, Why people didn't buy, Staff leak guard). Everything in full lives on
 // those pages; here it's one number and one line each.
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { CardMenu, refreshPage } from "./CardMenu";
 import { supabase, Workspace, money, fmt, converter } from "./lib";
@@ -10,6 +10,7 @@ import { planAdMoney, type AdMoneyRes, type Advice } from "./adMoney";
 import { openLeaks, reasonLabel, type LeakRes, type LostRes, type PayRes } from "./guards";
 import { pickDoNow } from "./doNow";
 import HomeTiles from "./HomeTiles";
+import { useLive } from "./live";
 
 type Counts = { waiting: number; overdue: number; proposed: number };
 type Data = { pay: PayRes | null; leak: LeakRes | null; lost: LostRes | null; ad: AdMoneyRes | null; counts: Counts | null };
@@ -17,6 +18,8 @@ type Data = { pay: PayRes | null; leak: LeakRes | null; lost: LostRes | null; ad
 export default function HomeOverview({ ws, spend, roasN, insight }: { ws: Workspace; spend: string; roasN: number | null; insight?: ReactNode }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
   const [d, setD] = useKept<Data>("home-overview:" + ws.id, { pay: null, leak: null, lost: null, ad: null, counts: null });
+  const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
 
   useEffect(() => {
     let live = true;
@@ -33,7 +36,7 @@ export default function HomeOverview({ ws, spend, roasN, insight }: { ws: Worksp
       supabase.from("follow_up_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", ws.id).eq("source", "kito_promise").eq("status", "proposed"),
     ]).then(([w, o, p]) => { if (live) setD((x) => ({ ...x, counts: { waiting: w.count ?? 0, overdue: o.count ?? 0, proposed: p.count ?? 0 } })); });
     return () => { live = false; };
-  }, [ws.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ws.id, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const plan = useMemo(() => {
     if (!d.ad) return null;

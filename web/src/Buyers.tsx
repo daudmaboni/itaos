@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase, callFn, Workspace, money, canEdit, localDay } from "./lib";
 import { useBackLayer } from "./backStack";
+import { useLive } from "./live";
 
 export type Buyer = {
   contact_id: string; wa_name: string | null; full_name: string | null; phone: string | null; alt_phone: string | null;
@@ -63,6 +64,7 @@ export default function Buyers({ ws }: { ws: Workspace }) {
   useEffect(() => { const t = window.setTimeout(load, q ? 300 : 0); return () => window.clearTimeout(t); }, [q, region, ws.id]);
   // Pull-to-refresh: reload quietly (pullRefresh.ts tags new rows).
   const pullRef = useRef(load); pullRef.current = load;
+  useLive(ws.id, () => { void pullRef.current(); }); // updates by itself (live.ts)
   useEffect(() => { const f = () => { void pullRef.current(); }; window.addEventListener("itaos-refresh", f); return () => window.removeEventListener("itaos-refresh", f); }, []);
 
   const shown = useMemo(() => (rows ?? []).filter((b) =>

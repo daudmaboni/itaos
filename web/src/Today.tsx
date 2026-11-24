@@ -17,6 +17,7 @@ export type { QueueItem } from "./today";
 import { quietAfterPrice } from "./afterPrice";
 import { PayCheckCard } from "./PaymentGuard";
 import type { PayItem, PayRes } from "./guards";
+import { useLive } from "./live";
 
 const DAY = 864e5;
 
@@ -28,6 +29,7 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   const [reorders, setReorders] = useKept<ReorderRow[] | null>("reorders:" + ws.id, null);
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   useEffect(() => {
     let live = true;
     supabase.rpc("reorder_candidates", { p_ws: ws.id }).then(({ data }) => { if (live && Array.isArray(data)) setReorders(data as ReorderRow[]); });

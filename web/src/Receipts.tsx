@@ -13,6 +13,7 @@ import DateRange from "./DateRange";
 import { RangeSel, resolveRange, addDays, presetLabel } from "./ranges";
 import { fromLocalInput } from "./Orders";
 import { local, initials, hue } from "./Buyers";
+import { useLive } from "./live";
 
 type Found = {
   order: null | {
@@ -53,6 +54,8 @@ export default function Receipts({ ws }: { ws: Workspace }) {
   const [err, setErr] = useState("");
   const [recent, setRecent] = useState<Recent[]>([]);
   const [start, setStart] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [openKey, setOpenKey] = useState<string | null>(null);
   const seq = useRef(0);
   const [printId, setPrintId] = useState<string | null>(null);
@@ -65,7 +68,7 @@ export default function Receipts({ ws }: { ws: Workspace }) {
     supabase.from("orders").select("paid_at").eq("workspace_id", ws.id).eq("status", "paid").not("paid_at", "is", null)
       .order("paid_at", { ascending: true }).limit(1)
       .then(({ data }) => { const d = (data as { paid_at: string }[] | null)?.[0]?.paid_at; setStart(d ? localDay(d, tz) : null); });
-  }, [ws.id]);
+  }, [ws.id, tick]);
 
   // Search as you type (after a short pause), and whenever the "search by" or the dates change.
   useEffect(() => {

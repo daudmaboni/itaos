@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { supabase, Workspace, money, fmt } from "./lib";
 import { useKept } from "./keep";
 import type { Period } from "./metrics";
+import { useLive } from "./live";
 
 type Kind = "promise" | "after_price" | "reorder";
 type Tier = "very_likely" | "likely" | "on_own" | "ad";
@@ -44,6 +45,8 @@ export default function Recovered({ ws, period, conv, cur }: {
   // Kept while the app is open: coming back to the Dashboard shows the last figures at once, refreshed quietly.
   const [r, setR] = useKept<Res | null>(`recovered:${ws.id}:${period.from}:${period.to}`, null);
   const [err, setErr] = useState("");
+  const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const [open, setOpen] = useState(false);
   const [how, setHow] = useState(false);
 
@@ -55,7 +58,7 @@ export default function Recovered({ ws, period, conv, cur }: {
       if (error) setErr(errText(error)); else setR(data as Res);
     });
     return () => { gone = true; };
-  }, [ws.id, period.from, period.to]);
+  }, [ws.id, period.from, period.to, tick]);
 
   const title0 = T("Money itaOS brought back", "Pesa itaOS imerudisha");
   if (err) return <section className="card rec"><h2>{title0}</h2><p className="err small">{err}</p></section>;

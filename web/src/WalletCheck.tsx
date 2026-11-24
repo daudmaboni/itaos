@@ -5,6 +5,7 @@ import { errText } from "./errText";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, Workspace, money, fmt, localDay } from "./lib";
 import { parseWallet, type WalletLine } from "./walletParse";
+import { useLive } from "./live";
 
 type Item = {
   id: string; txn_id: string; at: string; amount: number; currency: string; sender_name: string | null; phone_tail: string | null; provider: string | null;
@@ -25,6 +26,7 @@ export default function WalletCheck({ ws }: { ws: Workspace }) {
   const [note, setNote] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const parsed: WalletLine[] = useMemo(() => (text.trim() ? parseWallet(text) : []), [text]);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase, Workspace, Order, Outcome, L, amt, when, orderNet, canEdit, moneyInput, moneyText } from "./lib";
 import { AssignSelect } from "./team";
 import { useProducts, ProductPicker, itemsCost, itemsLabel, type Item } from "./Products";
+import { useLive } from "./live";
 
 type Ev = { id: number; action: string; actor: string | null; at: string; before: any; after: any };
 
@@ -131,6 +132,7 @@ export function OrderList({ ws, conversationId, onChange }: { ws: Workspace; con
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
+  useLive(ws.id, () => setTick((t) => t + 1)); // updates by itself (live.ts)
   const editor = canEdit(ws);
   const { products } = useProducts(ws.id);
   const [sending, setSending] = useState<string | null>(null);   // order whose sent products are being picked
