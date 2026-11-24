@@ -20,7 +20,7 @@ export function loadSdk(): Promise<any> {
   return sdk;
 }
 
-/** Facebook Login for Business → short-lived user token with ads_read */
+/** Facebook Login → short-lived user token that can read AND create ads (ads_read + ads_management + Page access for ad creatives) */
 export async function loginForAds(): Promise<string> {
   const FB = await loadSdk();
   const configId = import.meta.env.VITE_META_ADS_CONFIG_ID;
@@ -28,7 +28,12 @@ export async function loginForAds(): Promise<string> {
     FB.login((r: any) => {
       if (r.authResponse?.accessToken) resolve(r.authResponse.accessToken);
       else reject(new Error("Facebook login was cancelled."));
-    }, configId ? { config_id: configId } : { scope: "ads_read,business_management" });
+    }, configId
+      ? { config_id: configId }
+      : {
+          scope: "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads",
+          auth_type: "rerequest", // re-ask for permissions an earlier login didn't grant
+        });
   });
 }
 
