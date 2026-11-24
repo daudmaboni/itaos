@@ -10,6 +10,7 @@ import { supabase, callFn, Workspace, Outcome, Task, ago, when } from "./lib";
 import { KitoLoader } from "./KitoLoader";
 import { SendNow } from "./SendNow";
 import { toLocalInput, fromLocalInput } from "./Orders";
+import { useBackLayer } from "./backStack";
 
 type Kind = NonNullable<Task["kind"]>;
 /** Kept vs broken per customer (promise_record, migration 0072). */
@@ -278,15 +279,29 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
   const proposed = mine.filter((t) => t.status === "proposed").sort((a, b) => Date.parse(b.promise_at ?? b.created_at) - Date.parse(a.promise_at ?? a.created_at));
   const live = mine.filter((t) => t.status === "open" || t.status === "snoozed");
   const due = (t: Task) => Date.parse((t.status === "snoozed" && t.snoozed_until) || t.due_at || "") || 0;
-  const by = (b: ReturnType<typeof dueBucket>) => live.filter((t) => dueBucket(t) === b).sort((x, y) => due(x) - due(y));
-  const groups: [string, Task[]][] = [
-    [T("Overdue", "Zimepita"), by("overdue")],
-    [T("Due today", "Leo"), by("today")],
-    [T("Coming up", "Zijazo"), by("upcoming")],
-  ];
+  // Overdue ones sit behind their own small tile; the main list is what's coming, soonest first (24 Nov 2026).
+  const overdue = live.filter((t) => dueBucket(t) === "overdue").sort((x, y) => due(y) - due(x)); // most recently missed first
+  const coming = live.filter((t) => dueBucket(t) !== "overdue").sort((x, y) => (due(x) || Infinity) - (due(y) || Infinity));
+  const today = eatDay(0), tomorrow = eatDay(1);
+  const dayOf = (t: Task) => { const at = (t.status === "snoozed" && t.snoozed_until) || t.due_at; return at ? toLocalInput(at).slice(0, 10) : ""; };
+  const dayLabel = (d: string) => {
+    if (!d) return T("No day set", "Hakuna siku");
+    if (d === today) return T("Today", "Leo");
+    if (d === tomorrow) return T("Tomorrow", "Kesho");
+    return new Date(d + "T12:00:00Z").toLocaleDateString(sw ? "sw-TZ" : "en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" });
+  };
+  const byDay: [string, Task[]][] = [];
+  for (const t of coming) { const d = dayOf(t); const g = byDay.find(([k]) => k === d); if (g) g[1].push(t); else byDay.push([d, [t]]); }
+  const [showOverdue, setShowOverdue] = useState(false);
+  useBackLayer(showOverdue, () => setShowOverdue(false)); // phone Back returns to the promise list
+  const openOverdue = () => { setShowOverdue(true); requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" })); };
   const card = (t: Task) => <PromiseCard key={t.id} t={t} r={rows.find((x) => x.id === t.conversation_id)} ws={ws} editor={editor} onChange={onChange} focus={t.id === focusId} rec={recOf(t.conversation_id)} />;
   const [tab, setTab] = useState<"clear" | "unclear">(() => (location.hash.includes("promises=unclear") ? "unclear" : "clear"));
-  useEffect(() => { const f = tasks.find((t) => t.id === focusId); if (f) setTab(f.status === "proposed" ? "unclear" : "clear"); }, [focusId, tasks]);
+  useEffect(() => {
+    const f = tasks.find((t) => t.id === focusId); if (!f) return;
+    setTab(f.status === "proposed" ? "unclear" : "clear");
+    if (f.status !== "proposed" && dueBucket(f) === "overdue") setShowOverdue(true); // opened from a notification for a missed day
+  }, [focusId, tasks]);
   // Closed by itaOS because a payment showed up in the chat, in the last 7 days: shown so the owner can reopen a wrong one.
   const autoClosed = mine.filter((t) => t.status === "done" && t.auto_closed && t.completed_at && Date.now() - Date.parse(t.completed_at) < 7 * DAY);
   const [reopening, setReopening] = useState<string | null>(null);
@@ -297,6 +312,16 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
     setReopening(null); await onChange();
     callFn("google", { action: "sync", workspace_id: ws.id, only: "tasks" }).catch(() => {});
   }
+  if (showOverdue) return (
+    <section className="card flat poverdue">
+      <div className="poverdue-head">
+        <button type="button" className="poverdue-back" onClick={() => setShowOverdue(false)} aria-label={T("Back to promises", "Rudi kwenye ahadi")}>‹</button>
+        <div><h2>{T("Overdue promises", "Ahadi zilizopita")} ({overdue.length})</h2>
+          <span className="small muted">{T("Most recently missed first. Check in gently, mark them talked to, or move them to a new day.", "Zilizopita karibuni kwanza. Mjulie hali kwa upole, weka umeongea naye, au mhamishie siku mpya.")}</span></div>
+      </div>
+      {overdue.length === 0 ? <div className="empty">{T("All caught up. No overdue promises.", "Umemaliza zote. Hakuna ahadi zilizopita.")}</div> : <div className="pgrid">{overdue.map(card)}</div>}
+    </section>
+  );
   return (
     <>
       <div className="seg" role="tablist" aria-label={T("Promises", "Ahadi")}>
@@ -314,9 +339,23 @@ export function PromiseList({ tasks, rows, ws, editor, onChange }: { tasks: Task
               {breakers.length > 0 && <span className="small">{T("Broke 2+ promises:", "Wamevunja ahadi 2+:")} {breakers.slice(0, 8).map((b, i) => <a key={b.contact_id} href={"#chats/open=" + b.conversation_ids[0]}>{i ? ", " : ""}{b.name} ({b.broken})</a>)}</span>}
             </div>
           )}
-          {live.length === 0 ? <div className="empty">{T("No reminders yet. When a customer names a time or a day, it shows here by itself.", "Hakuna vikumbusho bado. Mteja akitaja muda au siku, itaonekana hapa yenyewe.")}</div> : groups.map(([label, list]) => list.length > 0 && (
-            <div key={label}><h3>{label} ({list.length})</h3><div className="pgrid">{list.map(card)}</div></div>
-          ))}
+          <button type="button" className={"pover" + (overdue.length ? " has" : "")} disabled={!overdue.length} onClick={openOverdue}>
+            <span className="pover-dot" aria-hidden />
+            <span className="pover-txt">
+              <b>{T("Overdue promises", "Ahadi zilizopita")}</b>
+              <span className="small muted">{overdue.length ? T("The day passed and nothing happened yet. Tap to follow up.", "Siku imepita na bado hakuna kilichofanyika. Gusa ufuatilie.") : T("None — every promise is still on time.", "Hakuna — ahadi zote bado ziko kwa wakati.")}</span>
+            </span>
+            <span className="pover-n">{overdue.length}</span>
+            {overdue.length > 0 && <span className="pover-go" aria-hidden>›</span>}
+          </button>
+          {coming.length === 0 ? <div className="empty">{live.length ? T("Nothing coming up. Only overdue ones are left.", "Hakuna zijazo. Zimebaki zilizopita tu.") : T("No reminders yet. When a customer names a time or a day, it shows here by itself.", "Hakuna vikumbusho bado. Mteja akitaja muda au siku, itaonekana hapa yenyewe.")}</div> : (
+            <>
+              <h3 className="pday-h">{T("Coming up", "Zijazo")} ({coming.length})</h3>
+              {byDay.map(([d, list]) => (
+                <div key={d || "none"} className="pday"><h4>{dayLabel(d)} <span className="muted">· {list.length}</span></h4><div className="pgrid">{list.map(card)}</div></div>
+              ))}
+            </>
+          )}
           {autoClosed.length > 0 && (
             <div className="pclosed">
               <h3>{T("Closed by itaOS: looks paid", "Zimefungwa na itaOS: zinaonekana zimelipwa")} ({autoClosed.length})</h3>

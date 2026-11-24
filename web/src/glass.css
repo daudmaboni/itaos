@@ -450,3 +450,22 @@ html.glass-lite :is(button, .btn, nav.subtabs a, .seg) { -webkit-backdrop-filter
 
 /* Follow-up cards off screen are skipped when drawing and laying out (Actions → Today can list dozens). */
 .pcard { content-visibility: auto; contain-intrinsic-size: auto 260px; }
+
+/* Promises (24 Nov 2026): overdue ones behind a small tile that opens their own page; the main list is upcoming, by day */
+.pover { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 12px 14px; border-radius: 16px; text-align: left;
+  background: var(--card); border: 1px solid var(--line); color: var(--ink); cursor: pointer; transition: transform .18s var(--ease, ease), border-color .2s; }
+.pover:disabled { cursor: default; opacity: .75; }
+.pover.has { border-color: color-mix(in srgb, var(--bad, #e5484d) 45%, var(--line)); background: color-mix(in srgb, var(--bad, #e5484d) 7%, var(--card)); }
+.pover.has:active { transform: scale(.985); }
+.pover-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--ok, #30a46c); }
+.pover.has .pover-dot { background: var(--bad, #e5484d); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad, #e5484d) 18%, transparent); }
+.pover-txt { flex: 1 1 auto; display: grid; gap: 2px; min-width: 0; }
+.pover-n { flex: 0 0 auto; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pover.has .pover-n { color: var(--bad, #e5484d); }
+.pover-go { flex: 0 0 auto; font-size: 24px; line-height: 1; color: var(--muted); }
+.pday-h { margin-top: 18px; }
+.pday h4 { margin: 14px 0 0; font-size: 13px; font-weight: 700; text-transform: capitalize; }
+.poverdue { animation: paid-page-in .26s cubic-bezier(.2, .8, .2, 1) both; }
+.poverdue-head { display: flex; gap: 8px; align-items: flex-start; }
+.poverdue-back { flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; margin-left: -6px; border-radius: 50%; font-size: 26px; line-height: 1; background: transparent; border: 0; color: var(--accent); cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .poverdue { animation: none; } }
