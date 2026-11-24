@@ -13,7 +13,7 @@ const TABLES = ["conversations", "orders", "follow_up_tasks", "products"] as con
 const GAP = 4000;
 const POLL = 60_000;
 
-type Hub = { subs: Set<() => void>; ch: ReturnType<typeof supabase.channel>; timer?: number; dirty: boolean; poll: number; vis: () => void };
+type Hub = { subs: Set<() => void>; chs: ReturnType<typeof supabase.channel>[]; timer?: number; dirty: boolean; poll: number; vis: () => void };
 const hubs = new Map<string, Hub>();
 
 function fire(h: Hub) {
@@ -25,10 +25,11 @@ function fire(h: Hub) {
 function hubFor(wsId: string): Hub {
   let h = hubs.get(wsId);
   if (h) return h;
-  let ch = supabase.channel(`live-${wsId}-${Math.random().toString(36).slice(2, 10)}`);
   const hub = { subs: new Set(), dirty: false } as unknown as Hub;
-  for (const t of TABLES) ch = ch.on("postgres_changes" as any, { event: "*", schema: "public", table: t, filter: `workspace_id=eq.${wsId}` }, () => fire(hub));
-  hub.ch = ch.subscribe();
+  // One channel per table: if a table isn't switched on for realtime yet (migration 0084), only that one stays quiet.
+  hub.chs = TABLES.map((t) => supabase.channel(`live-${t}-${wsId}-${Math.random().toString(36).slice(2, 10)}`)
+    .on("postgres_changes" as any, { event: "*", schema: "public", table: t, filter: `workspace_id=eq.${wsId}` }, () => fire(hub))
+    .subscribe());
   // Back in view (switched apps, phone unlocked): reload once, now.
   hub.vis = () => { if (document.visibilityState === "visible") { hub.dirty = true; fire(hub); } };
   document.addEventListener("visibilitychange", hub.vis);
@@ -43,7 +44,7 @@ function release(wsId: string, h: Hub) {
   window.clearTimeout(h.timer); window.clearInterval(h.poll);
   document.removeEventListener("visibilitychange", h.vis);
   window.removeEventListener("online", h.vis);
-  supabase.removeChannel(h.ch);
+  h.chs.forEach((c) => supabase.removeChannel(c));
   hubs.delete(wsId);
 }
 
