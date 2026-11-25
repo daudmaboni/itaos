@@ -105,6 +105,41 @@ async function autofillOf(db: Db, ws: string) {
 /** Meta budgets are in the currency's smallest unit; these currencies have none. */
 const NO_CENTS = new Set(["CLP", "COP", "CRC", "HUF", "ISK", "IDR", "JPY", "KRW", "PYG", "TWD", "VND"]);
 
+/**
+ * New PAUSED ad set in `campaignId` with the source ad set's settings (audience, placements, goal, WhatsApp destination).
+ * Built field by field rather than with /copies, so settings Meta no longer accepts (an old attribution window,
+ * read-only targeting fields) can be dropped and retried instead of failing the whole ad.
+ */
+async function copyAdSet(token: string, account: string, adsetId: string, campaignId: string): Promise<string> {
+  const a = await graph(`${adsetId}?fields=name,optimization_goal,billing_event,destination_type,promoted_object,targeting,bid_strategy,bid_amount,daily_budget,lifetime_budget,attribution_spec,is_dynamic_creative`, token);
+  const targeting = { ...(a.targeting ?? {}) };
+  delete targeting.age_range; // read-only echo of age_min/age_max
+  const body: Record<string, unknown> = {
+    name: `${a.name ?? "Ad set"} - itaOS`, campaign_id: campaignId, status: "PAUSED",
+    optimization_goal: a.optimization_goal, billing_event: a.billing_event, destination_type: a.destination_type,
+    promoted_object: a.promoted_object, targeting,
+  };
+  if (a.bid_strategy) body.bid_strategy = a.bid_strategy;
+  if (a.bid_amount) body.bid_amount = a.bid_amount;
+  if (Number(a.daily_budget) > 0) body.daily_budget = a.daily_budget;          // only when the budget sits on the ad set
+  if (Number(a.lifetime_budget) > 0) body.lifetime_budget = a.lifetime_budget;
+  if (a.is_dynamic_creative) body.is_dynamic_creative = true;
+  if (a.attribution_spec) body.attribution_spec = a.attribution_spec;
+  if (body.promoted_object && typeof body.promoted_object === "object") delete (body.promoted_object as any).smart_pse_enabled;
+  // Meta drops options over time; each retry removes one optional setting it complained about.
+  for (let i = 0; i < 4; i++) {
+    try { return (await post(`${account}/adsets`, token, body)).id as string; }
+    catch (e) {
+      const m = (e as Error).message;
+      if (/attribution/i.test(m) && body.attribution_spec) { delete body.attribution_spec; continue; }
+      if (/smart_pse|promoted_object/i.test(m) && (body.promoted_object as any)?.smart_pse_enabled !== undefined) { delete (body.promoted_object as any).smart_pse_enabled; continue; }
+      if (/bid/i.test(m) && (body.bid_amount || body.bid_strategy)) { delete body.bid_amount; delete body.bid_strategy; continue; }
+      throw e;
+    }
+  }
+  throw new Error("Meta kept refusing the ad set settings.");
+}
+
 /** Text of the Page post an ad was made from. Tries the user's login, then the Page's own token. */
 async function postText(token: string, storyId: string, pageId: string | null): Promise<string | null> {
   const read = async (t: string) => (await graph(`${storyId}?fields=message`, t))?.message ?? null;
@@ -195,11 +230,21 @@ async function facts(db: Db, ws: string, adId: string, adName: string | null, sr
       if (b) firsts.push(b);
     }
   }
+  // Too few chats from this ad? Judge the language from the business's latest customer messages instead.
+  let recent: string[] = [];
+  if (firsts.length < 5) {
+    const { data: cv } = await db.from("conversations").select("id").eq("workspace_id", ws).order("last_message_at", { ascending: false }).limit(80);
+    const cids = (cv ?? []).map((c: any) => c.id);
+    if (cids.length) {
+      const { data: rm } = await db.from("messages").select("body").in("conversation_id", cids).eq("direction", "in").not("body", "is", null).order("sent_at", { ascending: false }).limit(200);
+      recent = (rm ?? []).map((m: any) => String(m.body)).filter((b) => b.trim().length > 2);
+    }
+  }
   const objections = new Map<string, number>();
   for (const c of convs ?? []) for (const o of (c as any).kito_objections ?? []) objections.set(o, (objections.get(o) ?? 0) + 1);
   const buyers = (convs ?? []).filter((c: any) => Number(c.paid_orders ?? 0) > 0).length;
   return {
-    language: customerLanguage(firsts, w?.language === "en" ? "English" : "Swahili"),
+    language: customerLanguage(firsts.length >= 5 ? firsts : recent, "Swahili"),
     text: [
       `Business: ${w?.name}${w?.brand_town ? `, ${w.brand_town}` : ""}, Tanzania.`,
       product ? `Product to advertise: ${product}.` : `Advertise the SAME product as the ad being replaced (its name is "${adName ?? "?"}"; its text and the customers' messages show which product). The new ad reuses that ad's video/photo, so the words must match it. Do not advertise the whole range.`,
@@ -353,8 +398,7 @@ Deno.serve(async (req) => {
         const cc = await post(`${src.ad.campaign_id}/copies`, token, { deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "ONLY_TOP_LEVEL_RENAME", rename_suffix: " - itaOS" } });
         campaignId = cc.copied_campaign_id;
         step = "Copying the ad set";
-        const ac = await post(`${src.ad.adset_id}/copies`, token, { campaign_id: campaignId, deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "ONLY_TOP_LEVEL_RENAME", rename_suffix: " - itaOS" } });
-        const adsetId = ac.copied_adset_id;
+        const adsetId = await copyAdSet(token, account, src.ad.adset_id, campaignId!);
         // 3) new words on the same media, 4) the ad, paused.
         step = "Making the ad's words and video";
         const c = await makeCreative(token, account, pageId, media, d, await autofillOf(db, ws));
