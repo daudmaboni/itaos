@@ -450,10 +450,9 @@ export default function Chats({ ws }: { ws: Workspace }) {
 
   return (
     <section className="card chats" ref={pageRef}>
-      {refreshing && <div className="chats-progress" role="progressbar" aria-label={T("Updating the chats", "Inasasisha chats")} />}
       <div className="chats-head">
         <div>
-          <h2 style={{ margin: 0 }}>{T("Customers", "Wateja")} <span className="muted chats-total">{fmt(total)}</span>{live && <span className="live-dot" title={T("Live: updates by itself when a message arrives", "Hai: inajisasisha ujumbe ukiingia")}>{T("Live", "Hai")}</span>}</h2>
+          <h2 style={{ margin: 0 }}>{T("Customers", "Wateja")} <span className="muted chats-total">{fmt(total)}</span>{refreshing && <span className="chats-sync" role="status" aria-label={T("Updating the chats", "Inasasisha chats")}><i aria-hidden />{T("Updating", "Inasasisha")}</span>}{live && <span className="live-dot" title={T("Live: updates by itself when a message arrives", "Hai: inajisasisha ujumbe ukiingia")}>{T("Live", "Hai")}</span>}</h2>
           <span className="small muted chats-sub">{T("Everyone who messaged you on WhatsApp, and where each one stands.", "Kila aliyekutumia ujumbe WhatsApp, na amefika wapi.")}</span>
         </div>
         <button className="small primary" onClick={() => runKito()} disabled={rechecking} title={T("Kito reads new messages and updates every card. It also does this by itself every 15 minutes.", "Kito anasoma ujumbe mpya na kusasisha kila kadi. Pia hufanya hivi mwenyewe kila dakika 15.")}>
