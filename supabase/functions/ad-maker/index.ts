@@ -225,11 +225,18 @@ Deno.serve(async (req) => {
       const srcText = cr.body ?? cr.object_story_spec?.video_data?.message ?? cr.object_story_spec?.link_data?.message ?? null;
       const f = await facts(db, ws, adId, srcText, body.product ? String(body.product).slice(0, 80) : null);
       const { ok, body: out } = await claude(KEY, {
-        model: MODEL, max_tokens: 2000, system: SYSTEM, tools: [TOOL], tool_choice: { type: "tool", name: "save_ads" },
-        messages: [{ role: "user", content: `Language: ${f.language}\n\n${f.text}\n\nWrite three different versions.${body.hint ? `\nOwner's note: ${String(body.hint).slice(0, 300)}` : ""}` }],
+        model: MODEL, max_tokens: 4000, system: SYSTEM, tools: [TOOL],
+        messages: [{ role: "user", content: `Language: ${f.language}\n\n${f.text}\n\nWrite three different versions and save them with the save_ads tool.${body.hint ? `\nOwner's note: ${String(body.hint).slice(0, 300)}` : ""}` }],
       }, { feature: "ad_writing", workspaceId: ws });
       if (!ok) throw new Error(out?.error?.message ?? "The AI couldn't write the ad. Try again.");
-      const ads: any[] = out.content?.find((c: any) => c.type === "tool_use")?.input?.ads ?? [];
+      // This model can't be forced to use the tool, so also accept the versions as JSON in plain text.
+      let ads: any[] = out.content?.find((c: any) => c.type === "tool_use")?.input?.ads ?? [];
+      if (!ads.length) {
+        const text = (out.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n");
+        const m = text.match(/\{[\s\S]*"ads"[\s\S]*\}/);
+        try { ads = m ? JSON.parse(m[0]).ads ?? [] : []; } catch { ads = []; }
+      }
+      ads = ads.filter((a) => a && typeof a.primary_text === "string" && a.primary_text.trim());
       if (!ads.length) throw new Error("The AI didn't return an ad. Try again.");
       const opts = ads.map((a) => ({ ...a, warnings: policyWarnings(a.headline, a.primary_text, a.greeting) }));
       // Lead with the cleanest version.
