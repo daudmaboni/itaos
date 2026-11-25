@@ -115,7 +115,7 @@ export default function AutoAds({ ws }: { ws: Workspace }) {
         </div>
       )}
 
-      {msg.err && <p className="err small">{msg.err}{msg.reconnect && <> <a href="#connect">{T("Open Connections", "Fungua Connections")}</a></>}</p>}
+      {msg.err && <p className="err small">{msg.err}{msg.reconnect && <> <a href="#connect/setup">{T("Reconnect the ad account", "Unganisha upya akaunti ya matangazo")}</a></>}</p>}
       {msg.ok && <p className="small good">{msg.ok}</p>}
 
       {rows == null ? <div className="skeleton" style={{ minHeight: 80 }} /> : rows.length === 0 ? (

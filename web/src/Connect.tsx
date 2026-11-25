@@ -111,6 +111,7 @@ function ConnectSimple({ ws }: { ws: Workspace }) {
           {ads.length > 0 && <button className="small" disabled={busy} onClick={syncNow}>{busy ? T("Updating…", "Inasasisha…") : T("Update now", "Sasisha sasa")}</button>}
         </div>
         <p className="small muted" style={{ margin: 0 }}>{T("itaOS reads what your ads cost and the chats they bring. It only changes your ad account when you create or turn on a New ad yourself.", "itaOS inasoma gharama za matangazo na chat yanazoleta. Inagusa akaunti yako ya matangazo tu pale wewe mwenyewe unapotengeneza au kuwasha Tangazo jipya.")}</p>
+        {ads.length > 0 && <p className="small" style={{ margin: 0 }}><a href="#ads">{T("Make a new ad →", "Tengeneza tangazo jipya →")}</a></p>}
         {ads.length === 0 ? <div><Help what={T("my ad account", "akaunti yangu ya matangazo")} /></div> : ads.map((c) => (
           <div key={c.id} style={{ display: "grid", gap: 6 }}>
             <Line ok={c.status === "active" && !c.last_error} title={c.label ?? c.external_id} sub={c.last_sync_at ? T(`updated ${ago(c.last_sync_at)}`, `imesasishwa ${ago(c.last_sync_at)}`) : T("waiting for the first update", "inasubiri usasishaji wa kwanza")} />
@@ -120,7 +121,8 @@ function ConnectSimple({ ws }: { ws: Workspace }) {
       </section>
       {canManage(ws) && <SalesToMeta ws={ws} T={T} />}
       <GoogleCard ws={ws} T={T} />
-      <p className="small muted" style={{ margin: 0 }}>{T("Exchange rate, language and your password are in ", "Kiwango cha kubadilisha fedha, lugha na nenosiri viko kwenye ")}<a href="#settings">{T("Settings", "Mipangilio")}</a>.</p>
+      <p className="small muted" style={{ margin: 0 }}>{T("Exchange rate, language and your password are in ", "Kiwango cha kubadilisha fedha, lugha na nenosiri viko kwenye ")}<a href="#settings">{T("Settings", "Mipangilio")}</a>.
+        {canManage(ws) && <> {T("Reconnecting an account? ", "Unaunganisha upya akaunti? ")}<a href="#connect/setup">{T("Advanced setup", "Mipangilio ya kina")}</a>.</>}</p>
     </div>
   );
 }
