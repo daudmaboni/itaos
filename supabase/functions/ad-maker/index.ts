@@ -41,7 +41,7 @@ async function post(path: string, token: string, body: Record<string, unknown>) 
 
 /** The ad being copied, with what is needed to rebuild it. */
 async function sourceAd(token: string, adId: string) {
-  const ad = await graph(`${adId}?fields=name,adset_id,campaign_id,account_id,creative{body,title,object_story_spec,video_id,image_hash,image_url,thumbnail_url,object_type}`, token);
+  const ad = await graph(`${adId}?fields=name,adset_id,campaign_id,account_id,creative{body,title,object_story_spec,object_story_id,effective_object_story_id,video_id,image_hash,image_url,thumbnail_url,object_type}`, token);
   const adset = await graph(`${ad.adset_id}?fields=promoted_object,destination_type,daily_budget`, token);
   const camp = await graph(`${ad.campaign_id}?fields=daily_budget,objective`, token);
   return { ad, adset, camp };
@@ -90,6 +90,25 @@ async function autofillOf(db: Db, ws: string) {
 /** Meta budgets are in the currency's smallest unit; these currencies have none. */
 const NO_CENTS = new Set(["CLP", "COP", "CRC", "HUF", "ISK", "IDR", "JPY", "KRW", "PYG", "TWD", "VND"]);
 
+/** Text of the Page post an ad was made from. Tries the user's login, then the Page's own token. */
+async function postText(token: string, storyId: string, pageId: string | null): Promise<string | null> {
+  const read = async (t: string) => (await graph(`${storyId}?fields=message`, t))?.message ?? null;
+  try { return await read(token); } catch { /* fall through */ }
+  if (!pageId) return null;
+  try {
+    const pt = (await graph(`${pageId}?fields=access_token`, token))?.access_token;
+    return pt ? await read(pt) : null;
+  } catch { return null; }
+}
+
+/** Language the CUSTOMERS write in (the owner's app language can differ). */
+const SW = /\b(habari|naomba|nataka|bei|ngapi|mnapatikana|wapi|karibu|sawa|asante|mambo|shikamoo|naweza|kupata|dawa|bidhaa|hii|hiyo|nini|je)\b/i;
+function customerLanguage(firsts: string[], fallback: string) {
+  if (!firsts.length) return fallback;
+  const sw = firsts.filter((f) => SW.test(f)).length;
+  return sw / firsts.length >= 0.3 ? "Swahili" : "English";
+}
+
 /** Meta's click-to-WhatsApp greeting format: the business's greeting plus a ready-made first message. */
 function welcome(greeting: string, autofill: string) {
   return JSON.stringify({
@@ -123,7 +142,7 @@ Rules you never break (Meta advertising policy):
 - Never ask the reader about their own body or health ("Je, una…?", "Unasumbuliwa na…?"). Talk about the product, not the reader's problems.
 - No guarantees, no "100%", no "results in X days", no before/after, no sexual wording, no fake testimonials, no doctor claims.
 - Prices only if given in the facts. Never invent facts, offers, prices or delivery promises.
-Style: write in the language given. For Swahili, write like a real Dar es Salaam business owner talks on WhatsApp: short, warm, natural, not a translation, no stiff formal words. One or two emojis at most.
+Style: write in the language given (it is the language the customers write in). For Swahili, write like a real Dar es Salaam business owner talks on WhatsApp: short, warm, natural, not a translation, no stiff formal words. One or two emojis at most.
 Shape: primary text 2–4 short lines ending with a clear "tap to chat on WhatsApp" style line; headline under 40 characters; greeting = the first WhatsApp message the customer sees from the business (under 120 characters, friendly, invites them to ask).`;
 
 const TOOL = {
@@ -144,7 +163,7 @@ const TOOL = {
   },
 };
 
-async function facts(db: Db, ws: string, adId: string, srcText: string | null, product: string | null) {
+async function facts(db: Db, ws: string, adId: string, adName: string | null, srcText: string | null, product: string | null) {
   const { data: w } = await db.from("workspaces").select("name,language,brand_town,currency").eq("id", ws).single();
   const { data: prods } = await db.from("products").select("name,price,notes").eq("workspace_id", ws).eq("active", true).order("sort").limit(12);
   // What customers from this ad actually ask: their first messages and the objections Kito found.
@@ -165,10 +184,10 @@ async function facts(db: Db, ws: string, adId: string, srcText: string | null, p
   for (const c of convs ?? []) for (const o of (c as any).kito_objections ?? []) objections.set(o, (objections.get(o) ?? 0) + 1);
   const buyers = (convs ?? []).filter((c: any) => Number(c.paid_orders ?? 0) > 0).length;
   return {
-    language: w?.language === "en" ? "English" : "Swahili",
+    language: customerLanguage(firsts, w?.language === "en" ? "English" : "Swahili"),
     text: [
       `Business: ${w?.name}${w?.brand_town ? `, ${w.brand_town}` : ""}, Tanzania.`,
-      product ? `Product to advertise: ${product}.` : "",
+      product ? `Product to advertise: ${product}.` : `Advertise the SAME product as the ad being replaced (its name is "${adName ?? "?"}"; its text and the customers' messages show which product). The new ad reuses that ad's video/photo, so the words must match it. Do not advertise the whole range.`,
       `Products (name, price ${w?.currency ?? "TZS"}, notes):\n${(prods ?? []).map((p: any) => `- ${p.name}${p.price ? `, ${p.price}` : ""}${p.notes ? `, ${String(p.notes).slice(0, 160)}` : ""}`).join("\n") || "- (none listed)"}`,
       `Text of the ad being replaced (it works: ${ids.length} recent chats, ${buyers} paid):\n${srcText || "(not available)"}`,
       `First messages customers sent from that ad:\n${firsts.slice(0, 25).map((f) => `- ${f}`).join("\n") || "- (none)"}`,
@@ -222,8 +241,10 @@ Deno.serve(async (req) => {
       const { token } = await adsConnection(db, ws);
       const src = await sourceAd(token, adId);
       const cr = src.ad.creative ?? {};
-      const srcText = cr.body ?? cr.object_story_spec?.video_data?.message ?? cr.object_story_spec?.link_data?.message ?? null;
-      const f = await facts(db, ws, adId, srcText, body.product ? String(body.product).slice(0, 80) : null);
+      let srcText: string | null = cr.body ?? cr.object_story_spec?.video_data?.message ?? cr.object_story_spec?.link_data?.message ?? null;
+      const story = cr.effective_object_story_id ?? cr.object_story_id;
+      if (!srcText && story) srcText = await postText(token, String(story), pageIdOf(src));
+      const f = await facts(db, ws, adId, known.name ?? src.ad.name ?? null, srcText, body.product ? String(body.product).slice(0, 80) : null);
       const { ok, body: out } = await claude(KEY, {
         model: MODEL, max_tokens: 4000, system: SYSTEM, tools: [TOOL],
         messages: [{ role: "user", content: `Language: ${f.language}\n\n${f.text}\n\nWrite three different versions and save them with the save_ads tool.${body.hint ? `\nOwner's note: ${String(body.hint).slice(0, 300)}` : ""}` }],
