@@ -85,7 +85,15 @@ async function sync(db: Db, ws: string) {
 
   // Facebook posts.
   try {
-    const fb = await all(`${page.id}/published_posts?fields=id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),attachments{media_type}&since=${since}&limit=50`, pt, 200);
+    // Counting reactions/comments can need extra Page permissions; if Meta refuses, read the posts without them.
+    const base = "id,message,created_time,permalink_url,full_picture,shares,attachments{media_type}";
+    let fb: any[] = [];
+    let firstErr: unknown = null;
+    for (const fields of [`${base},reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)`, `${base},reactions.summary(total_count).limit(0)`, base, "id,message,created_time,permalink_url,full_picture"]) {
+      try { fb = await all(`${page.id}/published_posts?fields=${fields}&since=${since}&limit=50`, pt, 200); firstErr = null; break; }
+      catch (e) { firstErr ??= e; console.error("posts fb fields", fields.length, (e as Error).message.slice(0, 300)); }
+    }
+    if (firstErr) throw firstErr;
     for (const p of fb) {
       const mt = String(p.attachments?.data?.[0]?.media_type ?? (p.full_picture ? "photo" : "text")).toLowerCase();
       rows.push({
