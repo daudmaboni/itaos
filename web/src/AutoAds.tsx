@@ -45,6 +45,7 @@ export default function AutoAds({ ws }: { ws: Workspace }) {
     } catch (e) {
       const m = errText(e);
       setMsg({ err: m, reconnect: /reconnect/i.test(m) });
+      load();
       return null;
     } finally { setBusy(""); }
   };

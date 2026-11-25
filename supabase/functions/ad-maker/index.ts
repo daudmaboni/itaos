@@ -11,7 +11,22 @@
 //   refresh  Reads Meta's status (in review, rejected, running) for the business's drafts.
 //
 // Nothing here guesses Meta IDs: the page, WhatsApp destination and media come from the copied ad.
-import { admin, userClient, graph, readToken, json, cors } from "../_shared/db.ts";
+import { admin, userClient, readToken, json, cors, GRAPH } from "../_shared/db.ts";
+
+/** Graph call that keeps Meta's own explanation (error_user_title / error_user_msg) and names the step. */
+let step = "";
+async function graph(path: string, token: string, init: RequestInit = {}) {
+  const url = path.startsWith("http") ? path : `${GRAPH}/${path.replace(/^\//, "")}`;
+  const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) } });
+  const b = await res.json().catch(() => ({}));
+  if (!res.ok || b.error) {
+    const e = b.error ?? {};
+    const human = [e.error_user_title, e.error_user_msg].filter(Boolean).join(": ");
+    console.error("ad-maker graph", step, path.split("?")[0], JSON.stringify(e).slice(0, 800));
+    throw new Error(`${step ? step + ": " : ""}${human || e.message || "Meta request failed"} (code ${e.code ?? "?"}${e.error_subcode ? "/" + e.error_subcode : ""})`);
+  }
+  return b;
+}
 import { claude } from "../_shared/claude.ts";
 import { policyWarnings } from "./policy.ts";
 
@@ -208,6 +223,7 @@ Deno.serve(async (req) => {
   const { data: u } = await uc.auth.getUser();
   if (!u?.user) return json({ error: "Sign in again." }, 401);
   const action = String(body.action ?? "");
+  step = "";
   // Writing and editing need edit rights; anything that touches Meta needs an owner/admin.
   const metaAction = ["create", "turn_on", "pause", "delete"].includes(action) || (action === "save" && body.push_to_meta);
   const { data: allowed } = await uc.rpc(metaAction ? "can_manage" : action === "refresh" ? "is_member" : "can_edit", { ws });
@@ -320,22 +336,29 @@ Deno.serve(async (req) => {
       const d = await loadDraft();
       if (d.meta_ad_id && d.status !== "deleted") return json({ draft: d });
       const { token } = await adsConnection(db, ws);
+      step = "Checking permission";
       if (!(await canWrite(token))) return json({ error: "itaOS can read your ads but not create them yet. Reconnect your ad account (Connections → Add / reconnect ad account) and allow ad management.", need_reconnect: true }, 400);
       await touch(d.id, { status: "creating", last_error: null });
-      const src = await sourceAd(token, d.source_ad_id);
+      step = "Reading your best ad";
+      const src = await sourceAd(token, d.source_ad_id).catch(async (e) => { await touch(d.id, { status: "failed", last_error: (e as Error).message.slice(0, 400) }); throw e; });
       const account = `act_${src.ad.account_id}`;
       const pageId = pageIdOf(src);
       if (!pageId) throw new Error("Couldn't find the Facebook Page of the ad being copied.");
       let campaignId: string | null = null;
       try {
+        step = "Getting the video/photo";
         const media = await mediaOf(token, account, src.ad.creative);
         // 1) campaign (objective, budget) and 2) ad set (audience, placements, WhatsApp destination), both paused.
-        const cc = await post(`${src.ad.campaign_id}/copies`, token, { deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "DEEP_RENAME", rename_suffix: " · itaOS" } });
+        step = "Copying the campaign";
+        const cc = await post(`${src.ad.campaign_id}/copies`, token, { deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "ONLY_TOP_LEVEL_RENAME", rename_suffix: " - itaOS" } });
         campaignId = cc.copied_campaign_id;
-        const ac = await post(`${src.ad.adset_id}/copies`, token, { campaign_id: campaignId, deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "DEEP_RENAME", rename_suffix: " · itaOS" } });
+        step = "Copying the ad set";
+        const ac = await post(`${src.ad.adset_id}/copies`, token, { campaign_id: campaignId, deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "ONLY_TOP_LEVEL_RENAME", rename_suffix: " - itaOS" } });
         const adsetId = ac.copied_adset_id;
         // 3) new words on the same media, 4) the ad, paused.
+        step = "Making the ad's words and video";
         const c = await makeCreative(token, account, pageId, media, d, await autofillOf(db, ws));
+        step = "Creating the ad";
         const ad = await post(`${account}/ads`, token, { name: `itaOS · ${d.headline ?? "new ad"}`, adset_id: adsetId, creative: { creative_id: c.id }, status: "PAUSED" });
         const { data } = await touch(d.id, {
           status: "paused", meta_campaign_id: campaignId, meta_adset_id: adsetId, meta_creative_id: c.id, meta_ad_id: ad.id, meta_status: "PAUSED",
