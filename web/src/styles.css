@@ -1870,3 +1870,12 @@ html:has(.ps.drag) { user-select: none; -webkit-user-select: none; }
 .mh-d.mh-d.down { background: #D93B2B; color: #fff; }
 .mh-d.mh-d.flat { background: color-mix(in srgb, currentColor 12%, transparent); }
 .mh-card.green .mh-d.mh-d.up { background: #fff; color: #178A55; }
+
+/* Ad spend chart key: what each line is, in plain words, with its dates and total (25 Nov 2026). */
+.trend-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 6px 0 2px; font-size: 13px; color: var(--muted); }
+.trend-key .tk-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.trend-key .tk-item b { color: var(--ink); font-weight: 600; }
+.trend-key i { display: inline-block; width: 22px; height: 0; flex: none; }
+.trend-key .tk-now { border-top: 3.5px solid #9ED049; border-radius: 3px; }
+.trend-key .tk-old { border-top: 2px dashed var(--muted); opacity: 0.8; }
+.trend-key .tk-say { flex-basis: 100%; color: var(--ink); font-size: 13.5px; }

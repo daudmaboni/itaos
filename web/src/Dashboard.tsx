@@ -219,10 +219,24 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
         <div className="two dash-pair">
           {page === "ads" && (<section className="card">
             <div className="row between">
-              <div><h2>{spendTitle(range, mx.period, lang)}</h2><span className="small muted">{trend.weekly ? T("Spend per week.", "Matumizi kwa wiki.") : T("Spend per day.", "Matumizi kwa siku.")}{trend.prev.some((v) => v > 0) ? T(" Solid: this period. Dashed: the one before.", " Mstari kamili: kipindi hiki. Wenye nukta: kilichopita.") : ""}{trend.partialLast ? (trend.weekly ? T(" The last week isn't complete.", " Wiki ya mwisho haijakamilika.") : T(" Today isn't over yet.", " Leo bado haijaisha.")) : ""} <SourceBadge p="platform" lang={lang} /></span></div>
+              <div><h2>{spendTitle(range, mx.period, lang)}</h2><span className="small muted">{trend.weekly ? T("Spend per week.", "Matumizi kwa wiki.") : T("Spend per day.", "Matumizi kwa siku.")}{trend.partialLast ? (trend.weekly ? T(" The last week isn't complete.", " Wiki ya mwisho haijakamilika.") : T(" Today isn't over yet.", " Leo bado haijaisha.")) : ""} <SourceBadge p="platform" lang={lang} /></span></div>
               {trend.change != null && <span className={"delta " + (trend.change > 0 ? "up" : "down")}>{trend.change > 0 ? "↑" : "↓"} {Math.abs(Math.round(trend.change * 100))}%</span>}
             </div>
             <div className="big" ref={totalRef}>{money(trend.total, adCur)}</div>
+            {/* Plain-words key on the chart itself (25 Nov 2026): a layman can't decode "solid vs dashed" from a grey sentence.
+                Each line gets its dates and its total, and one sentence says which is bigger. */}
+            {trend.labels.length > 0 && trend.prev.some((v) => v > 0) && (() => {
+              const dd = (a: string, b: string) => { const f = (x: string, m: boolean) => new Date(x + "T00:00:00").toLocaleDateString(lang === "sw" ? "sw-TZ" : "en-GB", m ? { day: "numeric", month: "short" } : { day: "numeric" });
+                return a.slice(0, 7) === b.slice(0, 7) ? `${f(a, false)}–${f(b, true)}` : `${f(a, true)} – ${f(b, true)}`; };
+              const before = A(prev.spend.value) ?? 0, ch = trend.change;
+              return (<div className="trend-key">
+                <span className="tk-item"><i className="tk-now" aria-hidden />{T("Now", "Sasa")} <b>{dd(mx.period.from, mx.period.to)}</b> · {amt(trend.total, adCur)}</span>
+                <span className="tk-item"><i className="tk-old" aria-hidden />{T("Before", "Kabla")} <b>{dd(prev.period.from, prev.period.to)}</b> · {amt(before, adCur)}</span>
+                {ch != null && Math.abs(ch) >= 0.01 && <span className="tk-say">{ch > 0
+                  ? T(`You spent ${Math.round(ch * 100)}% more on ads than the ${mx.period.days} days before.`, `Umetumia ${Math.round(ch * 100)}% zaidi kwenye matangazo kuliko siku ${mx.period.days} zilizopita.`)
+                  : T(`You spent ${Math.round(-ch * 100)}% less on ads than the ${mx.period.days} days before.`, `Umetumia ${Math.round(-ch * 100)}% kidogo kwenye matangazo kuliko siku ${mx.period.days} zilizopita.`)}</span>}
+              </div>);
+            })()}
             {trend.labels.length ? <TrendChart days={trend.labels} cur={trend.cur} prev={trend.prev} weekly={trend.weekly} partialLast={trend.partialLast} /> : <span className="small muted">–</span>}
           </section>)}
           {page === "why" && (<section className="card">
