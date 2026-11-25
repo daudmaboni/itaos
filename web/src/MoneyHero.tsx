@@ -49,9 +49,10 @@ export function keptPct(p: HeroData["parts"]): number | null {
   return Math.round((p.profit / p.revenue) * 100);
 }
 
-function Delta({ d, good }: { d: number | null; good: boolean | null }) {
+// Coloured by direction (25 Nov 2026, Daud): up = green, down = red, for every number, ad spend included.
+function Delta({ d }: { d: number | null; good?: boolean | null }) {
   if (d == null) return null;
-  return <span className={"mh-d " + (good ? "good" : "bad")}>{d > 0 ? "↑" : "↓"} {Math.abs(Math.round(d * 100))}%</span>;
+  return <span className={"mh-d " + (d > 0 ? "up" : d < 0 ? "down" : "flat")}>{d > 0 ? "↑" : "↓"} {Math.abs(Math.round(d * 100))}%</span>;
 }
 
 function Split({ s, T }: { s: HeroData["split"]; T: T }) {

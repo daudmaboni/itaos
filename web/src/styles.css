@@ -1863,3 +1863,10 @@ html:has(.ps.drag) { user-select: none; -webkit-user-select: none; }
   nav.tabs.glass-tabs .tab-ico { display: none; }
   nav.tabs.glass-tabs [data-tab] { padding: 9px 13px; font-size: 14.5px; gap: 6px; }
 }
+
+/* Money cards: % change chip coloured by direction, readable in light and dark (25 Nov 2026).
+   Doubled class beats the older per-card .mh-d rules in soft.css. */
+.mh-d.mh-d.up { background: #178A55; color: #fff; }
+.mh-d.mh-d.down { background: #D93B2B; color: #fff; }
+.mh-d.mh-d.flat { background: color-mix(in srgb, currentColor 12%, transparent); }
+.mh-card.green .mh-d.mh-d.up { background: #fff; color: #178A55; }

@@ -531,7 +531,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
             return (
               <div key={r.id} style={{ display: "contents" }}>
                 {head && <h3 className="cc-group">{g}</h3>}
-                <Card r={r} ws={ws} T={T} adName={r.ad_id ? adNames[r.ad_id] : undefined} phone={phoneOf(phones[r.contact_id])}
+                <Card r={r} ws={ws} T={T} paidAt={filter === "sold" ? when(r) : null} adName={r.ad_id ? adNames[r.ad_id] : undefined} phone={phoneOf(phones[r.contact_id])}
                   task={tasks[r.id]} selected={openId === r.id} onOpen={(c) => { setOpenId(r.id); setOpenConfirm(!!c); }} onChange={refreshQuiet} />
               </div>
             );
@@ -601,7 +601,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
 }
 
 /** One customer in the list. Clicking it opens the chat on the right (full screen on a phone). */
-function Card({ r, ws, T, adName, phone, task, selected, onOpen, onChange }: { r: Outcome; ws: Workspace; T: Tr; adName?: string; phone: string | null; task?: Task; selected: boolean; onOpen: (confirm?: boolean) => void; onChange: () => void }) {
+function Card({ r, ws, T, paidAt, adName, phone, task, selected, onOpen, onChange }: { r: Outcome; ws: Workspace; T: Tr; paidAt?: string | null; adName?: string; phone: string | null; task?: Task; selected: boolean; onOpen: (confirm?: boolean) => void; onChange: () => void }) {
   const editor = canEdit(ws);
   const st = statusOf(r, T, ws.currency);
   const temp = interest(r);
@@ -622,7 +622,9 @@ function Card({ r, ws, T, adName, phone, task, selected, onOpen, onChange }: { r
           <div className="cc-line1">
             <b className="cc-name">{name}</b>
             {r.source === "ad" && <span className="cc-adtag" title={fromOf(r, T, adName)}>{T("Ad", "Tangazo")}</span>}
-            <span className="cc-time small muted">{agoT(r.last_message_at, T)}</span>
+            {/* On Bought the list is grouped by the day they paid, so the time says when they paid (25 Nov 2026):
+                a buyer who paid on Monday and wrote again this morning used to read "7 h ago" under "Earlier this week". */}
+            <span className="cc-time small muted">{paidAt ? T("paid ", "alilipa ") + agoT(paidAt, T) : agoT(r.last_message_at, T)}</span>
           </div>
           <div className="small muted cc-from">{fromOf(r, T, adName)}</div>
           <div className={"cc-status " + st.tone}>{st.icon === "●" ? <span className="cc-dot" /> : <span className="cc-ico">{st.icon}</span>}<span className="cc-st-text">{st.text}{st.key === "lost" && why ? ` · ${lostWhy(why, T)}` : ""}</span>
