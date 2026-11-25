@@ -110,7 +110,7 @@ function ConnectSimple({ ws }: { ws: Workspace }) {
         <div className="row between"><h2>{T("Facebook & Instagram ads", "Matangazo ya Facebook na Instagram")}</h2>
           {ads.length > 0 && <button className="small" disabled={busy} onClick={syncNow}>{busy ? T("Updating…", "Inasasisha…") : T("Update now", "Sasisha sasa")}</button>}
         </div>
-        <p className="small muted" style={{ margin: 0 }}>{T("Read-only: itaOS reads what your ads cost and the chats they bring. It never changes your ads.", "Kusoma tu: itaOS inasoma gharama za matangazo na chat yanazoleta. Haibadilishi matangazo yako.")}</p>
+        <p className="small muted" style={{ margin: 0 }}>{T("itaOS reads what your ads cost and the chats they bring. It only changes your ad account when you create or turn on a New ad yourself.", "itaOS inasoma gharama za matangazo na chat yanazoleta. Inagusa akaunti yako ya matangazo tu pale wewe mwenyewe unapotengeneza au kuwasha Tangazo jipya.")}</p>
         {ads.length === 0 ? <div><Help what={T("my ad account", "akaunti yangu ya matangazo")} /></div> : ads.map((c) => (
           <div key={c.id} style={{ display: "grid", gap: 6 }}>
             <Line ok={c.status === "active" && !c.last_error} title={c.label ?? c.external_id} sub={c.last_sync_at ? T(`updated ${ago(c.last_sync_at)}`, `imesasishwa ${ago(c.last_sync_at)}`) : T("waiting for the first update", "inasubiri usasishaji wa kwanza")} />
@@ -226,7 +226,7 @@ function ConnectSetup({ ws }: { ws: Workspace }) {
             <button className="primary" disabled={!!busy || !metaConfigured() || !manager} title={manager ? "" : "Only an owner or admin can connect accounts"} onClick={connectAds}>{busy === "ads" ? "Connecting…" : adsConns.length ? "Add / reconnect ad account" : "Connect ad account"}</button>
           </div>
         </div>
-        <p className="small muted" style={{ margin: 0 }}>Read-only. itaOS reads spend and chats started per ad every 3 hours. It never changes your ads.</p>
+        <p className="small muted" style={{ margin: 0 }}>itaOS reads spend and chats started per ad every 3 hours. It only creates or changes ads when the owner does it from New ads (always created paused).</p>
         {accounts && (
           <div className="card" style={{ background: "var(--paper)" }}>
             <h3>Choose the ad account</h3>
