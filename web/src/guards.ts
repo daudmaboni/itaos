@@ -59,7 +59,7 @@ export function receiverSuggestions(seen: { paid_to: string; n: number }[], list
 // ---------- Why people didn't buy ----------
 export type Reason = "no_reply" | "business_slow" | "quiet_before_price" | "quiet_after_price" | "price" | "money" | "think" | "trust" | "delivery" | "not_serious" | "unknown";
 export type LostRes = {
-  days: number; chats: number; lost: number; sold: number; avg_sale: number | null; close_rate: number | null;
+  days: number; from?: string | null; to?: string | null; chats: number; lost: number; sold: number; avg_sale: number | null; close_rate: number | null;
   reasons: { reason: Reason; n: number; after_price: number; from_ads: number; prev: number; examples: { id: string; name: string | null; summary: string | null; at: string }[] | null; ids: string[] | null }[];
   by_ad: { ad_id: string; name: string | null; lost: number; top: Reason; top_n: number }[];
 };

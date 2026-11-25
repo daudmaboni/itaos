@@ -214,7 +214,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
         </>}
         {page === "ads" && <AdMoney ws={ws} />}
         {page === "ads" && <AutoAds ws={ws} />}
-        {page === "why" && <LostReasons ws={ws} />}
+        {page === "why" && <LostReasons ws={ws} period={mx?.period ?? null} prevFrom={prev?.period.from ?? null} filters={filters} />}
 
         <div className="two dash-pair">
           {page === "ads" && (<section className="card">
