@@ -3,7 +3,6 @@
 // The technical detail (which rule or Kito reading decided the label) is still there, tucked away.
 import { errText } from "./errText";
 import { askConfirm } from "./confirmAsk";
-import { useRemembered } from "./remember";
 import { enterRows, usePageEnter, select } from "./motion";
 import { takeChatReturn } from "./chatReturn";
 import { pushEntry, replaceEntry, cameFrom } from "./backStack";
@@ -48,7 +47,8 @@ export default function Chats({ ws }: { ws: Workspace }) {
   const [ids, setIds] = useState<string[] | null>(hashIds());
   const cached = !ids ? getSnap(ws.id) : null;
   const [filter, setFilter] = useState<Filter>(ids ? "ids" : cached?.filter ?? "all");
-  const [src, setSrc] = useRemembered<Source>("chats-src", cached?.src ?? "any", (v) => v === "any" || v === "live" || v === "import");
+  const src = "any" as Source;   // imports removed: always show every chat (an old remembered "import"/"live" choice no longer applies)
+  const setSrc = (_: Source) => {};
   const [rows, setRows] = useState<Outcome[]>(cached?.rows ?? []);
   const [lite, setLite] = useState<Lite[]>(cached?.lite ?? []);
   const [counts, setCounts] = useState<Record<string, number> | null>(cached?.counts ?? null);
@@ -469,11 +469,7 @@ export default function Chats({ ws }: { ws: Workspace }) {
             </button>
           ))}
         </div>
-        <select className="chats-src" value={src} aria-label={T("Where from", "Wametoka wapi")} onChange={(e) => { setSrc(e.target.value as Source); setLimit(PAGE); if (filter === "ids") pick("all"); }}>
-          <option value="any">{T("From: everywhere", "Kutoka: kote")}</option>
-          <option value="live">{T("From: WhatsApp", "Kutoka: WhatsApp")}</option>
-          <option value="import">{T(`From: uploaded files (${imported})`, `Kutoka: faili zilizopakiwa (${imported})`)}</option>
-        </select>
+        {/* "From: everywhere / WhatsApp / uploaded files" picker removed 25 Nov 2026: chat imports are gone, so every chat is from WhatsApp. */}
       </div>
       {filter !== "ids" && (
         <div className="chats-find">
@@ -504,7 +500,6 @@ export default function Chats({ ws }: { ws: Workspace }) {
               <div className="dead-acts">
                 {period && <button type="button" className="small" onClick={() => setRange(null)}>{T("Search all dates", "Tafuta tarehe zote")}</button>}
                 {filter !== "all" && filter !== "ids" && <button type="button" className="small" onClick={() => pick("all")}>{T("Look in All", "Angalia Zote")}</button>}
-                {src !== "any" && <button type="button" className="small" onClick={() => setSrc("any")}>{T("From everywhere", "Kutoka kote")}</button>}
                 {search && <button type="button" className="small" onClick={() => { setQText(""); setSearch(""); }}>{T("Clear the search", "Futa utafutaji")}</button>}
                 {search && /\D/.test(search) && <span className="small muted">{T("or type part of their phone number", "au andika sehemu ya namba yake")}</span>}
               </div>
