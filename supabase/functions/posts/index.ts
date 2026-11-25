@@ -46,6 +46,15 @@ async function sync(db: Db, ws: string) {
   const token = await readToken(db, conn.token_secret_id);
   const { data: w } = await db.from("workspaces").select("social_page_id").eq("id", ws).single();
   const notes: string[] = [];
+  // What this login was actually given, so a "needs permission" note can say exactly what's missing.
+  const granted = new Set<string>(((await graph("me/permissions", token).catch(() => ({ data: [] })))?.data ?? [])
+    .filter((x: any) => x.status === "granted").map((x: any) => String(x.permission)));
+  const why = (what: string, need: string, e: unknown) => {
+    const m = (e as Error).message;
+    console.error("posts", what, m.slice(0, 500));
+    if (!granted.has(need)) return `${what} need the ${need} permission, and this Meta login doesn't have it: reconnect the ad account and allow it.`;
+    return `${what}: Meta said "${m.slice(0, 200)}".`;
+  };
 
   // Ads → the post each one runs (Facebook story id / Instagram media id).
   const params = new URLSearchParams({ fields: "id,creative{effective_object_story_id,effective_instagram_media_id,object_story_spec{page_id}}", limit: "200",
@@ -87,7 +96,7 @@ async function sync(db: Db, ws: string) {
       });
     }
   } catch (e) {
-    notes.push(perm((e as Error).message) ? "Facebook posts need the pages_read_engagement permission: reconnect the ad account." : `Facebook posts: ${(e as Error).message}`);
+    notes.push(why("Facebook posts", "pages_read_engagement", e));
   }
 
   // Instagram posts.
@@ -116,7 +125,7 @@ async function sync(db: Db, ws: string) {
       }
       if (viewsBlocked) notes.push("Instagram views need the instagram_manage_insights permission.");
     } catch (e) {
-      notes.push(perm((e as Error).message) ? "Instagram posts need the instagram_basic permission: reconnect the ad account." : `Instagram posts: ${(e as Error).message}`);
+      notes.push(why("Instagram posts", "instagram_basic", e));
     }
   }
 
