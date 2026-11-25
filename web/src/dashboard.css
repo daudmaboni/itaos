@@ -211,3 +211,15 @@ body:has(.dash-ia) { background: #F1F2F6; }
 @media (max-width: 560px) { .autoads .aa-row { grid-template-columns: 64px minmax(0, 1fr); } .autoads .aa-media { width: 64px; height: 64px; } }
 .autoads .chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .autoads .aa-edit .input { width: 100%; }
+/* Posts (25 Nov 2026): posts ranked by sales; reuses the New ads row layout. */
+.posts .posts-bar { gap: 10px; flex-wrap: wrap; align-items: center; margin: 12px 0 4px; }
+.posts .posts-note { margin: 6px 0; }
+.posts .posts-cap { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.posts .posts-nums { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.posts .posts-nums .good { color: var(--good); }
+.posts .posts-noimg { display: grid; place-items: center; font-weight: 700; color: var(--muted); }
+.posts .posts-link { display: grid; gap: 8px; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+.posts .posts-url { display: block; overflow-wrap: anywhere; font-size: 12px; color: var(--muted); }
+.posts .posts-more { margin-top: 10px; }
+.ads-tabs { margin: 0 0 14px; }
+.ads-tabs .seg { width: max-content; max-width: 100%; }

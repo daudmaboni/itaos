@@ -31,7 +31,7 @@ export async function loginForAds(): Promise<string> {
     }, configId
       ? { config_id: configId }
       : {
-          scope: "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads",
+          scope: "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,instagram_basic,instagram_manage_insights",
           auth_type: "rerequest", // re-ask for permissions an earlier login didn't grant
         });
   });

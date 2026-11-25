@@ -24,13 +24,14 @@ import Buyers from "./Buyers";
 import Kito from "./Kito";
 import Island from "./Island";
 import Products from "./Products";
+import Posts from "./Posts";
 import Logo, { KitoLogo } from "./Logo";
 import { hidePreloader } from "./preloader";
 import { depth, onLayer, leaveLayers, afterBack, pushEntry, replaceEntry, useBackLayer } from "./backStack";
 import { useIsPlatformAdmin } from "./adminAccess";
 
-type View = "dashboard" | "kito" | "attention" | "report" | "actions" | "receipts" | "payments" | "ads" | "why" | "leaks" | "buyers" | "chats" | "products" | "connect" | "settings";
-const VIEWS: View[] = ["dashboard", "kito", "attention", "report", "actions", "receipts", "payments", "ads", "why", "leaks", "buyers", "chats", "products", "connect", "settings"];
+type View = "dashboard" | "kito" | "attention" | "report" | "actions" | "receipts" | "payments" | "ads" | "posts" | "why" | "leaks" | "buyers" | "chats" | "products" | "connect" | "settings";
+const VIEWS: View[] = ["dashboard", "kito", "attention", "report", "actions", "receipts", "payments", "ads", "posts", "why", "leaks", "buyers", "chats", "products", "connect", "settings"];
 const viewFromHash = (): View => {
   const h = location.hash.replace("#", "").split("/")[0];
   return (VIEWS as string[]).includes(h) ? (h as View) : "dashboard";
@@ -248,7 +249,8 @@ export default function App() {
       {view === "actions" && <Actions ws={ws} />}
       {view === "receipts" && <><SalesTabs view={view} sw={ws.language === "sw"} /><Receipts ws={ws} /></>}
       {view === "payments" && <PaymentGuard ws={ws} />}
-      {view === "ads" && <Dashboard ws={ws} onWs={setWs} page="ads" />}
+      {view === "ads" && <><AdsTabs view={view} sw={ws.language === "sw"} /><Dashboard ws={ws} onWs={setWs} page="ads" /></>}
+      {view === "posts" && <><AdsTabs view={view} sw={ws.language === "sw"} /><Posts ws={ws} /></>}
       {view === "why" && <Dashboard ws={ws} onWs={setWs} page="why" />}
       {view === "leaks" && <LeakGuard ws={ws} />}
       {view === "buyers" && <><SalesTabs view={view} sw={ws.language === "sw"} /><Buyers ws={ws} /></>}
@@ -446,6 +448,19 @@ function SalesTabs({ view, sw }: { view: View; sw: boolean }) {
   return (
     <div className="sales-tabs">
       <div className="seg act-tabs" role="tablist" aria-label={L("Sales", "Mauzo")}>
+        {tabs.map(([v, label]) => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? "on" : ""} onClick={() => { if (view !== v) { window.scrollTo({ top: 0 }); phoneGo(v); } }}>{label}</button>)}
+      </div>
+    </div>
+  );
+}
+
+/** Tabs at the top of Ads and Posts (25 Nov 2026). */
+function AdsTabs({ view, sw }: { view: View; sw: boolean }) {
+  const L = (en: string, s: string) => (sw ? s : en);
+  const tabs: [View, string][] = [["ads", L("Ads", "Matangazo")], ["posts", L("Posts", "Post")]];
+  return (
+    <div className="ads-tabs">
+      <div className="seg act-tabs" role="tablist" aria-label={L("Ads and posts", "Matangazo na post")}>
         {tabs.map(([v, label]) => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? "on" : ""} onClick={() => { if (view !== v) { window.scrollTo({ top: 0 }); phoneGo(v); } }}>{label}</button>)}
       </div>
     </div>

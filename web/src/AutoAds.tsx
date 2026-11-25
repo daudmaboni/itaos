@@ -12,6 +12,7 @@ type Draft = {
   warnings: string[]; status: "draft" | "creating" | "paused" | "active" | "deleted" | "failed";
   meta_status: string | null; last_error: string | null; daily_budget: number | null; budget_currency: string | null;
   media_url: string | null; meta_ad_id: string | null; created_at: string;
+  source_post_id?: string | null; source_post_platform?: string | null; post_mode?: string | null;
 };
 
 export default function AutoAds({ ws }: { ws: Workspace }) {
@@ -131,7 +132,9 @@ export default function AutoAds({ ws }: { ws: Workspace }) {
                 {d.media_url && <img className="aa-media" src={d.media_url} alt="" loading="lazy" />}
                 <div className="aa-body">
                   <div className="row between" style={{ gap: 8 }}>
-                    <span className="small muted">{T(`From "${d.source_ad_name ?? "your best ad"}"`, `Kutoka "${d.source_ad_name ?? "tangazo lako bora"}"`)}</span>
+                    <span className="small muted">{d.source_post_id
+                      ? T(`Your ${d.source_post_platform === "instagram" ? "Instagram" : "Facebook"} post${d.post_mode === "copy" ? " (copy)" : ""}, with the audience of "${d.source_ad_name ?? "your best ad"}"`, `Post yako ya ${d.source_post_platform === "instagram" ? "Instagram" : "Facebook"}${d.post_mode === "copy" ? " (nakala)" : ""}, na walengwa wa "${d.source_ad_name ?? "tangazo lako bora"}"`)
+                      : T(`From "${d.source_ad_name ?? "your best ad"}"`, `Kutoka "${d.source_ad_name ?? "tangazo lako bora"}"`)}</span>
                     {statusChip(d)}
                   </div>
                   {editing ? (
@@ -162,10 +165,10 @@ export default function AutoAds({ ws }: { ws: Workspace }) {
                       {(d.status === "draft" || d.status === "failed") && manager && <button className="primary" disabled={locked} onClick={() => create(d)}>{busy === d.id ? T("Creating…", "Inatengeneza…") : T("Put in Meta (paused)", "Weka Meta (limezimwa)")}</button>}
                       {d.status === "paused" && manager && <button className="primary" disabled={locked} onClick={() => turnOn(d)}>{busy === d.id ? T("Turning on…", "Inawasha…") : T("Turn on", "Washa")}</button>}
                       {d.status === "active" && manager && <button className="btn" disabled={locked} onClick={() => run(d.id, { action: "pause", draft_id: d.id }, T("Paused.", "Limezimwa."))}>{T("Pause", "Zima")}</button>}
-                      {editor && d.status !== "creating" && (d.status !== "paused" && d.status !== "active" || manager) && (
+                      {editor && !d.source_post_id && d.status !== "creating" && (d.status !== "paused" && d.status !== "active" || manager) && (
                         <button className="linkish small" disabled={locked} onClick={() => setEdit({ id: d.id, primary_text: d.primary_text, headline: d.headline ?? "", greeting: d.greeting ?? "" })}>{T("Edit words", "Badili maneno")}</button>
                       )}
-                      {(d.status === "draft" || d.status === "failed") && d.options.length > 0 && editor && (
+                      {(d.status === "draft" || d.status === "failed") && d.options.length > 0 && editor && !d.source_post_id && (
                         <button className="linkish small" disabled={locked} onClick={() => another(d)}>{T("Try another version", "Jaribu toleo jingine")}</button>
                       )}
                       {(manager || (!d.meta_ad_id && editor)) && <button className="linkish small danger" disabled={locked} onClick={() => remove(d)}>{T("Delete", "Futa")}</button>}

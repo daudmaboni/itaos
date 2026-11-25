@@ -9,6 +9,8 @@
 //   pause    Stops it again.
 //   delete   Deletes the new campaign in Meta (and everything in it). The draft is kept as "deleted".
 //   refresh  Reads Meta's status (in review, rejected, running) for the business's drafts.
+//   from_post Draft that runs one of the business's own Facebook/Instagram posts (Posts page), with the best
+//            ad's audience, budget and WhatsApp destination. create then uses the post itself (or a copy).
 //
 // Nothing here guesses Meta IDs: the page, WhatsApp destination and media come from the copied ad.
 import { admin, userClient, readToken, json, cors, GRAPH } from "../_shared/db.ts";
@@ -184,6 +186,61 @@ async function makeCreative(token: string, account: string, pageId: string, medi
   }
 }
 
+// ---------- ads from an existing post ----------
+
+/** The Page's own token (some Page posts and videos can only be read with it). */
+async function pageToken(token: string, pageId: string): Promise<string> {
+  try { return (await graph(`${pageId}?fields=access_token`, token))?.access_token ?? token; } catch { return token; }
+}
+
+/**
+ * Creative that runs the business's own post. First the post itself with a WhatsApp button (likes and comments
+ * stay on it). If Meta won't run that post that way, a copy: same picture or video and the same words.
+ */
+async function postCreative(db: Db, ws: string, token: string, account: string, pageId: string, d: any): Promise<{ id: string; mode: "as_is" | "copy"; why?: string }> {
+  const { data: p } = await db.from("social_posts").select("*").eq("workspace_id", ws).eq("id", d.source_post_id).maybeSingle();
+  if (!p) throw new Error("This post isn't in itaOS any more. Open Posts to refresh it.");
+  const { data: w } = await db.from("workspaces").select("social_ig_id").eq("id", ws).single();
+  const name = `itaOS · post · ${new Date().toISOString().slice(0, 10)}`;
+  const tries: Record<string, unknown>[] = p.platform === "facebook"
+    ? [{ name, object_story_id: p.id, call_to_action: WA_CTA }]
+    : [
+        { name, object_id: pageId, instagram_user_id: w?.social_ig_id, source_instagram_media_id: p.id, call_to_action: WA_CTA },
+        { name, object_id: pageId, instagram_actor_id: w?.social_ig_id, source_instagram_media_id: p.id, call_to_action: WA_CTA },
+      ];
+  let why = "";
+  for (const b of tries) {
+    try { return { id: (await post(`${account}/adcreatives`, token, b)).id as string, mode: "as_is" }; }
+    catch (e) { why = (e as Error).message; }
+  }
+  // A copy of the post on the same picture/video.
+  let cr: any;
+  if (p.platform === "facebook") {
+    const pt = await pageToken(token, pageId);
+    const full = await graph(`${p.id}?fields=full_picture,attachments{media_type,target{id}}`, pt).catch(() => ({}));
+    const at = full?.attachments?.data?.[0];
+    if (at && /video/i.test(at.media_type ?? "") && at.target?.id) cr = { video_id: at.target.id, thumbnail_url: full.full_picture ?? p.media_url };
+    else cr = { image_url: full?.full_picture ?? p.media_url };
+  } else {
+    if (/video|reel/i.test(p.media_type ?? "")) throw new Error(`Meta wouldn't run this Instagram video as an ad with a WhatsApp button (${why}). Try a photo post, or the same video posted on Facebook.`);
+    cr = { image_url: p.media_url };
+  }
+  if (!cr.video_id && !cr.image_url) throw new Error(`Meta wouldn't run this post as it is (${why}), and it has no picture to copy.`);
+  step = "Copying the post's picture or video";
+  const media = await mediaOf(token, account, cr);
+  const c = await makeCreative(token, account, pageId, media, { primary_text: p.caption ?? "", headline: null, greeting: null }, "");
+  return { id: c.id, mode: "copy", why };
+}
+
+/** Best ad = most paid sales in the last 60 days, then most revenue (same numbers as Ad money). */
+async function bestAdId(uc: ReturnType<typeof userClient>, ws: string): Promise<string | null> {
+  const { data: m, error } = await uc.rpc("ad_money", { p_ws: ws, p_days: 60 });
+  if (error) throw new Error(error.message);
+  const best = ((m as any)?.ads ?? []).filter((a: any) => Number(a.sales) > 0)
+    .sort((a: any, b: any) => Number(b.sales) - Number(a.sales) || Number(b.revenue) - Number(a.revenue))[0];
+  return best ? String(best.ad_id) : null;
+}
+
 // ---------- writing ----------
 
 const SYSTEM = `You write Facebook/Instagram click-to-WhatsApp ads for a small Tanzanian business. The ad's button opens WhatsApp.
@@ -289,13 +346,8 @@ Deno.serve(async (req) => {
       if (!KEY) return json({ error: "The AI key is not set." }, 500);
       let adId = String(body.source_ad_id ?? "");
       if (!adId) {
-        // Best ad = most paid sales in the last 60 days, then most revenue (same numbers as Ad money).
-        const { data: m, error } = await uc.rpc("ad_money", { p_ws: ws, p_days: 60 });
-        if (error) throw new Error(error.message);
-        const best = ((m as any)?.ads ?? []).filter((a: any) => Number(a.sales) > 0)
-          .sort((a: any, b: any) => Number(b.sales) - Number(a.sales) || Number(b.revenue) - Number(a.revenue))[0];
-        if (!best) return json({ error: "No ad has brought a paid sale in the last 60 days yet, so there's nothing proven to copy." }, 400);
-        adId = String(best.ad_id);
+        adId = (await bestAdId(uc, ws)) ?? "";
+        if (!adId) return json({ error: "No ad has brought a paid sale in the last 60 days yet, so there's nothing proven to copy." }, 400);
       }
       const { data: known } = await db.from("ads").select("ad_id,name").eq("workspace_id", ws).eq("ad_id", adId).maybeSingle();
       if (!known) return json({ error: "That ad isn't in this business's ad account." }, 400);
@@ -336,10 +388,35 @@ Deno.serve(async (req) => {
       return json({ draft: row, angle: first.angle });
     }
 
+    // ---- an ad that runs an existing post (Posts page → Make this an ad) ----
+    if (action === "from_post") {
+      const { data: p } = await db.from("social_posts").select("*").eq("workspace_id", ws).eq("id", String(body.post_id ?? "")).maybeSingle();
+      if (!p) return json({ error: "Post not found. Refresh Posts." }, 404);
+      // Audience, budget and WhatsApp destination come from the business's best-selling ad.
+      const adId = await bestAdId(uc, ws);
+      if (!adId) return json({ error: "itaOS copies the audience and budget of your best-selling ad, and no ad has brought a paid sale in the last 60 days yet." }, 400);
+      const { data: known } = await db.from("ads").select("ad_id,name").eq("workspace_id", ws).eq("ad_id", adId).maybeSingle();
+      const { token } = await adsConnection(db, ws);
+      const src = await sourceAd(token, adId);
+      const budget = Number(src.camp.daily_budget ?? src.adset.daily_budget ?? 0);
+      const currency = (await graph(`act_${src.ad.account_id}?fields=currency`, token).catch(() => ({})))?.currency ?? null;
+      const caption = String(p.caption ?? "").trim();
+      const { data: row, error } = await db.from("ad_drafts").insert({
+        workspace_id: ws, created_by: u.user.id, source_ad_id: adId, source_ad_name: known?.name ?? src.ad.name,
+        source_post_id: p.id, source_post_platform: p.platform,
+        primary_text: caption || (p.platform === "instagram" ? "(Instagram post)" : "(Facebook post)"), headline: null, greeting: null,
+        options: [], warnings: policyWarnings(caption), media_url: p.media_url,
+        daily_budget: budget ? budget / (currency && NO_CENTS.has(currency) ? 1 : 100) : null, budget_currency: currency,
+      }).select("*").single();
+      if (error) throw new Error(error.message);
+      return json({ draft: row });
+    }
+
     // ---- edit the words ----
     if (action === "next_version") {
       // Swap in the next version Claude wrote; the current one goes to the back of the line.
       const d = await loadDraft();
+      if (d.source_post_id) return json({ error: "This ad runs your post as it is, so it has no other versions." }, 400);
       if (d.meta_ad_id) return json({ error: "This ad is already in Meta. Edit its words instead." }, 400);
       const [o, ...rest] = (d.options ?? []) as any[];
       if (!o) return json({ error: "No other version." }, 400);
@@ -353,6 +430,7 @@ Deno.serve(async (req) => {
 
     if (action === "save") {
       const d = await loadDraft();
+      if (d.source_post_id) return json({ error: "This ad runs your post as it is. To change the words, edit the post on Facebook or Instagram." }, 400);
       const patch = {
         primary_text: String(body.primary_text ?? d.primary_text).slice(0, 2000),
         headline: body.headline == null ? d.headline : String(body.headline).slice(0, 255),
@@ -392,7 +470,7 @@ Deno.serve(async (req) => {
       let campaignId: string | null = null;
       try {
         step = "Getting the video/photo";
-        const media = await mediaOf(token, account, src.ad.creative);
+        const media = d.source_post_id ? null : await mediaOf(token, account, src.ad.creative);
         // 1) campaign (objective, budget) and 2) ad set (audience, placements, WhatsApp destination), both paused.
         step = "Copying the campaign";
         const cc = await post(`${src.ad.campaign_id}/copies`, token, { deep_copy: false, status_option: "PAUSED", rename_options: { rename_strategy: "ONLY_TOP_LEVEL_RENAME", rename_suffix: " - itaOS" } });
@@ -400,15 +478,23 @@ Deno.serve(async (req) => {
         step = "Copying the ad set";
         const adsetId = await copyAdSet(token, account, src.ad.adset_id, campaignId!);
         // 3) new words on the same media, 4) the ad, paused.
-        step = "Making the ad's words and video";
-        const c = await makeCreative(token, account, pageId, media, d, await autofillOf(db, ws));
+        let c: { id: string; greetingDropped?: boolean; mode?: "as_is" | "copy"; why?: string };
+        if (d.source_post_id) {
+          step = "Using your post";
+          c = await postCreative(db, ws, token, account, pageId, d);
+        } else {
+          step = "Making the ad's words and video";
+          c = await makeCreative(token, account, pageId, media!, d, await autofillOf(db, ws));
+        }
         step = "Creating the ad";
-        const ad = await post(`${account}/ads`, token, { name: `itaOS · ${d.headline ?? "new ad"}`, adset_id: adsetId, creative: { creative_id: c.id }, status: "PAUSED" });
+        const ad = await post(`${account}/ads`, token, { name: `itaOS · ${d.headline ?? (d.source_post_id ? "post" : "new ad")}`, adset_id: adsetId, creative: { creative_id: c.id }, status: "PAUSED" });
         const { data } = await touch(d.id, {
           status: "paused", meta_campaign_id: campaignId, meta_adset_id: adsetId, meta_creative_id: c.id, meta_ad_id: ad.id, meta_status: "PAUSED",
-          last_error: c.greetingDropped ? "Meta didn't accept the WhatsApp greeting, so it uses your usual one." : null,
+          post_mode: c.mode ?? null,
+          last_error: c.greetingDropped ? "Meta didn't accept the WhatsApp greeting, so it uses your usual one."
+            : c.mode === "copy" ? "Meta wouldn't run the post itself with a WhatsApp button, so this ad is a copy of it (same picture and words). Its likes and comments don't carry over." : null,
         });
-        return json({ draft: data, greeting_dropped: c.greetingDropped });
+        return json({ draft: data, greeting_dropped: !!c.greetingDropped, post_mode: c.mode ?? null });
       } catch (e) {
         // Don't leave half an ad in the account.
         if (campaignId) await graph(campaignId, token, { method: "DELETE" }).catch(() => {});
