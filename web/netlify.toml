@@ -1,5 +1,5 @@
 [build]
-  command = "npm test && npm run build"   # a failing test stops the deploy (26 Nov 2026)
+  command = "npm run build"   # tests run in GitHub on every push (.github/workflows/tests.yml), not on Netlify
   publish = "dist"
 [build.environment]
   NODE_VERSION = "20"
