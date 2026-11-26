@@ -87,8 +87,8 @@ html[data-font="urbanist"] .shell.dash-ia, html[data-font="inter"] .shell.dash-i
   .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .v { color: #fff; font-size: 32px; letter-spacing: -0.03em; }
   .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .s { color: #A9B3D6; font-size: 12.5px; margin-top: 4px; }
   .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .delta { background: #ffffff1f; color: #fff; }
-  .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .delta.down { background: #4FD39433; color: #8BF0BE; }
-  .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .delta.up { background: #F7C94833; color: #F7C948; }
+  .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .delta.delta.up { background: #178A55; color: #fff; }
+  .view-dashboard .kpis:not(.has-hero) > .kpi:first-child .delta.delta.down { background: #D93B2B; color: #fff; }
   :root:not([data-theme="light"]) .view-dashboard .kpis:not(.has-hero) > .kpi:first-child { background: radial-gradient(90% 120% at 100% 0%, #F7C94833 0%, transparent 55%), linear-gradient(160deg, #2E4596, #1B2A5E 75%); box-shadow: inset 0 0 0 1px #F7C94840, 0 18px 40px -22px #000; }
 
   /* ---- "Where chats stop": label and number on top, bar full width under them ---- */

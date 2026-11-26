@@ -363,3 +363,9 @@ html.pm-open .topbar { transform: none !important; will-change: auto !important;
 .mh .mh-d.mh-d.up { background: #178A55; color: #fff; }
 .mh .mh-d.mh-d.down { background: #D93B2B; color: #fff; }
 .mh .mh-card.green .mh-d.mh-d.up { background: #fff; color: #178A55; }
+
+/* Every "went up / went down" number in the app (26 Nov 2026, Daud): ↑ green, ↓ red, = grey — whether that change is
+   good or bad for the business (ad spend, cost per sale…). Doubled classes so no older page/card rule greys them out. */
+.delta.delta.up { background: #178A55; color: #fff; }
+.delta.delta.down { background: #D93B2B; color: #fff; }
+.delta.delta.flat { background: var(--raised); color: var(--muted); }

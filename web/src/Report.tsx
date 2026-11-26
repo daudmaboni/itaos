@@ -88,7 +88,7 @@ export default function Report({ ws, embedded, range: rangeIn, filters: filtersI
           <thead><tr><th>{T("Metric", "Kipimo")}</th><th className="n">{T("This period", "Kipindi hiki")}</th><th className="n">{T("Before", "Kilichopita")}</th><th className="n">{T("Change", "Badiliko")}</th><th>{T("Source", "Chanzo")}</th></tr></thead>
           <tbody>{rows.map(([l, a, b, f]) => {
             const d = delta(a, b);
-            return <tr key={l}><td>{l}</td><td className="n"><b>{f(a.value)}</b></td><td className="n muted">{f(b.value)}</td><td className="n">{d == null ? "–" : <span className={"delta " + (d > 0 ? "up" : "down")}>{d > 0 ? "↑" : "↓"} {Math.abs(Math.round(d * 100))}%</span>}</td><td><SourceBadge p={a.provenance} lang={lang} /></td></tr>;
+            return <tr key={l}><td>{l}</td><td className="n"><b>{f(a.value)}</b></td><td className="n muted">{f(b.value)}</td><td className="n">{d == null ? "–" : <span className={"delta " + (d > 0 ? "up" : d < 0 ? "down" : "flat")}>{d > 0 ? "↑" : d < 0 ? "↓" : "="} {Math.abs(Math.round(d * 100))}%</span>}</td><td><SourceBadge p={a.provenance} lang={lang} /></td></tr>;
           })}</tbody>
         </table></div>
         <p className="small muted" style={{ margin: 0 }}>{T(`Chats are counted in the period they started (${ws.timezone}). Attributed sales are paid orders linked to those chats within ${ws.conversion_window_days} days. Revenue counts orders by the date they were paid. Inferred signals never enter revenue or cost per sale.`, `Chats zinahesabiwa kwenye kipindi zilipoanza (${ws.timezone}). Mauzo yaliyounganishwa ni oda zilizolipwa ndani ya siku ${ws.conversion_window_days}. Mapato yanahesabu oda kwa tarehe ya malipo. Dalili hazihesabiwi kwenye mapato.`)}</p>

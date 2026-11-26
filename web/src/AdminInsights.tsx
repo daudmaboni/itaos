@@ -44,8 +44,9 @@ function Delta({ cur, prev, invert }: { cur: number; prev: number; invert?: bool
   const d = delta(cur, prev);
   if (d == null) return <em className="ix-d new">new</em>;
   if (Math.abs(d) < 0.005) return <em className="ix-d">±0%</em>;
-  const good = invert ? d < 0 : d > 0;
-  return <em className={`ix-d ${good ? 'up' : 'down'}`}>{d > 0 ? '▲' : '▼'} {Math.abs(Math.round(d * 100))}%</em>;
+  // Coloured by direction everywhere (26 Nov 2026, Daud): ↑ green, ↓ red — `invert` no longer flips it.
+  void invert;
+  return <em className={`ix-d ${d > 0 ? 'up' : 'down'}`}>{d > 0 ? '▲' : '▼'} {Math.abs(Math.round(d * 100))}%</em>;
 }
 
 function PeriodSeg({ v, set, opts = [7, 30, 90] }: { v: number; set: (n: number) => void; opts?: number[] }) {

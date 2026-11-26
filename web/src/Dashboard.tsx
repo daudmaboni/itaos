@@ -220,7 +220,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
           {page === "ads" && (<section className="card">
             <div className="row between">
               <div><h2>{spendTitle(range, mx.period, lang)}</h2><span className="small muted">{trend.weekly ? T("Spend per week.", "Matumizi kwa wiki.") : T("Spend per day.", "Matumizi kwa siku.")}{trend.partialLast ? (trend.weekly ? T(" The last week isn't complete.", " Wiki ya mwisho haijakamilika.") : T(" Today isn't over yet.", " Leo bado haijaisha.")) : ""} <SourceBadge p="platform" lang={lang} /></span></div>
-              {trend.change != null && <span className={"delta " + (trend.change > 0 ? "up" : "down")}>{trend.change > 0 ? "↑" : "↓"} {Math.abs(Math.round(trend.change * 100))}%</span>}
+              {trend.change != null && <span className={"delta " + (trend.change > 0 ? "up" : trend.change < 0 ? "down" : "flat")}>{trend.change > 0 ? "↑" : trend.change < 0 ? "↓" : "="} {Math.abs(Math.round(trend.change * 100))}%</span>}
             </div>
             <div className="big" ref={totalRef}>{money(trend.total, adCur)}</div>
             {/* Plain-words key on the chart itself (25 Nov 2026): a layman can't decode "solid vs dashed" from a grey sentence.
@@ -249,7 +249,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
               return (
                 <div className="fstep" key={l}><span>{l} <SourceBadge p={v.provenance} lang={lang} compact /></span>
                   <div className={"bar " + c}><i style={{ width: `${share * 100}%` }} /></div>
-                  <span className="num" style={{ textAlign: "right" }}>{v.value} · {pct(share)}{d != null && <span className={"small " + (d >= 0 ? "ok" : "err")}> {d >= 0 ? "↑" : "↓"}{Math.abs(Math.round(d * 100))}%</span>}</span></div>
+                  <span className="num" style={{ textAlign: "right" }}>{v.value} · {pct(share)}{d != null && <span className={"small " + (d > 0 ? "ok" : d < 0 ? "err" : "muted")}> {d > 0 ? "↑" : d < 0 ? "↓" : "="}{Math.abs(Math.round(d * 100))}%</span>}</span></div>
               );
             })}
             <p className="small muted" style={{ margin: 0 }}>{T(`Sources: ${fmt(mx.adChats.value)} from ads · ${fmt(mx.organicChats.value)} organic · ${fmt(mx.unknownChats.value)} unknown. Attributed = paid within ${ws.conversion_window_days} days of the chat starting.`, `Vyanzo: ${fmt(mx.adChats.value)} matangazo · ${fmt(mx.organicChats.value)} moja kwa moja · ${fmt(mx.unknownChats.value)} haijulikani. Zimeunganishwa = zililipwa ndani ya siku ${ws.conversion_window_days} tangu chat ianze.`)}</p>
@@ -374,7 +374,7 @@ function Kpi({ hidden, k, v, s, s2, s2t, cls = "", n, f, d, invert, src, title, 
   const ref = useRef<HTMLSpanElement>(null);
   // The count-up writes the number straight into the page, so when there's no number any more put the text back (else the old figure stays).
   useEffect(() => { if (n != null && isFinite(n) && f) countTo(ref.current, n, f, { duration: 1.2, delay: 0.3 }); else if (ref.current) { countTo(ref.current, 0, () => v, { duration: 0 }); ref.current.textContent = v; } }, [n, f, v]);
-  const good = d == null ? null : invert ? d < 0 : d > 0;
+  void invert;   // the % chip is coloured by direction everywhere (26 Nov 2026): ↑ green, ↓ red
   if (hidden) return null;
   return (
     <div className={"kpi " + cls + (onClick ? " kpi-click" : "") + (active ? " on" : "")} title={title}
@@ -382,7 +382,7 @@ function Kpi({ hidden, k, v, s, s2, s2t, cls = "", n, f, d, invert, src, title, 
       <span className="k"><span className="kt">{k}</span>{src && <SourceBadge p={src as any} lang="en" compact />}</span>
       <span className="kv">
         <span className="v" ref={ref}>{v}</span>
-        {d != null && <span className={"delta " + (good ? "down" : "up")}>{d > 0 ? "↑" : "↓"} {Math.abs(Math.round(d * 100))}%</span>}
+        {d != null && <span className={"delta " + (d > 0 ? "up" : d < 0 ? "down" : "flat")}>{d > 0 ? "↑" : d < 0 ? "↓" : "="} {Math.abs(Math.round(d * 100))}%</span>}
       </span>
       {s && <span className="s" title={s}>{s}</span>}
       {s2 && <span className="s kpi-s2" title={s2t ?? (typeof s2 === "string" ? s2 : undefined)}>{s2}</span>}
