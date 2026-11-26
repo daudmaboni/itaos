@@ -94,7 +94,6 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
       await onDone();
     }, T("Undo", "Rudisha"));
   }
-  const waHref = phone ? `https://wa.me/${phone}${d?.text ? "?text=" + encodeURIComponent(d.text) : ""}` : null;
 
   const name = r.contact_name ?? T("Customer", "Mteja");
   return (
@@ -123,7 +122,6 @@ export function QuietCard({ r, quietDays, phone, ws, editor, T, onDone }: { r: O
           <button className="pc-pick" disabled={writing} onClick={ask}>{writing ? <><KitoLoader size="sm" />{T("Kito is writing…", "Kito anaandika…")}</> : d ? T("Write again", "Andika upya") : T("Ask Kito for a follow-up", "Muombe Kito ujumbe")}</button>
           <CopyBtn text={d?.text} T={T} />
           <SendNow ws={ws} conversationId={r.id} purpose="after_price" draft={d?.text} name={r.contact_name} T={T} onSent={(txt) => record("done", txt)} />
-          {waHref && <button className="pc-pick" onClick={() => window.open(waHref, "_blank", "noopener")} title={T("Opens the chat with the message filled in. You press send.", "Inafungua chat ikiwa na ujumbe tayari. Wewe unabonyeza tuma.")}>{T("Open in WhatsApp", "Fungua WhatsApp")}</button>}
         </div>}
         {editor && (
           <div className="pc-acts">

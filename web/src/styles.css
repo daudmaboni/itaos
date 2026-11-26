@@ -1888,3 +1888,15 @@ html:has(.ps.drag) { user-select: none; -webkit-user-select: none; }
 .page-loading i { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--accent-soft); border-top-color: var(--accent); animation: page-spin .8s linear infinite; }
 @keyframes page-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .page-loading i { animation-duration: 2.4s; } }
+
+/* Send in WhatsApp (WaTap, 26 Nov 2026): one tap opens WhatsApp with Kito's message typed */
+.watap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wa-go { display: inline-flex; align-items: center; gap: 6px; }
+button.primary.wa-go { background: #1f9d55; border-color: #1f9d55; color: #fff; }
+button.primary.wa-go:hover { background: #198347; }
+.wa-wait { animation: wa-wait 1.6s ease-in-out infinite; }
+@keyframes wa-wait { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .wa-wait { animation: none; } }
+.pc-foot.rd textarea { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical; }
+.pc-foot.rd .rd-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.rd-writing { display: flex; align-items: center; gap: 8px; padding: 10px 0; }

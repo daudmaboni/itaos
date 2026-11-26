@@ -85,8 +85,8 @@ export function ReorderCard({ r, ws, editor, T, onDone }: { r: Row; ws: Workspac
   async function ask() {
     setWriting(true); setMsg("");
     try {
-      const x = await callFn<{ draft_sw: string; draft_en: string; why: string; missing: string[] }>("reorder", { workspace_id: ws.id, conversation_id: r.conversation_id });
-      setD({ text: sw ? x.draft_sw : x.draft_en, why: x.why, missing: x.missing ?? [] });
+      const x = await callFn<{ text?: string; draft_sw: string; draft_en: string; why: string; missing: string[] }>("reorder", { workspace_id: ws.id, conversation_id: r.conversation_id });
+      setD({ text: x.text ?? (sw ? x.draft_sw : x.draft_en), why: x.why, missing: x.missing ?? [] });
     } catch (e) { setMsg(errText(e)); }
     setWriting(false);
   }

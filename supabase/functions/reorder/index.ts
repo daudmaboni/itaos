@@ -2,6 +2,7 @@
 // A draft only: the owner reads it, edits it, copies it and sends it from their own phone. itaOS never sends.
 // Called from Actions → Reorders by an editor of the workspace. Logged in api_usage as reply_draft.
 import { admin, userClient, json, cors } from "../_shared/db.ts";
+import { VOICE_RULES, customerLang, tidy } from "../_shared/voice.ts";
 
 const KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const MODEL = Deno.env.get("KITO_MODEL") ?? "claude-haiku-5-5";
@@ -77,11 +78,13 @@ ${chat}
 </chat>
 
 Rules:
-- Warm and personal, like the owner checking in: greet, mention what they bought and roughly how long ago, ask how they are getting on, and offer to send more or the next step. End with one easy question.
+- Warm and personal, like the owner checking in: mention what they bought and roughly how long ago, ask how they are getting on, and offer more. End with one easy question.
 - If the chat shows a problem (a complaint, delivery trouble, said it didn't help), do not push a sale: acknowledge it and ask how you can help.
 - Never make health or effectiveness claims, never promise results, discounts, stock or delivery times, and do not mention the customer's health beyond what they wrote. If a fact is needed but missing from the profile, write a placeholder like [bei] / [price] and list it in "missing".
-- draft_sw: natural Tanzanian Kiswahili, 2–4 short sentences. draft_en: the same message in plain English.
-- why: one sentence on why this message fits this customer.`;
+- draft_sw: Kiswahili. draft_en: the same message in English. The owner sends the one in the customer's language, so both must read naturally.
+- why: one sentence on why this message fits this customer.
+
+${VOICE_RULES}`;
 
   const started = Date.now();
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -101,8 +104,10 @@ Rules:
   const r = (out.content ?? []).find((b: any) => b.type === "tool_use")?.input;
   if (!r?.draft_sw) return json({ error: "Kito couldn't write a draft. Try again." }, 502);
   const s = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+  const chat_lang = customerLang(msgs ?? []);
+  const draft_sw = tidy(r.draft_sw), draft_en = tidy(r.draft_en);
   return json({
-    draft_sw: s(r.draft_sw, 1200), draft_en: s(r.draft_en, 1200), why: s(r.why, 300),
+    chat_lang, text: chat_lang === "en" ? draft_en : draft_sw, draft_sw, draft_en, why: s(r.why, 300),
     missing: Array.isArray(r.missing) ? r.missing.map((x: unknown) => s(x, 80)).slice(0, 4) : [],
     product, days,
   });

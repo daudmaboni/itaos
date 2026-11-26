@@ -133,8 +133,9 @@ export function PromiseCard({ t, r, ws, editor, onChange, focus, rec }: { t: Tas
   async function askKito() {
     setWriting(true); setMsg("");
     try {
-      const d = await callFn<{ draft_sw: string; draft_en: string }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: t.conversation_id });
-      const text = sw ? d.draft_sw : d.draft_en;
+      // Written for the promise, in the language the customer writes in (not the app's language).
+      const d = await callFn<{ text?: string; chat_lang?: string; draft_sw: string; draft_en: string }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: t.conversation_id, purpose: "promise" });
+      const text = d.text ?? (d.chat_lang === "en" ? d.draft_en : d.chat_lang === "sw" ? d.draft_sw : sw ? d.draft_sw : d.draft_en);
       setDraft(text);
       await supabase.from("follow_up_tasks").update({ draft: text, draft_source: "kito" }).eq("id", t.id).eq("workspace_id", ws.id);
     } catch (e) { setMsg(errText(e)); }

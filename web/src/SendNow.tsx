@@ -7,6 +7,7 @@ import { errText } from "./errText";
 import { useEffect, useState } from "react";
 import { supabase, callFn, Workspace, canManage, canSend } from "./lib";
 import { useKept } from "./keep";
+import { WaTap } from "./WaTap";
 
 export type Purpose = "after_price" | "reorder" | "promise";
 export type Template = { id: string; name: string; language: string; purpose: Purpose | "custom"; body: string; params: string[]; status: string; reason: string | null; category: string; synced_at?: string | null };
@@ -42,7 +43,10 @@ export function SendNow({ ws, conversationId, purpose, draft, name, product, T, 
   const [open, setOpen] = useState<null | "text" | "template">(null);   // what will be sent, once checked
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  if (!canManage(ws) || !canSend(ws)) return null;
+  if (!canManage(ws)) return null;
+  // Sending from itaOS is off (Meta hasn't verified the business, or Pondi paused it): one tap opens the
+  // owner's own WhatsApp with the message typed, and the card completes when the sent message comes back.
+  if (!canSend(ws)) return <WaTap conversationId={conversationId} draft={draft} T={T} onSent={onSent} />;
 
   async function check() {
     setBusy(true); setMsg("");
@@ -77,6 +81,7 @@ export function SendNow({ ws, conversationId, purpose, draft, name, product, T, 
   return (
     <div className="sendnow">
       {!open && <button className="pc-pick sn-go" disabled={busy} onClick={check} title={T("Sends from your WhatsApp number and marks it Sent", "Inatuma kutoka namba yako ya WhatsApp na kuweka Nimetuma")}>{busy && <span className="kito-spin sm" aria-hidden />}{T("Send from itaOS", "Tuma kutoka itaOS")}</button>}
+      {!open && <WaTap conversationId={conversationId} draft={draft} T={T} onSent={onSent} primary={false} />}
       {open === "text" && (
         <div className="sn-confirm">
           <span className="small muted">{T("They wrote in the last 24 hours: your draft goes out as it is.", "Ameandika ndani ya saa 24: rasimu yako itatumwa kama ilivyo.")}</span>

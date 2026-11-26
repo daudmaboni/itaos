@@ -504,7 +504,7 @@ export function Composer({ r, ws, T, phone, msgs, onSent, onPending, onFailed }:
     setDrafting(true); setErr("");
     try {
       // Write in the customer's language (Kito detects it from their messages), not the app's language.
-      const d = await callFn<{ draft_sw: string; draft_en: string; chat_lang?: "sw" | "en" }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: r.id });
+      const d = await callFn<{ draft_sw: string; draft_en: string; chat_lang?: "sw" | "en" }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: r.id, purpose: r.last_dir === "in" ? "reply" : "follow_up" });
       const lang = d.chat_lang ?? (ws.language === "en" ? "en" : "sw");
       setText(lang === "en" ? d.draft_en || d.draft_sw : d.draft_sw || d.draft_en); box.current?.focus();
     } catch (e) { setErr(errText(e)); }

@@ -4,8 +4,11 @@
 //   4. went quiet after the price (hot → warm)   5. due to buy again   6. quiet after the price (cold)
 // Same flag rules as the separate tabs; customers kept aside for the trial are already removed by the caller.
 // The cards are the same cards as in those tabs (draft with Kito, copy, Send from itaOS, Sent / Not now).
-import { useEffect, useMemo, useState } from "react";
-import { supabase, Workspace, Outcome, Task, L, ago } from "./lib";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase, Workspace, Outcome, Task, L, ago, callFn } from "./lib";
+import { WaTap } from "./WaTap";
+import { KitoLoader } from "./KitoLoader";
+import { errText } from "./errText";
 import { phoneOf } from "./chatParts";
 import { avaText } from "./ActionBits";
 import { useKept } from "./keep";
@@ -101,7 +104,7 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
           : <div className="pgrid">{items.map((i) => (
             <div className="today-item" key={i.kind + i.id}>
               <span className={"today-why " + i.kind}>{label[i.kind]}</span>
-              {i.kind === "reply" && <QueueCard q={i.q} ws={ws} editor={editor} onTake={onTake} showReason={false} />}
+              {i.kind === "reply" && <QueueCard q={i.q} ws={ws} editor={editor} onTake={onTake} showReason={false} onDone={refresh} />}
               {i.kind === "promise" && <PromiseCard t={i.t} r={rows.find((x) => x.id === i.t.conversation_id)} ws={ws} editor={editor} onChange={refresh} />}
               {i.kind === "after_price" && <QuietCard r={i.r} quietDays={Math.max(1, Math.floor(i.quietFor / DAY))} phone={phoneOf(phones[i.r.contact_id])} ws={ws} editor={editor} T={T} onDone={refresh} />}
               {i.kind === "reorder" && <ReorderCard r={i.x} ws={ws} editor={editor} T={T} onDone={() => { void refresh(); }} />}
@@ -114,7 +117,7 @@ export function TodayList({ ws, rows, tasks, promises, queue, hiddenReorder, edi
 }
 
 /** The queue card (customer waiting / follow-up due), shared by Today and the Queue tab. */
-export function QueueCard({ q, ws, editor, onTake, showReason = true }: { q: QueueItem; ws: Workspace; editor: boolean; onTake: (r: Outcome, reason: string) => void; /** Today already says why above the card */ showReason?: boolean }) {
+export function QueueCard({ q, ws, editor, onTake, showReason = true, onDone }: { q: QueueItem; ws: Workspace; editor: boolean; onTake: (r: Outcome, reason: string) => void; /** Today already says why above the card */ showReason?: boolean; onDone?: () => void | Promise<void> }) {
   const lang = ws.language;
   const T = (en: string, sw: string) => (lang === "sw" ? sw : en);
   const { r, reason, temp } = q;
@@ -135,11 +138,67 @@ export function QueueCard({ q, ws, editor, onTake, showReason = true }: { q: Que
           : temp ? <span className={"temp " + temp + (r.kito_temp ? "" : " guess")}>{L[lang].temp[temp as "hot"]}</span> : null}
       </div>
       {r.kito_summary ? <p className="pc-sum">{r.kito_summary}</p> : <p className="pc-sum muted">{T("Kito has not read this chat yet.", "Kito bado hajasoma chat hii.")}</p>}
-      {r.kito_next && <div className="pc-next"><b>{T("Next", "Fanya")}</b><span>{r.kito_next}{blocker && <em> · {blocker}</em>}</span></div>}
+      {editor && reason === "reply" && r.last_dir === "in"
+        ? <ReplyDraft r={r} ws={ws} T={T} onDone={onDone} />
+        : r.kito_next && <div className="pc-next"><b>{T("Next", "Fanya")}</b><span>{r.kito_next}{blocker && <em> · {blocker}</em>}</span></div>}
       <div className="pc-row">
         <a className="pc-open small" href={"#chats/ids=" + r.id}>{T("Open chat", "Fungua chat")} →</a>
         {editor && <button className="pc-take" onClick={() => onTake(r, reason)}>{T("Take it", "Chukua")}</button>}
       </div>
+    </div>
+  );
+}
+
+// Customer waiting (26 Nov 2026): Kito writes the reply by itself, in the customer's language, and one tap
+// opens WhatsApp with it typed. A few drafts are written at a time so a long list doesn't hit the AI all at
+// once. A draft is kept per customer message (localStorage), so reopening the app doesn't pay for it again;
+// when the customer writes something new, Kito writes a fresh one.
+const DRAFTS_AT_ONCE = 2;
+let running = 0;
+const waiting: (() => void)[] = [];
+async function slot<T>(f: () => Promise<T>): Promise<T> {
+  if (running >= DRAFTS_AT_ONCE) await new Promise<void>((ok) => waiting.push(ok));
+  running++;
+  try { return await f(); } finally { running--; waiting.shift()?.(); }
+}
+const draftKey = (r: Outcome) => "rd:" + r.id + ":" + (r.last_message_at ?? "");
+function savedDraft(r: Outcome): string | null { try { return localStorage.getItem(draftKey(r)); } catch { return null; } }
+function saveDraft(r: Outcome, text: string) {
+  try {
+    localStorage.setItem(draftKey(r), text);
+    // keep storage small: drop drafts for older messages of this chat
+    for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k?.startsWith("rd:" + r.id + ":") && k !== draftKey(r)) localStorage.removeItem(k); }
+  } catch { /* private mode */ }
+}
+
+function ReplyDraft({ r, ws, T, onDone }: { r: Outcome; ws: Workspace; T: (en: string, sw: string) => string; onDone?: () => void | Promise<void> }) {
+  const [text, setText] = useState<string>(() => savedDraft(r) ?? "");
+  const [writing, setWriting] = useState(false);
+  const [err, setErr] = useState("");
+  const asked = useRef("");
+  async function ask(force = false) {
+    if (!force && (savedDraft(r) || asked.current === draftKey(r))) return;
+    asked.current = draftKey(r);
+    setWriting(true); setErr("");
+    try {
+      const d = await slot(() => callFn<{ text?: string; chat_lang?: string; draft_sw: string; draft_en: string }>("kito", { workspace_id: ws.id, action: "draft_reply", conversation_id: r.id, purpose: "reply" }));
+      const t = (d.text ?? (d.chat_lang === "en" ? d.draft_en : d.draft_sw) ?? "").trim();
+      setText(t); saveDraft(r, t);
+    } catch (e) { setErr(errText(e)); }
+    setWriting(false);
+  }
+  useEffect(() => { const s = savedDraft(r); if (s) setText(s); else void ask(); }, [r.id, r.last_message_at]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="pc-foot rd">
+      <div className="draft-label">{T("Kito's reply, in their language. Edit if you like.", "Jibu la Kito, kwa lugha yake. Badilisha ukipenda.")}</div>
+      {writing && !text
+        ? <div className="rd-writing small muted"><KitoLoader size="sm" />{T("Kito is writing the reply…", "Kito anaandika jibu…")}</div>
+        : <textarea value={text} rows={3} onChange={(e) => { setText(e.target.value); saveDraft(r, e.target.value); }} />}
+      <div className="pc-row rd-row">
+        <WaTap conversationId={r.id} draft={text} T={T} onSent={async () => { await onDone?.(); }} />
+        <button className="linkish small" disabled={writing} onClick={() => void ask(true)}>{writing && text ? <span className="kito-spin sm" aria-hidden /> : null}{T("Write again", "Andika upya")}</button>
+      </div>
+      {err && <div className="small err">{err}</div>}
     </div>
   );
 }
