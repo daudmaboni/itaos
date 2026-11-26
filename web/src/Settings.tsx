@@ -582,6 +582,35 @@ function MyProfile({ ws, T }: { ws: Workspace; T: Tr }) {
   );
 }
 
+/** Lost or shared phone: end every itaOS sign-in for this account, including this one (26 Nov 2026).
+ *  Other devices stop at their next token refresh (within about an hour) and must sign in again. */
+function SignOutEverywhere({ T }: { T: Tr }) {
+  const [ask, setAsk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function go() {
+    setBusy(true); setErr("");
+    const { error } = await supabase.auth.signOut({ scope: "global" });
+    if (error) { setBusy(false); setErr(errText(error)); await supabase.auth.signOut({ scope: "local" }); }
+  }
+  return (
+    <section className="card">
+      <div className="row between">
+        <div><h2>{T("Sign out of all devices", "Toka kwenye vifaa vyote")}</h2><span className="small muted">{T("Lost a phone, or someone else used your account? This signs out every phone and computer, this one too.", "Umepoteza simu, au mtu mwingine ametumia akaunti yako? Hii inatoa simu na kompyuta zote, hata hii.")}</span></div>
+        {!ask && <button type="button" onClick={() => setAsk(true)}>{T("Sign out everywhere", "Toka kila mahali")}</button>}
+      </div>
+      {ask && (
+        <div className="row" style={{ gap: 8, justifyContent: "flex-end", marginTop: 12, flexWrap: "wrap" }}>
+          <span className="small muted" style={{ marginRight: "auto" }}>{T("You'll need your password to sign in again on each device.", "Utahitaji nenosiri lako kuingia tena kwenye kila kifaa.")}</span>
+          <button type="button" disabled={busy} onClick={() => setAsk(false)}>{T("Cancel", "Ghairi")}</button>
+          <button type="button" className="primary" disabled={busy} onClick={go}>{busy ? T("Signing out…", "Inatoa…") : T("Yes, sign out everywhere", "Ndiyo, toka kila mahali")}</button>
+        </div>
+      )}
+      {err && <p className="err small" role="alert" style={{ margin: "8px 0 0" }}>{err}</p>}
+    </section>
+  );
+}
+
 function Account({ email, T }: { email: string; T: Tr }) {
   const [pw, setPw] = useState("");
   const [msg, setMsg] = useState<{ ok?: string; err?: string }>({});
@@ -609,6 +638,7 @@ function Account({ email, T }: { email: string; T: Tr }) {
           <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })}>{T("Sign out", "Toka")}</button>
         </div>
       </section>
+      <SignOutEverywhere T={T} />
     </>
   );
 }
@@ -830,6 +860,7 @@ const SET_INDEX: [Tab, string, string, string][] = [
   ["app", "Pop-up inside the app", "Arifa ndani ya app", "popup island alert"],
   ["account", "Password", "Nenosiri", "password change nenosiri"],
   ["account", "Sign out", "Toka", "log out logout sign out toka"],
+  ["account", "Sign out of all devices", "Toka kwenye vifaa vyote", "sign out all devices everywhere lost phone stolen toka vifaa vyote"],
 ];
 
 function SettingsSearch({ T, onPick }: { T: Tr; onPick: (t: Tab, title: string) => void }) {

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { authStorage } from "./authStore";
 
 // Read these before the client starts: it removes the tokens from the address bar when it signs in.
 const startHash = typeof location === "undefined" ? "" : location.hash + "&" + location.search;
@@ -7,7 +8,10 @@ export const PASSWORD_RECOVERY = /type=recovery/.test(startHash);
 /** Opened from an email link that has expired or was already used. */
 export const AUTH_LINK_ERROR = /[#&?]error=|error_code=|error_description=/.test(startHash);
 
-export const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
+// Sign-in is kept on the device unless the owner unticked "Keep me signed in" (authStore.ts).
+export const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
+  auth: { storage: authStorage, persistSession: true, autoRefreshToken: true },
+});
 
 export async function callFn<T = any>(name: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });

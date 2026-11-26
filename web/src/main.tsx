@@ -23,6 +23,7 @@ import { startChatReturn } from "./chatReturn";
 import { startBackStack } from "./backStack";
 import { startGlassCards } from "./glassCards";
 import { startPageScrollbar } from "./pageScrollbar";
+import { hasSavedSignIn } from "./authStore";
 
 startBackStack(); // first, so every other listener sees numbered history entries
 startPwa();
@@ -40,8 +41,18 @@ const AUTH_HASH = /(access_token|refresh_token|error_description|type=(magiclink
 const path = location.pathname.replace(/\/+$/, "") || "/";
 const isApp = path === "/app" || path.startsWith("/app/");
 
+// The front door (26 Nov 2026): someone already signed in on this device, or opening the installed app
+// (older phone installs still start at "/?source=pwa"), goes straight to the app, not the sales page.
+// "/?home" (the "itaOS homepage" link inside the app) shows the homepage for the rest of that tab.
+const HOME_PASS = "itaos-see-home";
+if (path === "/" && /[?&]home\b/.test(location.search)) { try { sessionStorage.setItem(HOME_PASS, "1"); } catch { /* blocked */ } }
+const browsingHome = (() => { try { return sessionStorage.getItem(HOME_PASS) === "1"; } catch { return false; } })();
+const fromInstalledApp = /[?&]source=pwa\b/.test(location.search);
+
 if (!isApp && (APP_VIEWS.test(location.hash) || AUTH_HASH.test(location.hash) || /[?&]code=/.test(location.search))) {
   location.replace("/app" + location.search + location.hash);
+} else if (path === "/" && !browsingHome && (fromInstalledApp || hasSavedSignIn())) {
+  location.replace("/app" + location.hash);
 } else {
   const root = createRoot(document.getElementById("root")!);
   const isAdmin = path === "/app/admin";

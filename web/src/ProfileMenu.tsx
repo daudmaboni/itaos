@@ -133,6 +133,7 @@ export default function ProfileMenu({ ws, staff, language, onLanguage }: {
           </div>
           <a role="menuitem" href="#settings" onClick={(e) => { e.preventDefault(); go("#settings"); }}>{T("Settings", "Mipangilio")}</a>
           <a role="menuitem" href="#settings/account" onClick={(e) => { e.preventDefault(); go("#settings/account"); }}>{T("My profile and photo", "Wasifu wangu na picha")}</a>
+          <a role="menuitem" href="/?home">{T("itaOS homepage", "Ukurasa wa mwanzo wa itaOS")}</a>
           {staff && <a role="menuitem" href="/app/admin">{T("Pondi admin", "Pondi admin")} <small>{T("staff only", "wafanyakazi tu")}</small></a>}
           {askOut ? (
             <div className="pm-confirm" role="alertdialog" aria-label={T("Sign out?", "Utoke?")}>

@@ -51,7 +51,7 @@ function installPopup() {
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:16px">${T("Get the itaOS app", "Pakua app ya itaOS")}</div>
         <div style="color:${muted};font-size:13px">${ios
-          ? T("Tap <b>Share</b> (the square with an up arrow), then <b>Add to Home Screen</b>.", "Bonyeza <b>Share</b> (kiboksi chenye mshale wa juu), kisha <b>Add to Home Screen</b>.")
+          ? T("Tap <b>Share</b> (the square with an up arrow), then <b>Add to Home Screen</b>. That way you stay signed in: Safari forgets websites you haven't opened for a week.", "Bonyeza <b>Share</b> (kiboksi chenye mshale wa juu), kisha <b>Add to Home Screen</b>. Hivyo utabaki umeingia: Safari husahau tovuti usizofungua kwa wiki moja.")
           : matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(pointer: coarse)").matches
             ? T("Open it in its own window, right from your dock or taskbar, and know the moment a customer writes.", "Ifungue kwenye dirisha lake moja kwa moja kutoka dock au taskbar, na ujue papo hapo mteja akiandika.")
             : T("Open it from your home screen and know the moment a customer writes.", "Ifungue kutoka skrini ya simu na ujue papo hapo mteja akiandika.")}</div>

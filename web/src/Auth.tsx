@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase, AUTH_LINK_ERROR } from "./lib";
+import { rememberThisDevice, setRememberThisDevice } from "./authStore";
 import { enterTiles, enterCards, shake, usePageEnter, select } from "./motion";
 import Logo from "./Logo";
 
@@ -34,6 +35,8 @@ const T = {
   emailOk: { en: "✓ Looks right", sw: "✓ Iko sawa" },
   show: { en: "Show", sw: "Onyesha" }, hide: { en: "Hide", sw: "Ficha" },
   forgot: { en: "Forgot password?", sw: "Umesahau nenosiri?" },
+  keep: { en: "Keep me signed in on this device", sw: "Nibaki nimeingia kwenye kifaa hiki" },
+  keepHint: { en: "Untick on a shared or borrowed phone.", sw: "Ondoa tiki kama ni simu ya kuazima au ya pamoja." },
   useLink: { en: "Email me a sign-in link instead", sw: "Nitumie kiungo cha kuingia kwa barua pepe" },
   usePassword: { en: "Sign in with password instead", sw: "Ingia kwa nenosiri badala yake" },
   sendLink: { en: "Email me a sign-in link", sw: "Nitumie kiungo cha kuingia" },
@@ -296,6 +299,7 @@ export function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [keep, setKeep] = useState(rememberThisDevice);
   const [err, setErr] = useState(AUTH_LINK_ERROR ? "LINK" : "");
   const [canResend, setCanResend] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -308,6 +312,7 @@ export function AuthScreen() {
 
   async function google() {
     setErr(""); setBusy(true);
+    setRememberThisDevice(mode === "signup" || keep);
     try { localStorage.setItem("itaos-lang", lang); } catch { /* storage unavailable */ }
     const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: redirect, queryParams: { prompt: "select_account" } } });
     if (error) fail(error.message); // on success the browser leaves for Google
@@ -332,6 +337,7 @@ export function AuthScreen() {
     if (mode === "signin" && !password) return at("pw", t("needPassword"));
     if (mode === "signup" && password.length < 8) return at("pw", t("short"));
     setBusy(true);
+    setRememberThisDevice(mode === "signup" || keep); // new accounts are on their own phone: keep them signed in
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email: em, password });
@@ -424,6 +430,12 @@ export function AuthScreen() {
           </Field>
         )}
 
+        {(mode === "signin" || mode === "link") && (
+          <label className="ax-keep">
+            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+            <span>{t("keep")}<small>{t("keepHint")}</small></span>
+          </label>
+        )}
         <button className="primary ax-cta" disabled={busy}>
           {busy ? t("wait") : mode === "signin" ? t("signIn") : mode === "signup" ? t("createAccount") : mode === "link" ? t("sendLink") : t("sendReset")}
         </button>
