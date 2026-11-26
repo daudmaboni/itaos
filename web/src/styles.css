@@ -455,7 +455,10 @@ nav.tabs a, .bottomnav a, .bottomnav button, .sheet-item { position: relative; }
 .navbadge.green { background: #25d366; color: #06301a; }
 .navbadge.red { background: #ff3b30; }
 .bottomnav .navbadge { top: 0; left: calc(50% + 9px); right: auto; } /* starts past the icon's middle so the More dots stay visible */
-.sheet-item .navbadge { position: absolute; top: 1px; left: 24px; right: auto; box-shadow: 0 0 0 2px var(--card); } /* on the tile icon's corner, so the text keeps its room */
+/* Sits right after the title ("Actions 99+"), so a wide count never covers the label or the icon (26 Nov). */
+.sheet-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sheet-title b { min-width: 0; }
+.sheet-item .navbadge { position: static; flex: none; height: 18px; min-width: 18px; padding: 0 6px; font-size: 11px; box-shadow: none; }
 @keyframes badge-pop { 0% { transform: scale(0); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .navbadge { animation: none; } }
 

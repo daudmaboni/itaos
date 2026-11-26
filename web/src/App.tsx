@@ -797,8 +797,7 @@ export function BottomNav({ view, sw, badges }: { view: View; sw: boolean; badge
           {more.map(([v, label, note, icon]) => (
             <a key={v} href={"#" + moreHref(v)} className={"sheet-item" + (groupOf(view) === v ? " on" : "")} onClick={(e) => { e.preventDefault(); setOpen(false); window.scrollTo({ top: 0 }); phoneGo(moreHref(v)); }}>
               <span className="sheet-ico">{icon}</span>
-              <span className="sheet-text"><b>{label}</b><span className="small muted">{note}</span></span>
-              {v === "actions" && badges && <NavBadge badge={actionsBadge(badges, sw)} />}
+              <span className="sheet-text"><span className="sheet-title"><b>{label}</b>{v === "actions" && badges && <NavBadge badge={actionsBadge(badges, sw)} />}</span><span className="small muted">{note}</span></span>
             </a>
           ))}
         </div>
