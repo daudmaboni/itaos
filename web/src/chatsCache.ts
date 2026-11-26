@@ -1,11 +1,12 @@
 // Chats list cache (23 Nov 2026). The last list shown is kept in memory AND on the phone (localStorage), so
 // opening Chats shows it at once even after the phone closed the app or a new version was installed; the
 // fresh list loads quietly behind it and updates in place. Cleared on sign-out (customer names and numbers).
-// preloadChats() fills it in the background from Home, so the very first tap on Chats is ready too.
+// refreshChats() keeps it fresh in the background from the moment the app opens (chatsSync.ts), so Chats is
+// already up to date when it is opened, not only after.
 import { supabase, Workspace, Outcome, Task, localDay } from "./lib";
 import { RangeSel, resolveRange, addDays, loadRange } from "./ranges";
 import { fromLocalInput } from "./Orders";
-import type { Source, Run, Lite } from "./chatParts";
+import { interest, type Source, type Run, type Lite } from "./chatParts";
 
 export const PAGE = 100;
 export type Filter = "follow" | "lost" | "open" | "sold" | "signals" | "all" | "not" | "ids";
@@ -48,7 +49,7 @@ export function setSnap(s: Snap, persist: boolean) {
 }
 
 export function clearChatsCache() {
-  snap = null; views.clear();
+  snap = null; views.clear(); freshAt.clear();
   try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith(LS)) localStorage.removeItem(k); } } catch { /* blocked */ }
 }
 
@@ -57,38 +58,83 @@ export function chatsRange(): RangeSel | null {
   try { return localStorage.getItem("itaos:chats:alldates") === "1" ? null : ((r) => (r && r.key === "all" ? null : r))(loadRange("chats", null as any)); } catch { return null; }
 }
 
-let preloading = false;
-/** Load the "All" chats list in the background when nothing is saved yet, so the first tap on Chats is instant. */
-export async function preloadChats(ws: Workspace) {
-  if (preloading || getSnap(ws.id)) return;
-  preloading = true;
-  try {
-    const tz = ws.timezone || "Africa/Dar_es_Salaam";
-    const range = chatsRange();
-    const period = range ? resolveRange(range, localDay(new Date(), tz)) : null;
-    let q = supabase.from("conversation_outcomes").select("*").eq("workspace_id", ws.id).eq("not_customer", false)
-      .order("last_message_at", { ascending: false, nullsFirst: false }).limit(PAGE);
-    if (period) q = q.gte("last_message_at", fromLocalInput(period.from + "T00:00")).lt("last_message_at", fromLocalInput(addDays(period.to, 1) + "T00:00"));
-    const [c, a, t, counts, runs] = await Promise.all([
-      q,
-      supabase.from("ads").select("ad_id,name").eq("workspace_id", ws.id),
-      supabase.from("follow_up_tasks").select("*").eq("workspace_id", ws.id).in("status", ["open", "snoozed"]),
-      supabase.rpc("chat_counts", { p_ws: ws.id, p_src: "any" }),
-      supabase.from("kito_runs").select("id,trigger,ran_at,checked,failed,remaining,note").eq("workspace_id", ws.id).order("ran_at", { ascending: false }).limit(20),
-    ]);
-    if (c.error || getSnap(ws.id)) return;   // Chats opened meanwhile and saved its own list
-    const rows = (c.data as Outcome[]) ?? [];
-    const cids = [...new Set(rows.map((r) => r.contact_id))];
-    const { data: cts } = cids.length ? await supabase.from("contacts").select("id,wa_id").eq("workspace_id", ws.id).in("id", cids) : { data: [] };
-    if (getSnap(ws.id)) return;
-    const phones = Object.fromEntries((cts ?? []).map((x: any) => [x.id, x.wa_id]));
-    const key = viewKeyOf(ws.id, "all", null, "any", PAGE, "", period?.from, period?.to);
-    views.set(key, { rows, phones, paidOn: null, boughtInRange: null });
-    setSnap({
-      ws: ws.id, key, filter: "all", src: "any", rows, lite: [], counts: counts.error ? null : (counts.data as Record<string, number>), phones,
-      adNames: Object.fromEntries((a.data ?? []).map((x: any) => [x.ad_id, x.name])),
-      tasks: Object.fromEntries(((t.data ?? []) as Task[]).map((task) => [task.conversation_id, task])),
-      runs: (runs.data as Run[]) ?? [], paidOn: null, boughtInRange: null,
-    }, true);
-  } catch { /* offline: Chats loads normally */ } finally { preloading = false; }
+/** The list's filters (tab, source, chosen ids, dates), shared by the Chats page and the background sync
+ *  so both ask the database for exactly the same list. */
+export function narrowChats<Q>(qq: Q, o: { filter: Filter; ids: string[] | null; src: Source; period: { from: string; to: string } | null }): Q {
+  const { filter, ids, src, period } = o;
+  const byPaid = filter === "sold";
+  let x: any = qq;
+  if (filter !== "ids" && src === "import") x = x.eq("phone_number_id", "import");
+  else if (filter !== "ids" && src === "live") x = x.neq("phone_number_id", "import");
+  if (filter === "ids" && ids) x = x.in("id", ids);
+  if (filter !== "ids" && period && !byPaid) x = x.gte("last_message_at", fromLocalInput(period.from + "T00:00")).lt("last_message_at", fromLocalInput(addDays(period.to, 1) + "T00:00"));
+  if (filter === "not") x = x.eq("not_customer", true);
+  else if (filter !== "ids") x = x.eq("not_customer", false);
+  if (filter === "ids" || filter === "not" || filter === "all") { /* nothing more */ }
+  else if (filter === "sold") x = x.gt("paid_orders", 0);   // Bought = a sale you recorded, nothing else
+  else if (filter === "follow") x = x.neq("outcome", "sold").or("kito_temp.in.(hot,warm),and(kito_temp.is.null,warm.eq.true)");
+  else if (filter === "signals") x = x.eq("paid_orders", 0).or("and(kito_outcome.eq.sold,or(kito_confidence.is.null,kito_confidence.neq.low)),outcome_override.eq.sold").or("override_by.is.null,outcome_override.eq.sold");
+  else x = x.eq("outcome", filter);
+  return x as Q;
 }
+
+/** Follow up: hot first, then chats where the customer wrote last; newest first inside each group. */
+export function sortFollow(list: Outcome[]): Outcome[] {
+  const rank = (r: Outcome) => (interest(r) === "hot" ? 0 : 1) * 10 + (r.last_dir === "in" && !r.last_in_closing ? 0 : 1);
+  return [...list].sort((x, y) => rank(x) - rank(y) || Date.parse(y.last_message_at ?? "") - Date.parse(x.last_message_at ?? ""));
+}
+
+const freshAt = new Map<string, number>();
+/** The saved list for this view was fetched in the background less than a minute ago. */
+export const isFresh = (key: string) => Date.now() - (freshAt.get(key) ?? 0) < 60_000;
+
+let running: Promise<void> | null = null;
+let again = false;
+/** Fetch the chats list the Chats page will open with (same tab and dates as last time) and save it, so Chats
+ *  is already up to date before it is opened. Called when the app opens and on every live change while Chats
+ *  is closed (chatsSync.ts). Never throws. */
+export function refreshChats(ws: Workspace): Promise<void> {
+  if (running) { again = true; return running; }
+  running = (async () => {
+    try {
+      const saved = getSnap(ws.id);
+      const filter: Filter = saved && saved.filter !== "ids" ? saved.filter : "all";
+      const tz = ws.timezone || "Africa/Dar_es_Salaam";
+      const range = chatsRange();
+      const period = range ? resolveRange(range, localDay(new Date(), tz)) : null;
+      if (filter === "sold" && period) return;   // "Bought on these days" needs the payments list: Chats loads it itself
+      const q = narrowChats(supabase.from("conversation_outcomes").select("*").eq("workspace_id", ws.id)
+        .order(filter === "sold" ? "last_paid_at" : "last_message_at", { ascending: false, nullsFirst: false }).limit(PAGE),
+        { filter, ids: null, src: "any", period });
+      const [c, a, t, counts, runs] = await Promise.all([
+        q,
+        supabase.from("ads").select("ad_id,name").eq("workspace_id", ws.id),
+        supabase.from("follow_up_tasks").select("*").eq("workspace_id", ws.id).in("status", ["open", "snoozed"]),
+        supabase.rpc("chat_counts", { p_ws: ws.id, p_src: "any" }),
+        supabase.from("kito_runs").select("id,trigger,ran_at,checked,failed,remaining,note").eq("workspace_id", ws.id).order("ran_at", { ascending: false }).limit(20),
+      ]);
+      if (c.error) return;
+      let rows = (c.data as Outcome[]) ?? [];
+      if (filter === "follow") rows = sortFollow(rows);
+      const cids = [...new Set(rows.map((r) => r.contact_id))];
+      const { data: cts } = cids.length ? await supabase.from("contacts").select("id,wa_id").eq("workspace_id", ws.id).in("id", cids) : { data: [] };
+      const phones = Object.fromEntries((cts ?? []).map((x: any) => [x.id, x.wa_id]));
+      const key = viewKeyOf(ws.id, filter, null, "any", PAGE, "", period?.from, period?.to);
+      views.set(key, { rows, phones, paidOn: null, boughtInRange: null });
+      freshAt.set(key, Date.now());
+      setSnap({
+        ws: ws.id, key, filter, src: "any", rows, lite: [], counts: counts.error ? (saved?.counts ?? null) : (counts.data as Record<string, number>), phones,
+        adNames: Object.fromEntries((a.data ?? []).map((x: any) => [x.ad_id, x.name])),
+        tasks: Object.fromEntries(((t.data ?? []) as Task[]).map((task) => [task.conversation_id, task])),
+        runs: (runs.data as Run[]) ?? [], paidOn: null, boughtInRange: null,
+      }, true);
+    } catch { /* offline: Chats loads normally */ }
+  })().finally(() => {
+    running = null;
+    if (again) { again = false; void refreshChats(ws); }
+  });
+  return running;
+}
+
+/** Old name, kept for callers: now always refreshes. */
+export const preloadChats = refreshChats;

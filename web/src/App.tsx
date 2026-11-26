@@ -13,7 +13,7 @@ import { supabase, Workspace, WS_COLUMNS, Role, PASSWORD_RECOVERY } from "./lib"
 import { AuthScreen, SetNewPassword, initialLang, tr, AuthShell, AuthBrand, AuthField, AuthIcon } from "./Auth";
 import Dashboard from "./Dashboard";
 import ProfileMenu from "./ProfileMenu";
-import Chats, { preloadChats, clearChatsCache } from "./Chats";
+import Chats, { clearChatsCache, startChatsSync, stopChatsSync } from "./Chats";
 import Connect from "./Connect";
 import Settings from "./Settings";
 import Actions from "./Actions";
@@ -114,7 +114,7 @@ export default function App() {
       // Signing out (or a fresh sign-in) always starts on the dashboard: the page the last person was on
       // (e.g. #settings, where Sign out lives) must not carry over to the next account on this device.
       if (e === "SIGNED_OUT" || (e === "SIGNED_IN" && s && hadSession.current === false)) {
-        clearChatsCache();   // the saved chats list holds customer names and numbers: never carry it to the next account
+        stopChatsSync(); clearChatsCache();   // the saved chats list holds customer names and numbers: never carry it to the next account
         if (location.hash) history.replaceState({ itaDepth: depth() }, "", location.pathname + location.search);
         viewRef.current = "dashboard"; setView("dashboard");
       }
@@ -148,13 +148,13 @@ export default function App() {
   // the open profile menu off screen with it, so it stays put again.
   const topRef = useRef<HTMLElement>(null);
 
-  // Chats: load the list quietly in the background a moment after the app opens (only when nothing is saved
-  // on the phone yet), so the first tap on Chats shows real chats at once.
+  // Chats: start syncing the moment the business is open (26 Nov 2026), not when Chats is tapped. One live
+  // connection for the whole app refreshes the chats list, lets Kito read new messages, and catches up on open.
   const wsId = ws?.id;
   useEffect(() => {
     if (!ws) return;
-    const t = window.setTimeout(() => { void preloadChats(ws); }, 2500);
-    return () => window.clearTimeout(t);
+    startChatsSync(ws);
+    return () => stopChatsSync();
   }, [wsId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
