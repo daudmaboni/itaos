@@ -65,7 +65,7 @@
 :root:not([data-theme="light"]) .mh-card.navy { border-color: var(--line); }
 .mh-card.navy .mh-k { color: var(--ink); font-weight: 500; }
 .mh-card.navy .mh-s { color: var(--muted); }
-.mh-card.navy .mh-d { background: var(--raised); }
+.mh-card.navy .mh-d.flat { background: var(--raised); }   /* only "no change" stays grey: up/down keep their green/red chip (26 Nov) */
 .mh-card.navy .mh-d.good { color: #0E8F5E; }
 :root:not([data-theme="light"]) .mh-card.navy .mh-d.good { color: var(--mint); }
 .mh-card.navy .mh-trio .mh-k { color: var(--muted); }
@@ -357,3 +357,9 @@ html.pm-open .topbar { transform: none !important; will-change: auto !important;
 @keyframes chats-sync-in { to { opacity: 1; } }
 @keyframes chats-sync-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .chats-sync i { animation-duration: 2s; } }
+
+/* % change chips on every money card (26 Nov 2026, Daud): ↑ green, ↓ red, white text, light and dark mode.
+   Last in the last stylesheet, so no older per-card rule can grey them out again. */
+.mh .mh-d.mh-d.up { background: #178A55; color: #fff; }
+.mh .mh-d.mh-d.down { background: #D93B2B; color: #fff; }
+.mh .mh-card.green .mh-d.mh-d.up { background: #fff; color: #178A55; }
