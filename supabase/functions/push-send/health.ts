@@ -161,5 +161,36 @@ export async function runHealth(
     if (ownerSubs.length) sent += await send(dedupe(ownerSubs), { ...message(notify.p, notify.wasKind, name, sw, false), tag: notify.tag });
     if (staffOnce.length) sent += await send(staffOnce, { ...message(notify.p, notify.wasKind, name, false, true), tag: notify.tag });
   }
+  sent += await checkAiCredit(db, now, staffOnce, send);
   return { ok: true, checked: results.length, sent, results };
+}
+
+/** AI credit (26 Nov 2026): on 21 Nov the Anthropic balance ran out and 225 chat reads failed with nobody told.
+ *  Every health run (2 h) looks for "credit balance" errors since the last run and rings Pondi staff once,
+ *  then again only if it is still failing 6 h later; one "working again" note when calls succeed again. */
+export const CREDIT_RE = /credit balance|billing|insufficient.?(funds|credit)/i;
+async function checkAiCredit(db: SupabaseClient, now: Date, staffOnce: any[],
+  send: (subs: any[], note: { title: string; body: string; url: string; tag: string }) => Promise<number>): Promise<number> {
+  try {
+    const since = new Date(now.getTime() - 130 * 60_000).toISOString();
+    const { data: errs } = await db.from("api_usage").select("at,error").eq("ok", false).gte("at", since).ilike("error", "%credit%").limit(50);
+    const failing = ((errs ?? []) as any[]).filter((e) => CREDIT_RE.test(String(e.error ?? "")));
+    const { data: st } = await db.from("admin_settings").select("value").eq("key", "ai_credit_alert").maybeSingle();
+    const was = ((st as any)?.value ?? {}) as { alerted_at?: string | null };
+    const save = (v: Record<string, unknown>) => db.from("admin_settings").upsert({ key: "ai_credit_alert", value: v, updated_at: now.toISOString() });
+    if (failing.length) {
+      if (was.alerted_at && now.getTime() - Date.parse(was.alerted_at) < 6 * 3600_000) return 0;
+      await save({ alerted_at: now.toISOString(), failures: failing.length });
+      return staffOnce.length ? await send(staffOnce, { title: "⚠️ AI credit has run out",
+        body: `${failing.length} Kito/AI calls failed in the last 2 hours. Top up the Anthropic balance; chats aren't being read until then.`,
+        url: "/app/admin", tag: "ai-credit" }) : 0;
+    }
+    if (was.alerted_at) {
+      const { count } = await db.from("api_usage").select("id", { count: "exact", head: true }).eq("ok", true).gte("at", was.alerted_at);
+      if (!count) return 0;   // nothing has run since; don't claim it's fixed yet
+      await save({ alerted_at: null, resolved_at: now.toISOString() });
+      return staffOnce.length ? await send(staffOnce, { title: "✅ AI is working again", body: "Kito and the other AI features are running normally.", url: "/app/admin", tag: "ai-credit" }) : 0;
+    }
+  } catch (e) { console.error("ai credit check", (e as Error).message); }
+  return 0;
 }

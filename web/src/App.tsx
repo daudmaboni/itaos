@@ -3,7 +3,7 @@ import { UndoToast } from "./undo";
 import { ConfirmHost } from "./confirmAsk";
 import { whoosh } from "./sound";
 import { AppTip } from "./PhoneApp";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { REFRESH_EVT } from "./pullRefresh";
 import { createPortal, flushSync } from "react-dom";
 import { pageTransition, navFlags, curtainCover, curtainReveal } from "./pageTransition";
@@ -14,21 +14,40 @@ import { AuthScreen, SetNewPassword, initialLang, tr, AuthShell, AuthBrand, Auth
 import Dashboard from "./Dashboard";
 import ProfileMenu from "./ProfileMenu";
 import Chats, { clearChatsCache, startChatsSync, stopChatsSync } from "./Chats";
-import Connect from "./Connect";
-import Settings from "./Settings";
-import Actions from "./Actions";
-import Receipts from "./Receipts";
-import PaymentGuard from "./PaymentGuard";
-import LeakGuard from "./LeakGuard";
-import Buyers from "./Buyers";
-import Kito from "./Kito";
 import Island from "./Island";
-import Products from "./Products";
-import Posts from "./Posts";
 import Logo, { KitoLogo } from "./Logo";
 import { hidePreloader } from "./preloader";
 import { depth, onLayer, leaveLayers, afterBack, pushEntry, replaceEntry, useBackLayer } from "./backStack";
 import { useIsPlatformAdmin } from "./adminAccess";
+// Pages other than Home and Chats load on first open (26 Nov 2026), so the app's first download is smaller on
+// slow connections. They are fetched quietly a few seconds after the app opens, so the first tap stays instant.
+const pages = {
+  Connect: () => import("./Connect"),
+  Settings: () => import("./Settings"),
+  Actions: () => import("./Actions"),
+  Receipts: () => import("./Receipts"),
+  PaymentGuard: () => import("./PaymentGuard"),
+  LeakGuard: () => import("./LeakGuard"),
+  Buyers: () => import("./Buyers"),
+  Kito: () => import("./Kito"),
+  Products: () => import("./Products"),
+  Posts: () => import("./Posts"),
+};
+const Connect = lazy(pages.Connect);
+const Settings = lazy(pages.Settings);
+const Actions = lazy(pages.Actions);
+const Receipts = lazy(pages.Receipts);
+const PaymentGuard = lazy(pages.PaymentGuard);
+const LeakGuard = lazy(pages.LeakGuard);
+const Buyers = lazy(pages.Buyers);
+const Kito = lazy(pages.Kito);
+const Products = lazy(pages.Products);
+const Posts = lazy(pages.Posts);
+function prefetchPages() {
+  const go = () => Object.values(pages).forEach((load, i) => window.setTimeout(() => { void load().catch(() => {}); }, i * 150));
+  const idle = (window as any).requestIdleCallback as ((f: () => void, o?: { timeout: number }) => void) | undefined;
+  window.setTimeout(() => (idle ? idle(go, { timeout: 4000 }) : go()), 2500);
+}
 
 type View = "dashboard" | "kito" | "attention" | "report" | "actions" | "receipts" | "payments" | "ads" | "posts" | "why" | "leaks" | "buyers" | "chats" | "products" | "connect" | "settings";
 const VIEWS: View[] = ["dashboard", "kito", "attention", "report", "actions", "receipts", "payments", "ads", "posts", "why", "leaks", "buyers", "chats", "products", "connect", "settings"];
@@ -154,6 +173,7 @@ export default function App() {
   useEffect(() => {
     if (!ws) return;
     startChatsSync(ws);
+    prefetchPages();
     return () => stopChatsSync();
   }, [wsId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -242,6 +262,7 @@ export default function App() {
       <UndoToast />
       <ConfirmHost />
       <PageView view={view} refreshN={refreshN}><Fragment key={refreshN}>
+      <Suspense fallback={<div className="page-loading" role="status" aria-label="Loading"><i /></div>}>
       {view === "dashboard" && <><AppTip sw={ws.language === "sw"} /><Dashboard ws={ws} onWs={setWs} /></>}
       {view === "kito" && <Kito ws={ws} staff={isPlatformAdmin} />}
       {view === "attention" && <Actions ws={ws} />}
@@ -258,6 +279,7 @@ export default function App() {
       {view === "products" && <><SalesTabs view={view} sw={ws.language === "sw"} /><Products key={ws.id} ws={ws} /></>}
       {view === "connect" && <Connect ws={ws} />}
       {view === "settings" && <Settings ws={ws} onWs={setWs} theme={theme} onTheme={setThemeFrom} />}
+      </Suspense>
       </Fragment></PageView>
     </div>
   );

@@ -9,10 +9,10 @@
 //  - Kito reads new messages ~20 s after they land, and catches up on unread chats once at open.
 import { supabase, callFn, type Workspace } from "./lib";
 import { refreshChats } from "./chatsCache";
+import { onLive, onLiveStatus } from "./realtime";
 
-type Ch = ReturnType<typeof supabase.channel>;
 let wsNow: Workspace | null = null;
-let ch: Ch | null = null;
+let stops: (() => void)[] = [];
 let pageOpen = 0;
 let live = false;
 let missed = false;
@@ -70,37 +70,40 @@ async function catchUp(ws: Workspace) {
 
 /** Start (or keep) the sync for this business. Safe to call on every render. */
 export function startChatsSync(ws: Workspace) {
-  if (wsNow?.id === ws.id && ch) { wsNow = ws; return; }
+  if (wsNow?.id === ws.id && stops.length) { wsNow = ws; return; }
   stopChatsSync();
   wsNow = ws;
   void refreshChats(ws);   // right away: Chats is current before anyone taps it
   void catchUp(ws);
-  ch = supabase.channel(`chats-sync-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, (p: any) => {
+  stops = [
+    onLive(ws.id, "conversations", (p) => {
       // A chat changes whenever a message lands (its summary is recomputed), so this covers new messages too.
       // The messages table itself is not streamed: backfills write thousands of rows at once.
       bump();
-      // Let Kito read the new message shortly after it lands — only when the chat has news Kito hasn't read
-      // (Kito's own label updates also change the chat; those must not wake it again).
-      const c = p?.new;
+      // Let Kito read new messages — only when the chat has news Kito hasn't read (Kito's own label updates
+      // also change the chat; those must not wake it again). background: Kito's quiet window applies (a chat is
+      // read once the talk pauses, 21 Nov cost rule), so an open app doesn't re-read a chat after every message.
+      // Money moments are still read at once: wa-webhook wakes Kito for those itself.
+      const c = p.new;
       if (!c?.last_message_at || (c.kito_checked_at && Date.parse(c.last_message_at) <= Date.parse(c.kito_checked_at))) return;
       window.clearTimeout(kitoTimer);
-      kitoTimer = window.setTimeout(() => { callFn("kito", { workspace_id: ws.id }).then(changed).catch(() => {}); }, 20000);
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `workspace_id=eq.${ws.id}` }, bump)
-    .subscribe((status) => {
+      kitoTimer = window.setTimeout(() => { callFn("kito", { workspace_id: ws.id, background: true }).then(changed).catch(() => {}); }, 60_000);
+    }),
+    onLive(ws.id, "orders", bump),
+    onLiveStatus(ws.id, (on) => {
       const was = live;
-      live = status === "SUBSCRIBED";
+      live = on;
       if (live !== was) window.dispatchEvent(new Event("itaos:chats-live"));
       if (live && !was && last) bump();   // reconnected after a drop: fetch what came in meanwhile
-    });
+    }),
+  ];
   document.addEventListener("visibilitychange", onVisible);
 }
 
 export function stopChatsSync() {
   window.clearTimeout(timer); window.clearTimeout(kitoTimer); timer = undefined;
   document.removeEventListener("visibilitychange", onVisible);
-  if (ch) { void supabase.removeChannel(ch); ch = null; }
+  stops.forEach((f) => f()); stops = [];
   if (live) { live = false; window.dispatchEvent(new Event("itaos:chats-live")); }
   wsNow = null; missed = false;
 }

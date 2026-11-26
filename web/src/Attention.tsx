@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useKept } from "./keep";
 import { enterCards, usePageEnter, select } from "./motion";
 import { supabase, Workspace, L, amt, ago, canEdit } from "./lib";
+import { onLive } from "./realtime";
 import { AssignSelect, useTeam, shortName } from "./team";
 
 type Overdue = { id: string; conversation_id: string; title: string; due_at: string | null; status: string; assigned_to: string | null; contact_name: string | null };
@@ -53,11 +54,8 @@ export default function Attention({ ws, embedded }: { ws: Workspace; embedded?: 
   useEffect(() => {
     let t: number | undefined;
     const soon = () => { if (t === undefined) t = window.setTimeout(() => { t = undefined; refresh(); }, 6000); };
-    const ch = supabase.channel(`attention-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `workspace_id=eq.${ws.id}` }, soon)
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, soon)
-      .subscribe();
-    return () => { window.clearTimeout(t); supabase.removeChannel(ch); };
+    const stop = onLive(ws.id, ["orders", "conversations"], soon);
+    return () => { window.clearTimeout(t); stop(); };
   }, [ws.id]);
 
   const pageRef = usePageEnter<HTMLDivElement>((root) => { if (d) enterCards(select(root, ":scope > .card, .hero"), { stagger: 0.05 }); }, [!!d]);

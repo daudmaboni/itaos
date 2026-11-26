@@ -3,6 +3,7 @@
 // Phone notifications (push) still cover the app when it is closed; this covers the app when it is open.
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib";
+import { onLive } from "./realtime";
 import type { Workspace } from "./lib";
 import { leaveLayers } from "./backStack";
 
@@ -80,8 +81,7 @@ export default function Island({ ws }: { ws: Workspace }) {
   // Live: a chat's summary changes whenever a message lands, so watch chats (messages aren't streamed).
   useEffect(() => {
     seen.current.clear();
-    const ch = supabase.channel(`island-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, async (p: any) => {
+    const stop = onLive(ws.id, "conversations", async (p: any) => {
         const c = p?.new;
         if (!c?.id || c.last_dir !== "in" || !c.last_message_at || c.phone_number_id === "import") return;
         if (seen.current.get(c.id) === c.last_message_at) return; // Kito's label updates, re-analysis etc.
@@ -106,9 +106,8 @@ export default function Island({ ws }: { ws: Workspace }) {
         if (burst.current.n > 3) return; // a flood started while we were loading
         const name = String(row?.contact_name ?? "").replace(/✅/g, "").trim() || (sw ? "Mteja" : "Customer");
         show({ id: c.id, name, text: preview(msg?.type ?? "text", msg?.body ?? null, sw), count: 1 });
-      })
-      .subscribe();
-    return () => { clearTimers(); supabase.removeChannel(ch); };
+      });
+    return () => { clearTimers(); stop(); };
   }, [ws.id, sw]);
 
   // Opening the chat some other way hides its pop-up.

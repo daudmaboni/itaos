@@ -2,6 +2,7 @@
 // period, then runs the central metrics. One place, so both views agree.
 import { useEffect, useRef, useState } from "react";
 import { supabase, Workspace, Outcome, AdPerf, Order, localDay, callFn } from "./lib";
+import { onLive } from "./realtime";
 import { diagnose, Finding } from "./diagnosis";
 import { computeFunnel, comparisonOf, FunnelMetrics, DailyInsight, Expense } from "./metrics";
 import { RangeSel, resolveRange, daysBetween, addDays } from "./ranges";
@@ -237,13 +238,8 @@ export function useGrowthData(ws: Workspace, range: RangeSel, opts: { cache?: bo
     // Throttled, not debounced: at most one refresh per 5 s, however many chats change.
     // A tab in the background doesn't reload; it catches up when it comes back into view.
     const soon = () => { if (t !== undefined || document.visibilityState !== "visible") return; t = window.setTimeout(() => { t = undefined; setTick((x) => x + 1); }, 5000); };
-    // A unique name per hook: two screens using this at once (e.g. #why) would otherwise get the same, already
-    // subscribed channel back from supabase and crash with "cannot add postgres_changes callbacks after subscribe()".
-    const ch = supabase.channel(`growth-${ws.id}-${Math.random().toString(36).slice(2, 10)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${ws.id}` }, soon)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `workspace_id=eq.${ws.id}` }, soon)
-      .subscribe();
-    return () => { window.clearTimeout(t); supabase.removeChannel(ch); };
+    const stop = onLive(ws.id, ["conversations", "orders"], soon);   // the app's one live connection (realtime.ts)
+    return () => { window.clearTimeout(t); stop(); };
   }, [ws.id]);
   // A refresh that arrives while a load is running no longer cancels it (that kept the cards on
   // skeletons while chats were changing every few seconds). It waits and runs once afterwards.

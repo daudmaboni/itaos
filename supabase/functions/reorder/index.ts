@@ -1,14 +1,8 @@
 // Reorders: Kito writes a short WhatsApp message inviting a past buyer to order again.
 // A draft only: the owner reads it, edits it, copies it and sends it from their own phone. itaOS never sends.
 // Called from Actions → Reorders by an editor of the workspace. Logged in api_usage as reply_draft.
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { admin, userClient, json, cors } from "../_shared/db.ts";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...cors } });
 const KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const MODEL = Deno.env.get("KITO_MODEL") ?? "claude-haiku-5-5";
 
@@ -47,11 +41,11 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const ws = String(body.workspace_id ?? ""), conv = String(body.conversation_id ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(ws) || !/^[0-9a-f-]{36}$/i.test(conv)) return json({ error: "workspace_id and conversation_id required" }, 400);
-  const user = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false }, global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
+  const user = userClient(req);
   const { data: canEdit } = await user.rpc("can_edit", { ws });
   if (canEdit !== true) return json({ error: "You need an editor role to ask Kito for drafts." }, 403);
   if (!KEY) return json({ error: "Kito has no AI key yet." }, 503);
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const db = admin();
   const { data: capped } = await db.rpc("svc_ai_paused", { p_ws: ws });
   if (capped === true) return json({ error: "Kito has reached this month's AI limit for your business. It starts again next month." }, 429);
 

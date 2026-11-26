@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./lib";
+import { onLive } from "./realtime";
 
 export type Badges = { chats_waiting: number; chats_waiting_new: number; chats_new: number; actions_due: number; actions_due_new: number };
 const ZERO: Badges = { chats_waiting: 0, chats_waiting_new: 0, chats_new: 0, actions_due: 0, actions_due_new: 0 };
@@ -33,15 +34,13 @@ export function useNavBadges(wsId: string, view: string): Badges {
     let t: number | undefined;
     // Throttled (one per 5 s) and only while the tab is visible; the visibility handler below catches up.
     const soon = () => { if (t !== undefined || document.visibilityState !== "visible") return; t = window.setTimeout(() => { t = undefined; load(); }, 5000); };
-    const ch = supabase.channel(`badges-${wsId}-${Math.random().toString(36).slice(2, 10)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `workspace_id=eq.${wsId}` }, soon)
-      .subscribe();
+    const stop = onLive(wsId, "conversations", soon);
     const iv = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
     const vis = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", vis);
     const pulled = () => { load(); }; // pull-to-refresh
     window.addEventListener("itaos-refresh", pulled);
-    return () => { window.clearTimeout(t); window.clearInterval(iv); document.removeEventListener("visibilitychange", vis); window.removeEventListener("itaos-refresh", pulled); supabase.removeChannel(ch); };
+    return () => { window.clearTimeout(t); window.clearInterval(iv); document.removeEventListener("visibilitychange", vis); window.removeEventListener("itaos-refresh", pulled); stop(); };
   }, [wsId, load]);
 
   return b;

@@ -144,13 +144,16 @@ ${chat}
 </chat>`;
 }
 
-type Prompt = string | { system: string; user: string };
+type Prompt = string | { system: string; user: string } | { rules: string; chat: string };
 // KITO_PROMPT=single puts everything in one user message (the layout before 21 Nov, kept for comparison).
 const LAYOUT = Deno.env.get("KITO_PROMPT") ?? "single";
 // 21 Nov layout_compare on 56 Kayani chats: the cached layout saved ~44% per read but shifted labels (open→lost,
 // hot→warm/cold; outcome agreement 76% vs 91% between two runs of the old layout). Not switched: keep "single".
 function buildPrompt(chat: string, lastAt: string, lang: string, currency: string, paidTexts: string[] = [], tz = "Africa/Dar_es_Salaam", now = Date.now(), layout = LAYOUT): Prompt {
   if (layout === "single") return prompt(chat, lastAt, lang, currency, paidTexts, tz, now);
+  // 26 Nov: "user-cached" keeps everything in the one user message, as in "single" (the 21 Nov test showed the
+  // system-prompt layout shifted labels), but splits it into a fixed rules block (cached) and the chat block.
+  if (layout === "user-cached") return { rules: rulesText(lang, currency, paidTexts), chat: chatText(chat, lastAt, tz, now) };
   return { system: rulesText(lang, currency, paidTexts), user: chatText(chat, lastAt, tz, now) };
 }
 
@@ -220,7 +223,9 @@ async function ask(p: Prompt, ws: string) {
 async function askFull(p: Prompt, ws: string) {
   const parts = typeof p === "string"
     ? { messages: [{ role: "user", content: p }] }
-    : { system: [{ type: "text", text: p.system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: p.user }] };
+    : "rules" in p
+      ? { messages: [{ role: "user", content: [{ type: "text", text: p.rules, cache_control: { type: "ephemeral" } }, { type: "text", text: p.chat }] }] }
+      : { system: [{ type: "text", text: p.system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: p.user }] };
   // 1) forced tool call = guaranteed structure
   let r = await call({ ...parts, tools: [TOOL], tool_choice: { type: "tool", name: "label_chat" } }, { feature: "chat_analysis", workspaceId: ws });
   // 2) if this model/config rejects forced tools, fall back to plain JSON. Only for tool errors: a second
@@ -449,6 +454,7 @@ Deno.serve(async (req) => {
     }
     const ids: string[] = (Array.isArray(body.conversation_ids) ? body.conversation_ids : []).map(String).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 10);
     const cache = new Map<string, WsInfo>();
+    const variant = body.variant === "cached" ? "cached" : "user-cached";   // which cheaper layout to test against "single"
     const pick1 = (x: any) => ({ outcome: x.outcome, temperature: x.temperature, label: x.label, party: x.party, blocker: x.blocker, confidence: x.confidence, promise: x.promise?.kind ?? null, due: x.promise?.due_date ?? null });
     const results = [];
     for (const id of ids) {   // one after another, so the cache written by the first chat is read by the next
@@ -461,8 +467,8 @@ Deno.serve(async (req) => {
         const t = transcript(msgs, info.tz), now = Date.now();
         const old1 = await askFull(buildPrompt(t, c.last_message_at, info.language, info.currency, info.paid, info.tz, now, "single"), c.workspace_id);
         const old2 = await askFull(buildPrompt(t, c.last_message_at, info.language, info.currency, info.paid, info.tz, now, "single"), c.workspace_id);
-        const neu = await askFull(buildPrompt(t, c.last_message_at, info.language, info.currency, info.paid, info.tz, now, "cached"), c.workspace_id);
-        results.push({ id, old1: pick1(old1.out), old2: pick1(old2.out), cached: pick1(neu.out), usage_old: old1.usage, usage_cached: neu.usage });
+        const neu = await askFull(buildPrompt(t, c.last_message_at, info.language, info.currency, info.paid, info.tz, now, variant), c.workspace_id);
+        results.push({ id, variant, old1: pick1(old1.out), old2: pick1(old2.out), cached: pick1(neu.out), usage_old: old1.usage, usage_cached: neu.usage });
       } catch (e) { results.push({ id, error: String((e as Error).message).slice(0, 200) }); }
     }
     return json({ results });

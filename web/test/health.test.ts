@@ -48,3 +48,12 @@ describe("message", () => {
     expect(message(null, "ads_token", "K", false, false).title).toBe("✅ Meta Ads is working again");
   });
 });
+
+describe("AI credit alert", () => {
+  it("spots the Anthropic out-of-credit error, not other failures", async () => {
+    const { CREDIT_RE } = await import("../../supabase/functions/push-send/health.ts");
+    expect(CREDIT_RE.test("Your credit balance is too low to access the Anthropic API.")).toBe(true);
+    expect(CREDIT_RE.test("AI 529: Overloaded")).toBe(false);
+    expect(CREDIT_RE.test("rate_limit_error")).toBe(false);
+  });
+});

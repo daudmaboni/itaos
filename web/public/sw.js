@@ -45,6 +45,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Start-up scripts (theme, loaders), moved out of index.html on 26 Nov so the page can use a strict
+  // script policy: network first so a deploy is picked up at once, the last good copy when offline.
+  if (url.pathname.startsWith("/boot/")) {
+    event.respondWith((async () => {
+      try {
+        const res = await fetch(req);
+        if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)).catch(() => {}); }
+        return res;
+      } catch { return (await caches.match(req)) || new Response("", { headers: { "Content-Type": "text/javascript" } }); }
+    })());
+    return;
+  }
+
   if (url.pathname.startsWith("/assets/")) {
     event.respondWith((async () => {
       const cached = await caches.match(req);
