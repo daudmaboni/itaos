@@ -212,7 +212,7 @@ export default function Dashboard({ ws, onWs, page = "home" }: { ws: Workspace; 
             }, T)} />} />
           <Recovered ws={ws} period={mx.period} conv={W} cur={wsCur} />
         </>}
-        {page === "ads" && <AdMoney ws={ws} />}
+        {page === "ads" && <AdMoney ws={ws} period={mx?.period ?? null} label={mx ? periodText(mx.period, lang) : ""} />}
         {page === "ads" && <AutoAds ws={ws} />}
         {page === "why" && <LostReasons ws={ws} period={mx?.period ?? null} prevFrom={prev?.period.from ?? null} filters={filters} />}
 

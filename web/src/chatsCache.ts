@@ -6,7 +6,7 @@
 import { supabase, Workspace, Outcome, Task, localDay } from "./lib";
 import { RangeSel, resolveRange, addDays, loadRange } from "./ranges";
 import { fromLocalInput } from "./Orders";
-import { interest, type Source, type Run, type Lite } from "./chatParts";
+import { type Source, type Run, type Lite } from "./chatParts";
 
 export const PAGE = 100;
 export type Filter = "follow" | "lost" | "open" | "sold" | "signals" | "all" | "not" | "ids";
@@ -78,10 +78,11 @@ export function narrowChats<Q>(qq: Q, o: { filter: Filter; ids: string[] | null;
   return x as Q;
 }
 
-/** Follow up: hot first, then chats where the customer wrote last; newest first inside each group. */
+/** Follow up: newest message first, same order as WhatsApp (27 Nov 2026). It used to put every "hot" chat on
+ *  top, which pinned 2-day-old chats above live ones and dropped a hot customer the moment they wrote again
+ *  (a new message makes Kito's tag stale until it re-reads). The "Very interested" badge still shows heat. */
 export function sortFollow(list: Outcome[]): Outcome[] {
-  const rank = (r: Outcome) => (interest(r) === "hot" ? 0 : 1) * 10 + (r.last_dir === "in" && !r.last_in_closing ? 0 : 1);
-  return [...list].sort((x, y) => rank(x) - rank(y) || Date.parse(y.last_message_at ?? "") - Date.parse(x.last_message_at ?? ""));
+  return [...list].sort((x, y) => Date.parse(y.last_message_at ?? "") - Date.parse(x.last_message_at ?? ""));
 }
 
 const freshAt = new Map<string, number>();

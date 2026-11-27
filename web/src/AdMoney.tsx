@@ -1,4 +1,5 @@
-// Ad money manager card (Dashboard). Data: ad_money() (migration 0075). Logic: adMoney.ts.
+// Ad money manager card (Ads page). Data: ad_money_range() (migration 0089), for exactly the dates the
+// page's date picker shows (27 Nov 2026: its own 7/14/30 switch is gone). Logic: adMoney.ts.
 // Says, in plain words, which running ad to add money to, keep, fix or stop, judged on PAID sales.
 import { errText } from "./errText";
 import { useEffect, useMemo, useState } from "react";
@@ -6,29 +7,28 @@ import { supabase, Workspace, money, fmt, converter, displayCurrency } from "./l
 import { useKept } from "./keep";
 import { planAdMoney, adsManagerUrl, type AdMoneyRes, type AdLine, type Advice, type Verdict, type Reason } from "./adMoney";
 
-const DAYS = [7, 14, 30] as const;
-type Days = (typeof DAYS)[number];
-const KEY = "itaos:admoney-days";
+/** Fewer days than this rarely has enough paid sales to judge an ad fairly. */
+export const FAIR_DAYS = 14;
 
-export default function AdMoney({ ws }: { ws: Workspace }) {
+export default function AdMoney({ ws, period, label }: { ws: Workspace; period: { from: string; to: string } | null; label: string }) {
   const T = (en: string, sw: string) => (ws.language === "sw" ? sw : en);
-  const [days, setDays] = useState<Days>(() => { try { const v = Number(localStorage.getItem(KEY)); return (DAYS as readonly number[]).includes(v) ? (v as Days) : 14; } catch { return 14; } });
-  // Kept while the app is open: coming back to the Dashboard shows the last figures at once, refreshed quietly.
-  const [r, setR] = useKept<AdMoneyRes | null>(`admoney:${ws.id}:${days}`, null);
+  const from = period?.from ?? null, to = period?.to ?? null;
+  // Kept while the app is open: coming back to the page shows the last figures at once, refreshed quietly.
+  const [r, setR] = useKept<AdMoneyRes | null>(`admoney:${ws.id}:${from}:${to}`, null);
   const [err, setErr] = useState("");
   const [all, setAll] = useState(false);
   const [how, setHow] = useState(false);
-  const pick = (d: Days) => { setDays(d); try { localStorage.setItem(KEY, String(d)); } catch { /* ignore */ } };
 
   useEffect(() => {
+    if (!from || !to) return;   // the page is still working out its dates
     let gone = false;
     setErr("");
-    supabase.rpc("ad_money", { p_ws: ws.id, p_days: days }).then(({ data, error }) => {
+    supabase.rpc("ad_money_range", { p_ws: ws.id, p_from: from, p_to: to }).then(({ data, error }) => {
       if (gone) return;
       if (error) setErr(errText(error)); else setR(data as AdMoneyRes);
     });
     return () => { gone = true; };
-  }, [ws.id, days]);
+  }, [ws.id, from, to]);
 
   const cur = displayCurrency(ws);
   const plan = useMemo(() => {
@@ -38,11 +38,7 @@ export default function AdMoney({ ws }: { ws: Workspace }) {
   }, [r, ws]);
 
   const title = T("Ad money manager", "Meneja wa pesa za matangazo");
-  const seg = (
-    <div className="seg" role="radiogroup" aria-label={T("Days", "Siku")}>
-      {DAYS.map((d) => <button key={d} role="radio" aria-checked={days === d} className={days === d ? "on" : ""} onClick={() => pick(d)}>{T(`${d} days`, `Siku ${d}`)}</button>)}
-    </div>
-  );
+  const short = !!r && r.days < FAIR_DAYS;
   if (err) return <section className="card admoney"><h2>{title}</h2><p className="err small">{err}</p></section>;
   if (!r || !plan) return <section className="card admoney" aria-busy="true"><div className="skeleton" style={{ minHeight: 120 }} /></section>;
 
@@ -93,10 +89,11 @@ export default function AdMoney({ ws }: { ws: Workspace }) {
       <div className="row between">
         <div>
           <h2>{title}</h2>
-          <span className="small muted">{T("Each running ad judged by the people who paid, not by messages.", "Kila tangazo linaloendelea linapimwa kwa waliolipa, si kwa ujumbe.")}</span>
+          <span className="small muted">{T(`Each running ad judged by the people who paid, not by messages · ${label}`, `Kila tangazo linaloendelea linapimwa kwa waliolipa, si kwa ujumbe · ${label}`)}</span>
         </div>
-        {seg}
       </div>
+      {short && <p className="small muted am-short">{T(`${r.days === 1 ? "One day is" : `${r.days} days is`} too short to judge ads fairly, so these verdicts can swing. Pick 14 days or more at the top before you stop or add money to an ad.`,
+        `${r.days === 1 ? "Siku moja ni" : `Siku ${r.days} ni`} chache mno kupima matangazo vizuri, kwa hiyo majibu haya yanaweza kubadilika. Chagua siku 14 au zaidi juu kabla ya kuzima au kuongeza pesa kwenye tangazo.`)}</p>}
 
       {plan.advice.length > 0 && (
         <ol className="am-todo">
@@ -143,8 +140,8 @@ export default function AdMoney({ ws }: { ws: Workspace }) {
       </div>
       {how && (
         <div className="small muted am-how">
-          <p>{T(`Last ${r.days} days. A sale counts on the day it was paid, for the ad the customer's chat came from, if they paid within ${ws.conversion_window_days ?? 30} days of starting the chat.`,
-            `Siku ${r.days} zilizopita. Mauzo yanahesabiwa siku yaliyolipwa, kwa tangazo ambalo chat ya mteja ilitoka, kama alilipa ndani ya siku ${ws.conversion_window_days ?? 30} tangu aanze chat.`)}</p>
+          <p>{T(`${label}. A sale counts on the day it was paid, for the ad the customer's chat came from, if they paid within ${ws.conversion_window_days ?? 30} days of starting the chat.`,
+            `${label}. Mauzo yanahesabiwa siku yaliyolipwa, kwa tangazo ambalo chat ya mteja ilitoka, kama alilipa ndani ya siku ${ws.conversion_window_days ?? 30} tangu aanze chat.`)}</p>
           {t.shared_chats > 0 && <p>{T(`${fmt(t.shared_chats)} of ${fmt(t.ad_chats)} ad chats arrived without the ad's tag (WhatsApp sometimes drops it). Each of those is shared between the ads that ran that day, by how many chats Meta says each ad brought. That's why some paid counts show “≈”.`,
             `Chats ${fmt(t.shared_chats)} kati ya ${fmt(t.ad_chats)} za matangazo zilikuja bila alama ya tangazo (WhatsApp wakati mwingine huiondoa). Kila moja inagawanywa kati ya matangazo yaliyoendelea siku hiyo, kulingana na chats ambazo Meta inasema kila tangazo lilileta. Ndiyo maana baadhi ya hesabu zina “≈”.`)}</p>}
           <p>{T(`Cost per paid sale is steadied toward your average (${plan.avgCps != null ? M(plan.avgCps) : "–"}) until an ad has enough chats, so one lucky sale can't make a small ad look like a winner.`,

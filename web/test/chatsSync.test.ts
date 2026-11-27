@@ -19,8 +19,8 @@ describe("background chats list asks for the same list as the Chats page", () =>
     expect(c[0]).toMatch(/^gte\(last_message_at,/); expect(c[1]).toMatch(/^lt\(last_message_at,/);
     expect(c.slice(2)).toEqual(["eq(not_customer,false)", "eq(outcome,lost)"]);
   });
-  it("Follow up puts hot chats first", () => {
+  it("Follow up is newest first, like WhatsApp: an old hot chat never sits above a live one", () => {
     const r = (id: string, temp: string, at: string) => ({ id, kito_temp: temp, last_message_at: at, last_dir: "out" } as any);
-    expect(sortFollow([r("a", "warm", "2026-11-26T10:00Z"), r("b", "hot", "2026-11-25T10:00Z")]).map((x) => x.id)).toEqual(["b", "a"]);
+    expect(sortFollow([r("b", "hot", "2026-11-25T10:00Z"), r("a", "warm", "2026-11-26T10:00Z")]).map((x) => x.id)).toEqual(["a", "b"]);
   });
 });
